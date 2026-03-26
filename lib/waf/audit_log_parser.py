@@ -27,8 +27,8 @@ _RULE_MSG_RE = re.compile(r'\[msg "([^"]+)"\]')
 _SEVERITY_RE = re.compile(r'\[severity "([^"]+)"\]')
 _ACTION_RE = re.compile(r"^Action:\s*(\S+)")
 
-# Section boundary
-_SECTION_RE = re.compile(r"^--[a-f0-9]+-([A-Z])--$")
+# Section boundary: supports both --ID-LETTER-- (v2) and ---ID---LETTER-- (v3)
+_SECTION_RE = re.compile(r"^-{2,3}[a-zA-Z0-9]+-{1,3}([A-Z])-{2,3}$")
 
 
 class ModSecAuditLogParser:
