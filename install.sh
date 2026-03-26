@@ -167,9 +167,10 @@ do_install() {
     if ! command -v clamd &>/dev/null && ! command -v clamdscan &>/dev/null; then
         echo ""
         echo "ClamAV is not installed. It provides an optional scanning backend."
-        echo "Install ClamAV? (y/N) "
         if [ -t 0 ]; then
-            read -r install_clamav
+            read -r -p "Install ClamAV? (y/N) " install_clamav
+        elif [ -e /dev/tty ]; then
+            read -r -p "Install ClamAV? (y/N) " install_clamav < /dev/tty
         else
             install_clamav="n"
             echo "(non-interactive mode — skipping ClamAV)"
