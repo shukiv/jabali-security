@@ -21,25 +21,12 @@ from web.app import login_required
 logger = logging.getLogger(__name__)
 
 # Packages required by each feature (apt package names)
+# Only features that REQUIRE packages to function at all
 _FEATURE_DEPS: dict[str, list[str]] = {
-    "waf": ["libmodsecurity3", "libnginx-mod-security"],
-    "bruteforce": ["nftables"],
-    "webshield": ["libnginx-mod-http-lua"],
-    "threat_intel": [],
-    "cleanup": [],
-    "proactive": [],
-    "php_hardening": [],
-    "process_kill": [],
-    "scheduled_scan": [],
-    "auto_quarantine": [],
-    "auto_suspend": [],
-    "heuristic": [],
-    "entropy": [],
-    "yara": [],
-    "process_monitor": [],
-    "behavior_tracking": [],
-    "cleanup_auto": [],
+    "waf": ["libmodsecurity3"],
+    "webshield": [],
 }
+# All other features work without extra packages
 
 # Config keys that map to protection toggles
 _TOGGLE_KEYS = {
