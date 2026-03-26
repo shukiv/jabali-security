@@ -82,6 +82,11 @@ DEFAULTS: dict[str, str] = {
     "SCHEDULED_SCAN_ENABLED": "no",
     "SCHEDULED_SCAN_INTERVAL": "24",
     "SCHEDULED_SCAN_PATHS": "/home/*/public_html",
+    "THREAT_INTEL_ENABLED": "no",
+    "THREAT_INTEL_UPDATE_INTERVAL": "6",
+    "THREAT_INTEL_FEEDS": "spamhaus_drop,spamhaus_edrop,blocklist_de_all,malwarebazaar_recent",
+    "THREAT_INTEL_AUTO_BLOCK": "no",
+    "THREAT_INTEL_AUTO_BLOCK_THRESHOLD": "3",
 }
 
 
@@ -242,6 +247,13 @@ class JabaliConfig:
     scheduled_scan_enabled: bool = False
     scheduled_scan_interval: int = 24
     scheduled_scan_paths: list[str] = field(default_factory=lambda: ["/home/*/public_html"])
+    threat_intel_enabled: bool = False
+    threat_intel_update_interval: int = 6
+    threat_intel_feeds: list[str] = field(
+        default_factory=lambda: ["spamhaus_drop", "spamhaus_edrop", "blocklist_de_all", "malwarebazaar_recent"]
+    )
+    threat_intel_auto_block: bool = False
+    threat_intel_auto_block_threshold: int = 3
 
 
 def _safe_int(value: str, default: int, min_val: int | None = None, max_val: int | None = None) -> int:
@@ -352,4 +364,9 @@ def load_config(filepath: Path | None = None) -> JabaliConfig:
         scheduled_scan_enabled=_bool(merged["SCHEDULED_SCAN_ENABLED"]),
         scheduled_scan_interval=_safe_int(merged["SCHEDULED_SCAN_INTERVAL"], 24, min_val=1, max_val=8760),
         scheduled_scan_paths=_csv_list(merged["SCHEDULED_SCAN_PATHS"]),
+        threat_intel_enabled=_bool(merged["THREAT_INTEL_ENABLED"]),
+        threat_intel_update_interval=_safe_int(merged["THREAT_INTEL_UPDATE_INTERVAL"], 6, min_val=1, max_val=168),
+        threat_intel_feeds=_csv_list(merged["THREAT_INTEL_FEEDS"]),
+        threat_intel_auto_block=_bool(merged["THREAT_INTEL_AUTO_BLOCK"]),
+        threat_intel_auto_block_threshold=_safe_int(merged["THREAT_INTEL_AUTO_BLOCK_THRESHOLD"], 3, min_val=1, max_val=10),
     )

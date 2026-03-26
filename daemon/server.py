@@ -30,6 +30,7 @@ from lib.queue import ScanQueue
 from lib.response import ResponseEngine
 from lib.scanner import ScanOrchestrator
 from lib.scoring import ScoringEngine
+from lib.threat_intel.feed_manager import FeedManager
 from lib.waf.audit_log_parser import ModSecAuditLogParser
 from lib.waf.rule_manager import WafRuleManager
 from lib.watcher.inotify import InotifyWatcher
@@ -151,6 +152,14 @@ class SecurityDaemon:
                 scan_paths=self.config.scheduled_scan_paths,
             )
 
+        # Initialize threat intelligence feed manager (if enabled)
+        feed_manager: FeedManager | None = None
+        if self.config.threat_intel_enabled:
+            feed_manager = FeedManager(
+                data_dir=self.config.data_dir,
+                enabled_feeds=self.config.threat_intel_feeds,
+            )
+
         php_hardener: PHPHardener | None = None
         if self.config.php_hardening_enabled:
             php_hardener = PHPHardener(
@@ -175,6 +184,7 @@ class SecurityDaemon:
         app["php_hardener"] = php_hardener
         app["cleanup"] = cleanup_engine
         app["scheduler"] = scan_scheduler
+        app["threat_intel"] = feed_manager
         api_runner = web.AppRunner(app)
         await api_runner.setup()
         api_site = web.TCPSite(api_runner, self.config.api_bind, self.config.api_port)
@@ -225,6 +235,10 @@ class SecurityDaemon:
                     ))
                 if scan_scheduler is not None:
                     tg.create_task(scan_scheduler.run())
+                if feed_manager is not None:
+                    tg.create_task(feed_manager.run_periodic_updates(
+                        interval_hours=self.config.threat_intel_update_interval,
+                    ))
                 tg.create_task(self._wait_for_stop(stop_event))
         except* KeyboardInterrupt:
             pass

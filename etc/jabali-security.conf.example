@@ -234,6 +234,24 @@ FIREWALL_BACKEND="auto"
 # Comma-separated IPs to never block (whitelist)
 BRUTEFORCE_WHITELIST_IPS=""
 
+# -- Threat Intelligence -----------------------------------------------------
+
+# Enable threat intelligence feeds (IP reputation + malware hash lookups)
+THREAT_INTEL_ENABLED="no"
+
+# Feed update interval in hours
+THREAT_INTEL_UPDATE_INTERVAL="6"
+
+# Comma-separated list of enabled feeds
+# Available: spamhaus_drop, spamhaus_edrop, blocklist_de_all, malwarebazaar_recent
+THREAT_INTEL_FEEDS="spamhaus_drop,spamhaus_edrop,blocklist_de_all,malwarebazaar_recent"
+
+# Automatically block IPs found in threat intel feeds
+THREAT_INTEL_AUTO_BLOCK="no"
+
+# Number of feed matches required before auto-blocking an IP (1-10)
+THREAT_INTEL_AUTO_BLOCK_THRESHOLD="3"
+
 # -- Retention ---------------------------------------------------------------
 
 # Number of days to retain incident records

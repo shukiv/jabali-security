@@ -1108,6 +1108,107 @@ def cleanup_cms(path: str, as_json: bool) -> None:
         sys.exit(1)
 
 
+# -- threat-intel group ------------------------------------------------------
+
+@cli.group("threat-intel")
+def threat_intel():
+    """Threat intelligence feed management."""
+
+
+@threat_intel.command("feeds")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+def threat_intel_feeds(as_json: bool) -> None:
+    """List threat intelligence feed statuses."""
+    config = load_config()
+    data = _api_call(config, "GET", "/api/v1/threat-intel/feeds")
+
+    if as_json:
+        click.echo(json.dumps(data, indent=2))
+        return
+
+    items = data if isinstance(data, list) else []
+    if not items:
+        click.echo("No threat intelligence feeds configured.")
+        return
+
+    click.echo("%-25s  %-6s  %8s  %s" % ("Feed", "Type", "Entries", "Last Update"))
+    for item in items:
+        click.echo("%-25s  %-6s  %8s  %s" % (
+            item.get("name", ""),
+            item.get("feed_type", ""),
+            item.get("entry_count", 0),
+            item.get("last_update", "never") or "never",
+        ))
+
+
+@threat_intel.command("update")
+def threat_intel_update() -> None:
+    """Trigger an immediate update of all enabled feeds."""
+    config = load_config()
+    click.echo("Updating threat intelligence feeds...")
+    data = _api_call(config, "POST", "/api/v1/threat-intel/update")
+    success = data.get("success_count", 0)
+    total = data.get("total_count", 0)
+    click.echo("Feed update complete: %d/%d succeeded." % (success, total))
+
+    updated = data.get("updated", {})
+    for name, ok in updated.items():
+        status = "OK" if ok else "FAILED"
+        click.echo("  %s: %s" % (name, status))
+
+
+@threat_intel.command("check-ip")
+@click.argument("ip")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+def threat_intel_check_ip(ip: str, as_json: bool) -> None:
+    """Check an IP address against threat intelligence feeds."""
+    config = load_config()
+    data = _api_call(config, "GET", "/api/v1/threat-intel/check/ip/%s" % ip)
+
+    if as_json:
+        click.echo(json.dumps(data, indent=2))
+        return
+
+    is_bad = data.get("is_malicious", False)
+    score = data.get("score", 0)
+    feeds = data.get("feeds", [])
+
+    if is_bad:
+        click.echo("MALICIOUS: %s (score: %d)" % (ip, score))
+        click.echo("  Matched feeds: %s" % ", ".join(feeds))
+    else:
+        click.echo("CLEAN: %s (score: %d)" % (ip, score))
+
+
+@threat_intel.command("check-hash")
+@click.argument("sha256")
+@click.option("--remote", is_flag=True, help="Also check remote APIs (slower)")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+def threat_intel_check_hash(sha256: str, remote: bool, as_json: bool) -> None:
+    """Check a SHA-256 hash against threat intelligence feeds."""
+    config = load_config()
+    query = "?remote=1" if remote else ""
+    data = _api_call(config, "GET", "/api/v1/threat-intel/check/hash/%s%s" % (sha256, query))
+
+    if as_json:
+        click.echo(json.dumps(data, indent=2))
+        return
+
+    is_bad = data.get("is_malicious", False)
+    score = data.get("score", 0)
+    feeds = data.get("feeds", [])
+
+    if is_bad:
+        click.echo("MALICIOUS: %s (score: %d)" % (sha256, score))
+        click.echo("  Matched feeds: %s" % ", ".join(feeds))
+        details = data.get("details", {})
+        if details:
+            click.echo("  Signature: %s" % details.get("signature", "unknown"))
+            click.echo("  File type: %s" % details.get("file_type", "unknown"))
+    else:
+        click.echo("CLEAN: %s (score: %d)" % (sha256, score))
+
+
 @cli.command("scan-full")
 def scan_full() -> None:
     """Trigger a full scheduled scan now."""
