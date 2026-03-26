@@ -36,6 +36,7 @@ def create_app():
     app.config["VERSION"] = VERSION
     app.config["SESSION_COOKIE_HTTPONLY"] = True
     app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+    app.config["TEMPLATES_AUTO_RELOAD"] = True
 
     # Security headers
     @app.after_request
