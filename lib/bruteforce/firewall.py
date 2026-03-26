@@ -125,19 +125,22 @@ class FirewallManager:
     async def _nft_block(self, ip: str, duration: int = 0) -> bool:
         set_name = "blocked-v6" if ":" in ip else "blocked-v4"
         if duration > 0:
-            element = "{ %s timeout %ds }" % (ip, duration)
+            rc = await self._run(
+                "nft", "add", "element", "inet", "jabali-security", set_name,
+                "{", "%s timeout %ds" % (ip, duration), "}",
+            )
         else:
-            element = "{ %s }" % ip
-        rc = await self._run(
-            "nft", "add", "element", "inet", "jabali-security", set_name, element,
-        )
+            rc = await self._run(
+                "nft", "add", "element", "inet", "jabali-security", set_name,
+                "{", ip, "}",
+            )
         return rc == 0
 
     async def _nft_unblock(self, ip: str) -> bool:
         set_name = "blocked-v6" if ":" in ip else "blocked-v4"
         rc = await self._run(
             "nft", "delete", "element", "inet", "jabali-security", set_name,
-            "{ %s }" % ip,
+            "{", ip, "}",
         )
         return rc == 0
 
