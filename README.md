@@ -17,9 +17,7 @@ Event-driven security suite for Linux shared hosting. A lightweight, panel-agnos
 ## Install
 
 ```bash
-git clone ssh://git@git.linux-hosting.co.il:2222/shukivaknin/jabali-security.git
-cd jabali-security
-sudo bash install.sh
+git clone https://git.linux-hosting.co.il/shukivaknin/jabali-security.git /tmp/jabali-security && sudo bash /tmp/jabali-security/install.sh && rm -rf /tmp/jabali-security
 ```
 
 This will:
