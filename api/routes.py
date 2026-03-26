@@ -69,6 +69,13 @@ def setup_routes(app: web.Application) -> None:
     app.router.add_post("/api/v1/bruteforce/whitelist", post_bruteforce_whitelist)
     app.router.add_delete("/api/v1/bruteforce/whitelist/{ip}", delete_bruteforce_whitelist)
 
+    app.router.add_get("/api/v1/waf/events", get_waf_events)
+    app.router.add_get("/api/v1/waf/rules", get_waf_rules)
+    app.router.add_post("/api/v1/waf/rules/{rule_id}/disable", post_waf_rule_disable)
+    app.router.add_post("/api/v1/waf/rules/{rule_id}/enable", post_waf_rule_enable)
+    app.router.add_get("/api/v1/waf/stats", get_waf_stats)
+    app.router.add_post("/api/v1/waf/crs/update", post_waf_crs_update)
+
 
 # -- Health / Status ---------------------------------------------------------
 
@@ -592,5 +599,198 @@ async def post_rules_reload(request: web.Request) -> web.Response:
     else:
         result["freshclam_success"] = None
         result["freshclam_output"] = "freshclam_on_update is disabled"
+
+    return _ok(result)
+
+
+# -- WAF (ModSecurity) -------------------------------------------------------
+
+async def get_waf_events(request: web.Request) -> web.Response:
+    incidents = request.app["incidents"]
+    db = incidents._db
+    if db is None:
+        return _err("Database not available", 500)
+
+    try:
+        limit = int(request.query.get("limit", "50"))
+    except (ValueError, TypeError):
+        return _err("'limit' must be an integer")
+    if limit < 1 or limit > 1000:
+        return _err("'limit' must be between 1 and 1000")
+
+    conditions: list[str] = []
+    params: list[str | int] = []
+
+    ip_filter = request.query.get("ip")
+    if ip_filter:
+        if not _validate_ip(ip_filter):
+            return _err("Invalid IP address format")
+        conditions.append("client_ip = ?")
+        params.append(ip_filter)
+
+    rule_filter = request.query.get("rule_id")
+    if rule_filter:
+        try:
+            rule_id_val = int(rule_filter)
+        except (ValueError, TypeError):
+            return _err("'rule_id' must be an integer")
+        conditions.append("rule_id = ?")
+        params.append(rule_id_val)
+
+    since = request.query.get("since")
+    if since:
+        conditions.append("created_at >= ?")
+        params.append(since)
+
+    where = " AND ".join(conditions)
+    query = "SELECT id, client_ip, uri, method, rule_id, rule_msg, severity, action, hostname, username, matched_data, created_at FROM waf_events"
+    if where:
+        query += " WHERE " + where
+    query += " ORDER BY created_at DESC LIMIT ?"
+    params.append(limit)
+
+    events = []
+    async with db.execute(query, params) as cursor:
+        async for row in cursor:
+            events.append({
+                "id": row[0],
+                "client_ip": row[1],
+                "uri": row[2],
+                "method": row[3],
+                "rule_id": row[4],
+                "rule_msg": row[5],
+                "severity": row[6],
+                "action": row[7],
+                "hostname": row[8],
+                "username": row[9],
+                "matched_data": row[10],
+                "created_at": row[11],
+            })
+    return _ok(events)
+
+
+async def get_waf_rules(request: web.Request) -> web.Response:
+    waf_rules = request.app.get("waf_rules")
+    if not waf_rules:
+        return _err("WAF not enabled", 404)
+
+    rule_files = await waf_rules.list_rules()
+    disabled = waf_rules.list_disabled()
+
+    return _ok({
+        "rule_files": rule_files,
+        "disabled_rules": disabled,
+        "web_server": waf_rules.web_server,
+    })
+
+
+async def post_waf_rule_disable(request: web.Request) -> web.Response:
+    waf_rules = request.app.get("waf_rules")
+    if not waf_rules:
+        return _err("WAF not enabled", 404)
+
+    try:
+        rule_id = int(request.match_info["rule_id"])
+    except (ValueError, TypeError):
+        return _err("rule_id must be an integer")
+    if rule_id < 1 or rule_id > 9999999:
+        return _err("rule_id out of valid range")
+
+    reloaded = await waf_rules.disable_rule(rule_id)
+    return _ok({
+        "disabled": True,
+        "rule_id": rule_id,
+        "web_server_reloaded": reloaded,
+    })
+
+
+async def post_waf_rule_enable(request: web.Request) -> web.Response:
+    waf_rules = request.app.get("waf_rules")
+    if not waf_rules:
+        return _err("WAF not enabled", 404)
+
+    try:
+        rule_id = int(request.match_info["rule_id"])
+    except (ValueError, TypeError):
+        return _err("rule_id must be an integer")
+    if rule_id < 1 or rule_id > 9999999:
+        return _err("rule_id out of valid range")
+
+    reloaded = await waf_rules.enable_rule(rule_id)
+    return _ok({
+        "enabled": True,
+        "rule_id": rule_id,
+        "web_server_reloaded": reloaded,
+    })
+
+
+async def get_waf_stats(request: web.Request) -> web.Response:
+    incidents = request.app["incidents"]
+    db = incidents._db
+    if db is None:
+        return _err("Database not available", 500)
+
+    # Total events in last 24 hours
+    async with db.execute(
+        "SELECT COUNT(*) FROM waf_events WHERE created_at >= datetime('now', '-24 hours')"
+    ) as cursor:
+        row = await cursor.fetchone()
+        total_24h = row[0] if row else 0
+
+    # Blocked events in last 24 hours
+    async with db.execute(
+        "SELECT COUNT(*) FROM waf_events WHERE created_at >= datetime('now', '-24 hours') AND action = 'deny'"
+    ) as cursor:
+        row = await cursor.fetchone()
+        blocked_24h = row[0] if row else 0
+
+    # Top IPs
+    top_ips = []
+    async with db.execute(
+        "SELECT client_ip, COUNT(*) AS cnt FROM waf_events "
+        "WHERE created_at >= datetime('now', '-24 hours') "
+        "GROUP BY client_ip ORDER BY cnt DESC LIMIT 10"
+    ) as cursor:
+        async for row in cursor:
+            top_ips.append({"ip": row[0], "count": row[1]})
+
+    # Top rules
+    top_rules = []
+    async with db.execute(
+        "SELECT rule_id, rule_msg, COUNT(*) AS cnt FROM waf_events "
+        "WHERE created_at >= datetime('now', '-24 hours') AND rule_id > 0 "
+        "GROUP BY rule_id ORDER BY cnt DESC LIMIT 10"
+    ) as cursor:
+        async for row in cursor:
+            top_rules.append({"rule_id": row[0], "rule_msg": row[1], "count": row[2]})
+
+    # Top URIs
+    top_uris = []
+    async with db.execute(
+        "SELECT uri, COUNT(*) AS cnt FROM waf_events "
+        "WHERE created_at >= datetime('now', '-24 hours') "
+        "GROUP BY uri ORDER BY cnt DESC LIMIT 10"
+    ) as cursor:
+        async for row in cursor:
+            top_uris.append({"uri": row[0], "count": row[1]})
+
+    return _ok({
+        "total_events_24h": total_24h,
+        "blocked_24h": blocked_24h,
+        "top_ips": top_ips,
+        "top_rules": top_rules,
+        "top_uris": top_uris,
+    })
+
+
+async def post_waf_crs_update(request: web.Request) -> web.Response:
+    config = request.app["config"]
+
+    from lib.waf.crs_updater import CRSUpdater
+    updater = CRSUpdater(rules_dir=config.waf_rules_dir)
+    result = await updater.update()
+
+    if not result.get("success"):
+        return _err(result.get("error", "CRS update failed"), 500)
 
     return _ok(result)

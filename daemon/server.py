@@ -26,6 +26,8 @@ from lib.queue import ScanQueue
 from lib.response import ResponseEngine
 from lib.scanner import ScanOrchestrator
 from lib.scoring import ScoringEngine
+from lib.waf.audit_log_parser import ModSecAuditLogParser
+from lib.waf.rule_manager import WafRuleManager
 from lib.watcher.inotify import InotifyWatcher
 
 logger = logging.getLogger("jabali-security")
@@ -91,6 +93,20 @@ class SecurityDaemon:
                 log_configs["postfix"] = self.config.bruteforce_mail_log
             auth_parser = AuthLogParser(log_configs)
 
+        # Initialize WAF components (if enabled)
+        waf_parser: ModSecAuditLogParser | None = None
+        waf_rules: WafRuleManager | None = None
+        if self.config.waf_enabled:
+            waf_rules = WafRuleManager(
+                overrides_file=self.config.waf_overrides_file,
+                rules_dir=self.config.waf_rules_dir,
+                web_server=self.config.waf_web_server,
+            )
+            waf_parser = ModSecAuditLogParser(
+                log_path=self.config.waf_audit_log,
+                log_type=self.config.waf_audit_log_type,
+            )
+
         # Initialize quarantine + response
         quarantine = QuarantineManager(base_dir=self.config.quarantine_dir)
         response = ResponseEngine(self.config, quarantine, self._incidents)
@@ -112,6 +128,8 @@ class SecurityDaemon:
         )
         app["firewall"] = firewall
         app["bruteforce_detector"] = bf_detector
+        app["waf_parser"] = waf_parser
+        app["waf_rules"] = waf_rules
         api_runner = web.AppRunner(app)
         await api_runner.setup()
         api_site = web.TCPSite(api_runner, self.config.api_bind, self.config.api_port)
@@ -146,6 +164,10 @@ class SecurityDaemon:
                 if self.config.bruteforce_enabled and auth_parser is not None:
                     tg.create_task(auth_parser.run(
                         self._make_auth_callback(bf_detector, firewall, self._incidents)
+                    ))
+                if self.config.waf_enabled and waf_parser is not None:
+                    tg.create_task(waf_parser.run(
+                        self._make_waf_callback(self._incidents)
                     ))
                 tg.create_task(self._wait_for_stop(stop_event))
         except* KeyboardInterrupt:
@@ -242,6 +264,37 @@ class SecurityDaemon:
                 await db.commit()
 
         return _on_auth_event
+
+    @staticmethod
+    def _make_waf_callback(incidents):
+        """Build the async callback that persists WAF events to the database."""
+        async def _on_waf_event(event):
+            db = incidents._db
+            if db is None:
+                return
+            await db.execute(
+                "INSERT OR IGNORE INTO waf_events "
+                "(id, client_ip, uri, method, rule_id, rule_msg, severity, action, "
+                "hostname, username, matched_data, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    event.id,
+                    event.client_ip,
+                    event.uri,
+                    event.method,
+                    event.rule_id,
+                    event.rule_msg,
+                    event.severity,
+                    event.action,
+                    event.hostname,
+                    event.username,
+                    event.matched_data,
+                    event.timestamp.isoformat(),
+                ),
+            )
+            await db.commit()
+
+        return _on_waf_event
 
     async def _handle_process_threats(self, threats: list) -> None:
         """Callback for process monitor — log threats."""

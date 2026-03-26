@@ -51,6 +51,23 @@ CREATE TABLE IF NOT EXISTS blocked_ips (
     expires_at TEXT,
     blocked_by TEXT DEFAULT 'auto'
 );
+
+CREATE TABLE IF NOT EXISTS waf_events (
+    id TEXT PRIMARY KEY,
+    client_ip TEXT NOT NULL,
+    uri TEXT NOT NULL,
+    method TEXT NOT NULL,
+    rule_id INTEGER,
+    rule_msg TEXT,
+    severity TEXT,
+    action TEXT,
+    hostname TEXT,
+    username TEXT,
+    matched_data TEXT,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_waf_events_ip ON waf_events(client_ip);
+CREATE INDEX IF NOT EXISTS idx_waf_events_created ON waf_events(created_at);
 """
 
 

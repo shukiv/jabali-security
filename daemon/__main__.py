@@ -714,6 +714,149 @@ def bruteforce_whitelist_remove(ip: str) -> None:
     click.echo("IP %s removed from whitelist." % ip)
 
 
+# -- WAF group ---------------------------------------------------------------
+
+@cli.group()
+def waf():
+    """WAF (ModSecurity) management."""
+
+
+@waf.command("events")
+@click.option("--limit", "-n", default=20, help="Max results")
+@click.option("--ip", default=None, help="Filter by client IP")
+@click.option("--rule-id", default=None, type=int, help="Filter by rule ID")
+@click.option("--json", "as_json", is_flag=True)
+def waf_events(limit: int, ip: str | None, rule_id: int | None, as_json: bool) -> None:
+    """List recent WAF events."""
+    config = load_config()
+    params: list[str] = ["limit=%d" % limit]
+    if ip:
+        params.append("ip=%s" % ip)
+    if rule_id is not None:
+        params.append("rule_id=%d" % rule_id)
+    query = "&".join(params)
+    data = _api_call(config, "GET", "/api/v1/waf/events?%s" % query)
+
+    if as_json:
+        click.echo(json.dumps(data, indent=2))
+        return
+
+    items = data if isinstance(data, list) else []
+    if not items:
+        click.echo("No WAF events found.")
+        return
+
+    click.echo("%-18s  %-6s  %-8s  %-8s  %-30s  %s" % ("Client IP", "Method", "Rule ID", "Action", "URI", "Time"))
+    for item in items:
+        click.echo("%-18s  %-6s  %-8s  %-8s  %-30s  %s" % (
+            item.get("client_ip", ""),
+            item.get("method", ""),
+            item.get("rule_id", ""),
+            item.get("action", ""),
+            item.get("uri", "")[:30],
+            item.get("created_at", ""),
+        ))
+
+
+@waf.command("rules")
+@click.option("--json", "as_json", is_flag=True)
+def waf_rules(as_json: bool) -> None:
+    """List CRS rule files and disabled rules."""
+    config = load_config()
+    data = _api_call(config, "GET", "/api/v1/waf/rules")
+
+    if as_json:
+        click.echo(json.dumps(data, indent=2))
+        return
+
+    click.echo("Web server: %s" % data.get("web_server", "unknown"))
+    click.echo("")
+
+    rule_files = data.get("rule_files", [])
+    if rule_files:
+        click.echo("CRS rule files:")
+        for rf in rule_files:
+            click.echo("  %s (%d bytes)" % (rf.get("file", ""), rf.get("size", 0)))
+    else:
+        click.echo("No CRS rule files found.")
+
+    disabled = data.get("disabled_rules", [])
+    click.echo("")
+    if disabled:
+        click.echo("Disabled rules: %s" % ", ".join(str(r) for r in disabled))
+    else:
+        click.echo("No rules disabled.")
+
+
+@waf.command("disable")
+@click.argument("rule_id", type=int)
+def waf_disable(rule_id: int) -> None:
+    """Disable a ModSecurity rule by ID."""
+    config = load_config()
+    data = _api_call(config, "POST", "/api/v1/waf/rules/%d/disable" % rule_id)
+    reloaded = data.get("web_server_reloaded", False)
+    click.echo("Rule %d disabled.%s" % (rule_id, " Web server reloaded." if reloaded else ""))
+
+
+@waf.command("enable")
+@click.argument("rule_id", type=int)
+def waf_enable(rule_id: int) -> None:
+    """Enable a previously disabled ModSecurity rule."""
+    config = load_config()
+    data = _api_call(config, "POST", "/api/v1/waf/rules/%d/enable" % rule_id)
+    reloaded = data.get("web_server_reloaded", False)
+    click.echo("Rule %d enabled.%s" % (rule_id, " Web server reloaded." if reloaded else ""))
+
+
+@waf.command("stats")
+@click.option("--json", "as_json", is_flag=True)
+def waf_stats(as_json: bool) -> None:
+    """Show WAF statistics."""
+    config = load_config()
+    data = _api_call(config, "GET", "/api/v1/waf/stats")
+
+    if as_json:
+        click.echo(json.dumps(data, indent=2))
+        return
+
+    click.echo("WAF statistics (last 24 hours):")
+    click.echo("  Total events:  %s" % data.get("total_events_24h", 0))
+    click.echo("  Blocked:       %s" % data.get("blocked_24h", 0))
+    click.echo("")
+
+    top_ips = data.get("top_ips", [])
+    if top_ips:
+        click.echo("Top IPs:")
+        for entry in top_ips:
+            click.echo("  %-18s  %d events" % (entry.get("ip", ""), entry.get("count", 0)))
+
+    top_rules = data.get("top_rules", [])
+    if top_rules:
+        click.echo("")
+        click.echo("Top rules:")
+        for entry in top_rules:
+            click.echo("  %-8s  %d hits  %s" % (
+                entry.get("rule_id", ""),
+                entry.get("count", 0),
+                entry.get("rule_msg", ""),
+            ))
+
+
+@waf.command("update")
+def waf_update() -> None:
+    """Update OWASP Core Rule Set."""
+    config = load_config()
+    click.echo("Updating OWASP CRS...")
+    data = _api_call(config, "POST", "/api/v1/waf/crs/update")
+    if data.get("success"):
+        click.echo("CRS updated to %s (%d rule files)." % (
+            data.get("version", "?"),
+            data.get("rules_count", 0),
+        ))
+    else:
+        click.echo("CRS update failed: %s" % data.get("error", "unknown error"), err=True)
+
+
 # -- block / unblock / blocklist commands ------------------------------------
 
 @cli.command()

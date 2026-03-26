@@ -130,6 +130,29 @@ NOTIFY_WEBHOOK=""
 # Minimum severity to trigger notifications: low, medium, high, critical
 NOTIFY_MIN_SEVERITY="high"
 
+# -- WAF (ModSecurity) -------------------------------------------------------
+
+# Enable ModSecurity WAF audit log parsing and rule management
+WAF_ENABLED="no"
+
+# Path to the ModSecurity audit log file
+WAF_AUDIT_LOG="/var/log/modsec_audit.log"
+
+# Audit log type: "serial" (single file) or "concurrent" (directory-based)
+WAF_AUDIT_LOG_TYPE="serial"
+
+# Directory containing OWASP Core Rule Set .conf files
+WAF_RULES_DIR="/etc/modsecurity/crs"
+
+# Jabali-managed overrides file for disabling individual rules
+WAF_OVERRIDES_FILE="/etc/modsecurity/jabali-overrides.conf"
+
+# Automatically update OWASP CRS on rules update
+WAF_CRS_AUTO_UPDATE="no"
+
+# Web server to reload after rule changes: "auto", "nginx", "apache"
+WAF_WEB_SERVER="auto"
+
 # -- Brute-Force Protection --------------------------------------------------
 
 # Enable brute-force detection and automatic IP blocking

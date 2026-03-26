@@ -61,6 +61,13 @@ DEFAULTS: dict[str, str] = {
     "BRUTEFORCE_BLOCK_DURATIONS": "600,3600,86400,0",
     "FIREWALL_BACKEND": "auto",
     "BRUTEFORCE_WHITELIST_IPS": "",
+    "WAF_ENABLED": "no",
+    "WAF_AUDIT_LOG": "/var/log/modsec_audit.log",
+    "WAF_AUDIT_LOG_TYPE": "serial",
+    "WAF_RULES_DIR": "/etc/modsecurity/crs",
+    "WAF_OVERRIDES_FILE": "/etc/modsecurity/jabali-overrides.conf",
+    "WAF_CRS_AUTO_UPDATE": "no",
+    "WAF_WEB_SERVER": "auto",
 }
 
 
@@ -200,6 +207,13 @@ class JabaliConfig:
     bruteforce_block_durations: list[int] = field(default_factory=lambda: [600, 3600, 86400, 0])
     firewall_backend: str = "auto"
     bruteforce_whitelist_ips: list[str] = field(default_factory=list)
+    waf_enabled: bool = False
+    waf_audit_log: str = "/var/log/modsec_audit.log"
+    waf_audit_log_type: str = "serial"
+    waf_rules_dir: str = "/etc/modsecurity/crs"
+    waf_overrides_file: str = "/etc/modsecurity/jabali-overrides.conf"
+    waf_crs_auto_update: bool = False
+    waf_web_server: str = "auto"
 
 
 def _safe_int(value: str, default: int, min_val: int | None = None, max_val: int | None = None) -> int:
@@ -289,4 +303,11 @@ def load_config(filepath: Path | None = None) -> JabaliConfig:
         ],
         firewall_backend=merged["FIREWALL_BACKEND"],
         bruteforce_whitelist_ips=_csv_list(merged["BRUTEFORCE_WHITELIST_IPS"]),
+        waf_enabled=_bool(merged["WAF_ENABLED"]),
+        waf_audit_log=merged["WAF_AUDIT_LOG"],
+        waf_audit_log_type=merged["WAF_AUDIT_LOG_TYPE"],
+        waf_rules_dir=merged["WAF_RULES_DIR"],
+        waf_overrides_file=merged["WAF_OVERRIDES_FILE"],
+        waf_crs_auto_update=_bool(merged["WAF_CRS_AUTO_UPDATE"]),
+        waf_web_server=merged["WAF_WEB_SERVER"],
     )
