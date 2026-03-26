@@ -6,16 +6,19 @@ import logging
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
-from flask import current_app
-
 logger = logging.getLogger(__name__)
 
 
 def api_call(method: str, path: str, body: dict | None = None) -> dict | list | None:
     """Call the daemon API. Returns parsed data payload or None on error."""
-    base = current_app.config["API_URL"]
-    api_key = current_app.config["API_KEY"]
-    url = "%s%s" % (base, path)
+    # Read API key fresh from config file each time (not cached at app startup)
+    from lib.config import parse_conf
+    from lib.constants import CONFIG_FILE
+    raw = parse_conf(CONFIG_FILE)
+    api_key = raw.get("API_KEY", "")
+    api_bind = raw.get("API_BIND", "127.0.0.1")
+    api_port = raw.get("API_PORT", "9876")
+    url = "http://%s:%s%s" % (api_bind, api_port, path)
 
     data = json.dumps(body).encode() if body else None
     headers = {"Content-Type": "application/json"}
