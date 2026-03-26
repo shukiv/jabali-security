@@ -14,22 +14,44 @@ Event-driven security suite for Linux shared hosting. A lightweight, panel-agnos
 - **Comprehensive CLI**: full management from the command line
 - **REST API**: integrate with any hosting panel
 
-## Quick Start
+## Install
 
 ```bash
-# Install
+git clone ssh://git@git.linux-hosting.co.il:2222/shukivaknin/jabali-security.git
+cd jabali-security
+sudo bash install.sh
+```
+
+This will:
+- Copy files to `/usr/local/jabali-security/`
+- Create a Python venv and install dependencies
+- Generate a random API key
+- Set up and start the systemd service
+- Raise the inotify watch limit
+
+After install:
+
+```bash
+jabali-security status              # check it's running
+jabali-security config test         # verify config
+jabali-security scan /home -r       # on-demand scan
+journalctl -u jabali-security -f    # watch live logs
+```
+
+## Uninstall
+
+```bash
+sudo bash install.sh --uninstall
+```
+
+Completely removes the application, config, data, logs, and quarantine.
+
+## Development
+
+```bash
 uv sync
-
-# Run in foreground (development)
 uv run jabali-security start --foreground
-
-# Check status
-uv run jabali-security status
-
-# Scan a file
 uv run jabali-security scan /path/to/file.php --json
-
-# Run tests
 uv run pytest tests/ -v
 ```
 
