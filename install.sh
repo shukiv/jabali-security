@@ -282,10 +282,10 @@ do_install() {
         echo "Installing Python dependencies..."
         if command -v uv &>/dev/null; then
             uv pip install --python "$_venv_dir/bin/python" \
-                "pydantic>=2.0" "yara-x>=0.11" "click>=8.0" "aiohttp>=3.9" "pyyaml>=6.0" "aiosqlite>=0.20" \
+                "pydantic>=2.0" "yara-x>=0.11" "click>=8.0" "aiohttp>=3.9" "pyyaml>=6.0" "aiosqlite>=0.20" "flask>=3.0" "waitress>=3.0" \
                 2>&1 | tail -1
         elif "$_venv_dir/bin/pip" install --quiet \
-            "pydantic>=2.0" "yara-x>=0.11" "click>=8.0" "aiohttp>=3.9" "pyyaml>=6.0" "aiosqlite>=0.20"; then
+            "pydantic>=2.0" "yara-x>=0.11" "click>=8.0" "aiohttp>=3.9" "pyyaml>=6.0" "aiosqlite>=0.20" "flask>=3.0" "waitress>=3.0"; then
             echo "Dependencies installed."
         else
             red "WARNING: failed to install dependencies. Check network and re-run."
