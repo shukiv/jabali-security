@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Quarantine{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Quarantined Files</h1>
+    <p>Files isolated by the scanner</p>
+</div>
+
+<div class="card">
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>User</th>
+                <th>Original Path</th>
+                <th>Quarantined At</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for rec in records %}
+            <tr>
+                <td class="mono text-sm">{{ rec.get('id', '')[:16] }}</td>
+                <td>{{ rec.get('username', '') }}</td>
+                <td class="mono">{{ rec.get('original_path', '') }}</td>
+                <td class="text-sm text-muted">{{ rec.get('timestamp', '') }}</td>
+                <td class="flex gap-2">
+                    <form method="post" action="{{ url_for('restore_quarantine', record_id=rec.get('id', '')) }}">
+                        <button type="submit" class="btn btn-success btn-sm">Restore</button>
+                    </form>
+                    <form method="post" action="{{ url_for('delete_quarantine', record_id=rec.get('id', '')) }}">
+                        <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                    </form>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="text-muted">No quarantined files.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

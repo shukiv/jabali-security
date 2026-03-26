@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Proactive Defense{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Proactive Defense</h1>
+    <p>PHP hardening and suspicious process management</p>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-value">{% if status.get('process_kill_enabled') %}Active{% else %}Inactive{% endif %}</div>
+        <div class="stat-label">Process Kill</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ status.get('process_kill_count', 0) }}</div>
+        <div class="stat-label">Processes Killed</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{% if status.get('php_hardening_enabled') %}Active{% else %}Inactive{% endif %}</div>
+        <div class="stat-label">PHP Hardening</div>
+    </div>
+</div>
+
+{% if pools %}
+<div class="card">
+    <h3>PHP-FPM Pools</h3>
+    <table>
+        <thead>
+            <tr><th>Pool</th><th>PHP</th><th>User</th><th>Hardened</th><th>Issues</th></tr>
+        </thead>
+        <tbody>
+            {% for pool in pools %}
+            <tr>
+                <td>{{ pool.get('pool_name', '') }}</td>
+                <td>{{ pool.get('php_version', '?') }}</td>
+                <td>{{ pool.get('user', '') }}</td>
+                <td>{% if pool.get('hardened') %}<span class="badge badge-low">Yes</span>{% else %}<span class="badge badge-high">No</span>{% endif %}</td>
+                <td class="text-sm">{{ pool.get('issues', [])|join(', ') or 'none' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{% if kills %}
+<div class="card">
+    <h3>Recent Process Kills</h3>
+    <table>
+        <thead>
+            <tr><th>PID</th><th>PPID</th><th>User</th><th>Score</th><th>Success</th><th>Reason</th></tr>
+        </thead>
+        <tbody>
+            {% for k in kills %}
+            <tr>
+                <td>{{ k.get('pid', 0) }}</td>
+                <td>{{ k.get('ppid', 0) }}</td>
+                <td>{{ k.get('username', '') }}</td>
+                <td>{{ k.get('score', 0) }}</td>
+                <td>{% if k.get('success') %}<span class="badge badge-low">Yes</span>{% else %}<span class="badge badge-critical">Fail</span>{% endif %}</td>
+                <td>{{ k.get('reason', '') }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% endblock %}

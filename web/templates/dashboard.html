@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Security Dashboard</h1>
+    <p>Real-time overview of your server security</p>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-value">{{ status.get('incidents_24h', 0) }}</div>
+        <div class="stat-label">Incidents (24h)</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ status.get('quarantined_count', 0) }}</div>
+        <div class="stat-label">Quarantined Files</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ status.get('watched_dirs', 0) }}</div>
+        <div class="stat-label">Watched Directories</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ status.get('workers', 0) }}</div>
+        <div class="stat-label">Scan Workers</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ "%.1f"|format(status.get('memory_mb', 0)) }} MB</div>
+        <div class="stat-label">Memory Usage</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ status.get('scan_queue_size', 0) }}</div>
+        <div class="stat-label">Queue Pending</div>
+    </div>
+</div>
+
+<div class="card">
+    <h3>Daemon Status</h3>
+    <table>
+        <tr><td class="text-muted" style="width:160px">Version</td><td>{{ status.get('version', '?') }}</td></tr>
+        <tr><td class="text-muted">Status</td><td>{% if status.get('running') %}<span class="badge badge-low">Running</span>{% else %}<span class="badge badge-critical">Stopped</span>{% endif %}</td></tr>
+        <tr><td class="text-muted">Uptime</td><td>{% set u = status.get('uptime_seconds', 0)|int %}{{ "%dh %dm %ds"|format(u // 3600, (u % 3600) // 60, u % 60) }}</td></tr>
+    </table>
+</div>
+{% endblock %}

@@ -1434,5 +1434,22 @@ def webshield_rules(as_json: bool) -> None:
         ))
 
 
+@cli.command("web")
+@click.option("--bind", default=None, help="Bind address")
+@click.option("--port", default=None, type=int, help="Port")
+def web_server(bind, port):
+    """Start the web dashboard."""
+    from waitress import serve
+
+    from web.app import create_app
+
+    config = load_config()
+    app = create_app()
+    host = bind or config.web_bind
+    p = port or config.web_port
+    click.echo("Jabali Security web dashboard: http://%s:%d" % (host, p))
+    serve(app, host=host, port=p)
+
+
 if __name__ == "__main__":
     cli()

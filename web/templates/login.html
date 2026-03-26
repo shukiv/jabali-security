@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Login — Jabali Security</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="login-body">
+    <div class="login-box">
+        <h1>Jabali Security</h1>
+        <p class="login-subtitle">Security Dashboard</p>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="flash flash-{{ category }}">{{ message }}</div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+        <form method="post">
+            <input type="password" name="password" placeholder="API Key" required autofocus>
+            <button type="submit">Login</button>
+        </form>
+    </div>
+</body>
+</html>

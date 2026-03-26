@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Scan{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Manual Scan</h1>
+    <p>Scan a file or directory on demand</p>
+</div>
+
+<div class="card">
+    <h3>Start Scan</h3>
+    <form method="post">
+        <input type="text" name="path" placeholder="/home/user/public_html" required>
+        <button type="submit" class="btn btn-primary mt-2">Scan</button>
+    </form>
+</div>
+
+{% if result %}
+<div class="card">
+    <h3>Scan Results</h3>
+    {% if result is mapping %}
+    <table>
+        <tr><td class="text-muted" style="width:140px">Path</td><td class="mono">{{ result.get('path', '') }}</td></tr>
+        <tr><td class="text-muted">Score</td><td>{{ result.get('score', 0) }}</td></tr>
+        <tr><td class="text-muted">Severity</td><td><span class="badge badge-{{ result.get('severity', 'low') }}">{{ result.get('severity', '') }}</span></td></tr>
+        <tr><td class="text-muted">Action</td><td>{{ result.get('action', '') }}</td></tr>
+    </table>
+    {% set findings = result.get('findings', []) %}
+    {% if findings %}
+    <h3 class="mt-4">Findings</h3>
+    <table>
+        <thead><tr><th>Scanner</th><th>Rule</th><th>Score</th><th>Description</th></tr></thead>
+        <tbody>
+            {% for f in findings %}
+            <tr>
+                <td>{{ f.get('scanner', '') }}</td>
+                <td class="mono">{{ f.get('rule', '') }}</td>
+                <td>{{ f.get('score', 0) }}</td>
+                <td>{{ f.get('description', '') }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+    {% elif result is iterable %}
+    <table>
+        <thead><tr><th>Path</th><th>Score</th><th>Severity</th><th>Action</th></tr></thead>
+        <tbody>
+            {% for r in result %}
+            <tr>
+                <td class="mono">{{ r.get('path', '') }}</td>
+                <td>{{ r.get('score', 0) }}</td>
+                <td><span class="badge badge-{{ r.get('severity', 'low') }}">{{ r.get('severity', '') }}</span></td>
+                <td>{{ r.get('action', '') }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

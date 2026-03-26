@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Configuration{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Configuration</h1>
+    <p>Current daemon configuration (read-only)</p>
+</div>
+
+<div class="card">
+    <table>
+        <thead>
+            <tr><th>Key</th><th>Value</th></tr>
+        </thead>
+        <tbody>
+            {% for key, value in config.items()|sort %}
+            <tr>
+                <td class="mono">{{ key }}</td>
+                <td class="mono">{{ value }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="2" class="text-muted">No configuration data available.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

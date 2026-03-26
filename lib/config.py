@@ -96,6 +96,9 @@ DEFAULTS: dict[str, str] = {
     "DB_SCANNER_ENABLED": "no",
     "RAPIDSCAN_WORKERS": "4",
     "RAPIDSCAN_MTIME_CACHE": "yes",
+    "WEB_ENABLED": "no",
+    "WEB_BIND": "0.0.0.0",  # noqa: S104
+    "WEB_PORT": "8443",
 }
 
 
@@ -272,6 +275,9 @@ class JabaliConfig:
     db_scanner_enabled: bool = False
     rapidscan_workers: int = 4
     rapidscan_mtime_cache: bool = True
+    web_enabled: bool = False
+    web_bind: str = "0.0.0.0"  # noqa: S104
+    web_port: int = 8443
 
 
 def _safe_int(value: str, default: int, min_val: int | None = None, max_val: int | None = None) -> int:
@@ -396,4 +402,7 @@ def load_config(filepath: Path | None = None) -> JabaliConfig:
         db_scanner_enabled=_bool(merged["DB_SCANNER_ENABLED"]),
         rapidscan_workers=_safe_int(merged["RAPIDSCAN_WORKERS"], 4, min_val=1, max_val=32),
         rapidscan_mtime_cache=_bool(merged["RAPIDSCAN_MTIME_CACHE"]),
+        web_enabled=_bool(merged["WEB_ENABLED"]),
+        web_bind=merged["WEB_BIND"],
+        web_port=_safe_int(merged["WEB_PORT"], 8443, min_val=1024, max_val=65535),
     )

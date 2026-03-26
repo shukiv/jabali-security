@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Incidents{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Security Incidents</h1>
+    <p>Recent security events detected by the scanner</p>
+</div>
+
+<div class="card">
+    <table>
+        <thead>
+            <tr>
+                <th>Severity</th>
+                <th>Score</th>
+                <th>User</th>
+                <th>Path</th>
+                <th>Action</th>
+                <th>Time</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for inc in incidents %}
+            <tr>
+                <td><span class="badge badge-{{ inc.get('severity', 'low') }}">{{ inc.get('severity', '') }}</span></td>
+                <td>{{ inc.get('total_score', 0) }}</td>
+                <td>{{ inc.get('username', '') }}</td>
+                <td class="mono">{{ inc.get('file_event', {}).get('path', '') }}</td>
+                <td>{{ inc.get('action_taken', '') }}</td>
+                <td class="text-sm text-muted">{{ inc.get('timestamp', '') }}</td>
+                <td><a href="{{ url_for('incident_detail', incident_id=inc.get('id', '')) }}" class="btn btn-primary btn-sm">View</a></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="7" class="text-muted">No incidents found.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
