@@ -1,6 +1,9 @@
 """Flask dashboard routes."""
 from __future__ import annotations
 
+import logging
+import subprocess
+
 from flask import (
     flash,
     redirect,
@@ -14,6 +17,29 @@ from lib.config import load_config, update_conf_key
 from lib.constants import CONFIG_FILE
 from web.api_client import api_call
 from web.app import login_required
+
+logger = logging.getLogger(__name__)
+
+# Packages required by each feature (apt package names)
+_FEATURE_DEPS: dict[str, list[str]] = {
+    "waf": ["libmodsecurity3", "libnginx-mod-security"],
+    "bruteforce": ["nftables"],
+    "webshield": ["libnginx-mod-http-lua"],
+    "threat_intel": [],
+    "cleanup": [],
+    "proactive": [],
+    "php_hardening": [],
+    "process_kill": [],
+    "scheduled_scan": [],
+    "auto_quarantine": [],
+    "auto_suspend": [],
+    "heuristic": [],
+    "entropy": [],
+    "yara": [],
+    "process_monitor": [],
+    "behavior_tracking": [],
+    "cleanup_auto": [],
+}
 
 # Config keys that map to protection toggles
 _TOGGLE_KEYS = {
@@ -35,6 +61,36 @@ _TOGGLE_KEYS = {
     "process_monitor": "PROCESS_MONITOR_ENABLED",
     "behavior_tracking": "BEHAVIOR_TRACKING_ENABLED",
 }
+
+
+def _is_pkg_installed(pkg: str) -> bool:
+    """Check if an apt/dpkg package is installed."""
+    try:
+        result = subprocess.run(  # noqa: S603
+            ["/usr/bin/dpkg", "-s", pkg],
+            capture_output=True, timeout=5,
+        )
+        return result.returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+
+
+def _install_packages(packages: list[str]) -> bool:
+    """Install apt packages. Returns True on success."""
+    try:
+        env = dict(DEBIAN_FRONTEND="noninteractive")
+        subprocess.run(  # noqa: S603
+            ["/usr/bin/apt-get", "update", "-qq"],
+            capture_output=True, timeout=60, env=env,
+        )
+        result = subprocess.run(  # noqa: S603
+            ["/usr/bin/apt-get", "install", "-y", "-qq", *packages],
+            capture_output=True, timeout=120, env=env,
+        )
+        return result.returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
+        logger.exception("Failed to install packages: %s", packages)
+        return False
 
 
 def register_routes(app):
@@ -70,18 +126,60 @@ def register_routes(app):
             flash("Unknown feature: %s" % feature, "error")
             return redirect(url_for("dashboard"))
         conf_key = _TOGGLE_KEYS[feature]
-        config = load_config()
-        # Get current value and flip it
-        current = getattr(config, feature, None)
-        if current is None:
-            # Try the config key directly
-            current = getattr(config, conf_key.lower(), False)
-        new_val = "no" if current else "yes"
-        update_conf_key(CONFIG_FILE, conf_key, new_val)
-        # Also push to running daemon
-        api_call("PATCH", "/api/v1/config", {conf_key: new_val})
-        flash("%s %s." % (feature.replace("_", " ").title(), "enabled" if new_val == "yes" else "disabled"), "success")
+
+        # Read current value from config file directly
+        from lib.config import parse_conf
+        raw = parse_conf(CONFIG_FILE)
+        current_raw = raw.get(conf_key, "no")
+        is_enabled = current_raw.lower() in ("yes", "true", "1")
+        label = feature.replace("_", " ").title()
+
+        if is_enabled:
+            # Disabling — no confirmation needed
+            update_conf_key(CONFIG_FILE, conf_key, "no")
+            api_call("PATCH", "/api/v1/config", {conf_key: "no"})
+            flash("%s disabled." % label, "success")
+            return redirect(request.referrer or url_for("dashboard"))
+
+        # Enabling — check if deps need installing, show confirm page
+        deps = _FEATURE_DEPS.get(feature, [])
+        missing = [p for p in deps if not _is_pkg_installed(p)]
+        if missing:
+            return render_template("confirm_toggle.html",
+                feature=feature, label=label, deps=missing)
+
+        # No deps needed — enable directly
+        update_conf_key(CONFIG_FILE, conf_key, "yes")
+        api_call("PATCH", "/api/v1/config", {conf_key: "yes"})
+        flash("%s enabled." % label, "success")
         return redirect(request.referrer or url_for("dashboard"))
+
+    @app.route("/toggle/<feature>/confirm", methods=["POST"])
+    @login_required
+    def toggle_confirm(feature):
+        """Confirm enabling a feature — install deps and enable."""
+        if feature not in _TOGGLE_KEYS:
+            flash("Unknown feature.", "error")
+            return redirect(url_for("dashboard"))
+        conf_key = _TOGGLE_KEYS[feature]
+        label = feature.replace("_", " ").title()
+
+        # Install missing packages
+        deps = _FEATURE_DEPS.get(feature, [])
+        missing = [p for p in deps if not _is_pkg_installed(p)]
+        if missing:
+            ok = _install_packages(missing)
+            if ok:
+                flash("Installed: %s" % ", ".join(missing), "success")
+            else:
+                flash("Failed to install: %s" % ", ".join(missing), "error")
+                return redirect(url_for("dashboard"))
+
+        # Enable
+        update_conf_key(CONFIG_FILE, conf_key, "yes")
+        api_call("PATCH", "/api/v1/config", {conf_key: "yes"})
+        flash("%s enabled." % label, "success")
+        return redirect(url_for("dashboard"))
 
     @app.route("/incidents")
     @login_required

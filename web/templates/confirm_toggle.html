@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Confirm{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Enable {{ label }}?</h1>
+</div>
+
+<div class="card">
+    {% if deps %}
+    <p>The following packages will be installed:</p>
+    <ul class="mt-2" style="margin-left:20px">
+        {% for pkg in deps %}
+        <li><code>{{ pkg }}</code></li>
+        {% endfor %}
+    </ul>
+    <p class="mt-4 text-muted text-sm">This may take a moment.</p>
+    {% else %}
+    <p>No additional packages required.</p>
+    {% endif %}
+
+    <div class="mt-4 flex gap-2">
+        <form method="post" action="/toggle/{{ feature }}/confirm">
+            <button type="submit" class="btn btn-success">Enable {{ label }}</button>
+        </form>
+        <a href="{{ request.referrer or '/' }}" class="btn" style="background:var(--border);color:var(--text)">Cancel</a>
+    </div>
+</div>
+{% endblock %}
