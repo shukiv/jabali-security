@@ -11,30 +11,9 @@ from pathlib import Path
 from aiohttp import web
 
 from api.app import create_app
-from lib.behavior_tracker import BehaviorTracker
-from lib.bruteforce.detector import BruteForceDetector
-from lib.bruteforce.firewall import FirewallManager
-from lib.bruteforce.log_parser import AuthLogParser
-from lib.cleanup.engine import CleanupEngine
-from lib.cleanup.scheduler import ScanScheduler
 from lib.config import JabaliConfig
 from lib.constants import VERSION
-from lib.filter import PreFilter
-from lib.hash_cache import HashCache
-from lib.incidents import IncidentStore
-from lib.proactive.php_hardener import PHPHardener
-from lib.proactive.process_killer import ProactiveProcessKiller
-from lib.process_monitor import ProcessMonitor
-from lib.quarantine import QuarantineManager
-from lib.queue import ScanQueue
-from lib.response import ResponseEngine
-from lib.scanner import ScanOrchestrator
-from lib.scoring import ScoringEngine
-from lib.threat_intel.feed_manager import FeedManager
-from lib.waf.audit_log_parser import ModSecAuditLogParser
-from lib.waf.rule_manager import WafRuleManager
-from lib.watcher.inotify import InotifyWatcher
-from lib.webshield.manager import WebShieldManager
+from lib.registry import ComponentRegistry
 
 logger = logging.getLogger("jabali-security")
 
@@ -42,316 +21,101 @@ logger = logging.getLogger("jabali-security")
 class SecurityDaemon:
     """Main supervisor that coordinates all async tasks."""
 
-    def __init__(self, config: JabaliConfig) -> None:
+    def __init__(self, config: JabaliConfig, disabled: set[str] | None = None) -> None:
         self.config = config
+        self._disabled = disabled
         self._start_time: datetime | None = None
-        self._watcher: InotifyWatcher | None = None
-        self._hash_cache: HashCache | None = None
-        self._incidents: IncidentStore | None = None
+        self._registry: ComponentRegistry | None = None
 
     async def run(self) -> None:
         """Start all subsystems and run until shutdown."""
         self._start_time = datetime.now(timezone.utc)
 
-        # Initialize data directory
-        data_dir = Path(self.config.data_dir)
-        data_dir.mkdir(parents=True, exist_ok=True)
+        self._registry = await ComponentRegistry.build(self.config, disabled=self._disabled)
 
-        # Initialize components
-        scan_queue = ScanQueue()
-        pre_filter = PreFilter(self.config)
-        self._watcher = InotifyWatcher(
-            watch_dirs=self.config.watch_dirs,
-            pre_filter=pre_filter,
-        )
-        self._hash_cache = HashCache(persist_path=data_dir / "hash_cache.json")
-        scanner = ScanOrchestrator(self.config)
-        scoring = ScoringEngine(self.config)
-        behavior = BehaviorTracker(ttl=self.config.behavior_ttl)
+        async with self._registry:
+            app = create_app()
+            self._registry.populate_app(app, daemon=self)
+            api_runner = web.AppRunner(app)
+            await api_runner.setup()
+            api_site = web.TCPSite(api_runner, self.config.api_bind, self.config.api_port)
 
-        # Initialize incident store
-        self._incidents = IncidentStore(db_path=data_dir / "incidents.db")
-        await self._incidents.open()
+            loop = asyncio.get_running_loop()
+            stop_event = asyncio.Event()
+            for sig in (signal.SIGTERM, signal.SIGINT):
+                loop.add_signal_handler(sig, stop_event.set)
 
-        # Initialize firewall
-        firewall = FirewallManager(backend=self.config.firewall_backend)
-        await firewall.initialize()
-
-        # Re-sync blocked IPs from DB to firewall on startup
-        if self._incidents and self._incidents._db:
-            db = self._incidents._db
-            async with db.execute(
-                "SELECT ip, blocked_at, expires_at FROM blocked_ips"
-            ) as cursor:
-                sync_count = 0
-                async for row in cursor:
-                    ip_addr, _blocked_at, expires_at = row
-                    # Skip expired blocks
-                    if expires_at:
-                        from datetime import datetime as dt
-                        try:
-                            exp = dt.fromisoformat(expires_at)
-                            if exp < datetime.now(timezone.utc):
-                                continue
-                        except (ValueError, TypeError):
-                            pass
-                    await firewall.block_ip(ip_addr, 0)
-                    sync_count += 1
-                if sync_count:
-                    logger.info("Synced %d blocked IPs to firewall", sync_count)
-
-        # Initialize brute-force detector + log parser (if enabled)
-        bf_detector: BruteForceDetector | None = None
-        auth_parser: AuthLogParser | None = None
-        if self.config.bruteforce_enabled:
-            bf_detector = BruteForceDetector(
-                thresholds={
-                    "ssh": (self.config.bruteforce_ssh_threshold, self.config.bruteforce_ssh_window),
-                    "dovecot": (self.config.bruteforce_mail_threshold, self.config.bruteforce_mail_window),
-                    "exim": (self.config.bruteforce_mail_threshold, self.config.bruteforce_mail_window),
-                    "postfix": (self.config.bruteforce_mail_threshold, self.config.bruteforce_mail_window),
-                    "stalwart": (self.config.bruteforce_mail_threshold, self.config.bruteforce_mail_window),
-                },
-                block_durations=self.config.bruteforce_block_durations,
-                whitelist=set(self.config.bruteforce_whitelist_ips),
-            )
-            log_configs: dict[str, str] = {}
-            if Path(self.config.bruteforce_ssh_log).exists():
-                log_configs["ssh"] = self.config.bruteforce_ssh_log
-            if Path(self.config.bruteforce_mail_log).exists():
-                log_configs["dovecot"] = self.config.bruteforce_mail_log
-                log_configs["postfix"] = self.config.bruteforce_mail_log
-            # Stalwart uses dated log files: stalwart.log.YYYY-MM-DD
-            stalwart_dir = Path(self.config.bruteforce_stalwart_log)
-            if stalwart_dir.is_dir():
-                from datetime import date
-                today_log = stalwart_dir / ("stalwart.log.%s" % date.today().isoformat())
-                if today_log.exists():
-                    log_configs["stalwart"] = str(today_log)
-                    logger.info("Stalwart log detected: %s", today_log)
-            auth_parser = AuthLogParser(log_configs)
-
-        # Initialize WAF components (if enabled)
-        waf_parser: ModSecAuditLogParser | None = None
-        waf_rules: WafRuleManager | None = None
-        if self.config.waf_enabled:
-            waf_rules = WafRuleManager(
-                overrides_file=self.config.waf_overrides_file,
-                rules_dir=self.config.waf_rules_dir,
-                web_server=self.config.waf_web_server,
-            )
-            waf_parser = ModSecAuditLogParser(
-                log_path=self.config.waf_audit_log,
-                log_type=self.config.waf_audit_log_type,
+            logger.info("Jabali Security %s starting...", VERSION)
+            logger.info(
+                "Watching dirs: %s | Workers: %d | Engines: %s",
+                ", ".join(self.config.watch_dirs),
+                self.config.workers,
+                ", ".join(self._registry.scanner.scanner_names) or "none",
             )
 
-        # Initialize cleanup engine
-        cleanup_engine: CleanupEngine | None = None
-        if self.config.cleanup_enabled:
-            cleanup_engine = CleanupEngine(
-                enabled=True,
-                auto=self.config.cleanup_auto,
-                use_checksums=self.config.cleanup_cms_checksums,
-            )
+            await api_site.start()
+            logger.info("REST API listening on %s:%d", self.config.api_bind, self.config.api_port)
 
-        # Initialize quarantine + response
-        quarantine = QuarantineManager(base_dir=self.config.quarantine_dir)
-        response = ResponseEngine(self.config, quarantine, self._incidents, cleanup=cleanup_engine)
-
-        # Initialize process monitor
-        proc_monitor = ProcessMonitor(
-            poll_interval=self.config.process_poll_interval,
-            enabled=self.config.process_monitor_enabled,
-        )
-
-        # Initialize proactive defense components
-        proactive_killer = ProactiveProcessKiller(
-            enabled=self.config.process_kill_enabled,
-            threshold=self.config.process_kill_threshold,
-            min_uid=self.config.process_kill_min_uid,
-            whitelist_commands=self.config.process_kill_whitelist,
-        )
-
-        # Initialize scan scheduler
-        scan_scheduler: ScanScheduler | None = None
-        if self.config.scheduled_scan_enabled:
-            scan_scheduler = ScanScheduler(
-                config=self.config,
-                scanner=scanner,
-                scoring=scoring,
-                enabled=True,
-                interval_hours=self.config.scheduled_scan_interval,
-                paths=self.config.scheduled_scan_paths,
-            )
-
-        # Initialize threat intelligence feed manager (if enabled)
-        feed_manager: FeedManager | None = None
-        if self.config.threat_intel_enabled:
-            feed_manager = FeedManager(
-                data_dir=self.config.data_dir,
-                enabled_feeds=self.config.threat_intel_feeds,
-            )
-
-        php_hardener: PHPHardener | None = None
-        if self.config.php_hardening_enabled:
-            php_hardener = PHPHardener(
-                enabled=True,
-                auto=self.config.php_hardening_auto,
-            )
-
-        # Initialize WebShield (if enabled)
-        webshield: WebShieldManager | None = None
-        if self.config.webshield_enabled:
-            webshield = WebShieldManager(
-                config_dir=self.config.webshield_nginx_conf_dir,
-                rate_limit=self.config.webshield_rate_limit,
-                rate_burst=self.config.webshield_rate_burst,
-                challenge_enabled=self.config.webshield_challenge_enabled,
-                bot_filtering=self.config.webshield_bot_filtering,
-            )
-
-        # Initialize REST API
-        app = create_app(
-            config=self.config,
-            daemon=self,
-            incidents=self._incidents,
-            quarantine=quarantine,
-            scanner=scanner,
-            scoring=scoring,
-        )
-        app["firewall"] = firewall
-        app["bruteforce_detector"] = bf_detector
-        app["waf_parser"] = waf_parser
-        app["waf_rules"] = waf_rules
-        app["proactive_killer"] = proactive_killer
-        app["php_hardener"] = php_hardener
-        app["cleanup"] = cleanup_engine
-        app["scheduler"] = scan_scheduler
-        app["threat_intel"] = feed_manager
-        app["webshield"] = webshield
-        api_runner = web.AppRunner(app)
-        await api_runner.setup()
-        api_site = web.TCPSite(api_runner, self.config.api_bind, self.config.api_port)
-
-        # Register signal handlers
-        loop = asyncio.get_running_loop()
-        stop_event = asyncio.Event()
-        for sig in (signal.SIGTERM, signal.SIGINT):
-            loop.add_signal_handler(sig, stop_event.set)
-
-        logger.info("Jabali Security %s starting...", VERSION)
-        logger.info(
-            "Watching dirs: %s | Workers: %d | Engines: %s",
-            ", ".join(self.config.watch_dirs),
-            self.config.workers,
-            ", ".join(scanner.scanner_names) or "none",
-        )
-
-        # Start API server
-        await api_site.start()
-        logger.info("REST API listening on %s:%d", self.config.api_bind, self.config.api_port)
-
-        # Run initial PHP-FPM auto-hardening if enabled
-        if php_hardener is not None:
             try:
-                hardened_count = await php_hardener.auto_harden_all()
-                if hardened_count:
-                    logger.info("Auto-hardened %d PHP-FPM pools at startup", hardened_count)
-            except Exception:
-                logger.exception("Error during initial PHP-FPM auto-hardening")
+                async with asyncio.TaskGroup() as tg:
+                    for coro in self._registry.background_tasks(self):
+                        tg.create_task(coro)
+                    tg.create_task(self._wait_for_stop(stop_event))
+            except* KeyboardInterrupt:
+                pass
+            finally:
+                await api_runner.cleanup()
+                logger.info("Jabali Security stopped.")
 
-        # Launch tasks with TaskGroup
-        try:
-            async with asyncio.TaskGroup() as tg:
-                tg.create_task(self._watcher.start(scan_queue))
-                for i in range(self.config.workers):
-                    tg.create_task(
-                        self._scan_worker(scan_queue, scanner, scoring, behavior, response, i)
-                    )
-                tg.create_task(proc_monitor.run(proactive_killer.handle_threats))
-                if self.config.bruteforce_enabled and auth_parser is not None:
-                    tg.create_task(auth_parser.run(
-                        self._make_auth_callback(bf_detector, firewall, self._incidents)
-                    ))
-                if self.config.waf_enabled and waf_parser is not None:
-                    tg.create_task(waf_parser.run(
-                        self._make_waf_callback(self._incidents)
-                    ))
-                if scan_scheduler is not None:
-                    tg.create_task(scan_scheduler.run())
-                if feed_manager is not None:
-                    tg.create_task(feed_manager.run_periodic_updates(
-                        interval_hours=self.config.threat_intel_update_interval,
-                    ))
-                tg.create_task(self._wait_for_stop(stop_event))
-        except* KeyboardInterrupt:
-            pass
-        finally:
-            await api_runner.cleanup()
-            if self._watcher is not None:
-                await self._watcher.stop()
-            if self._hash_cache is not None:
-                self._hash_cache.save()
-            if self._incidents is not None:
-                await self._incidents.close()
-            logger.info("Jabali Security stopped.")
-
-    async def _scan_worker(
-        self,
-        queue: ScanQueue,
-        scanner: ScanOrchestrator,
-        scoring: ScoringEngine,
-        behavior: BehaviorTracker,
-        response: ResponseEngine,
-        worker_id: int,
-    ) -> None:
+    async def _scan_worker(self, worker_id: int) -> None:
         """Worker: read file -> behavior check -> scan -> score -> respond."""
+        reg = self._registry
         logger.info("Scan worker %d started", worker_id)
         while True:
-            event = await queue.get()
+            event = await reg.scan_queue.get()
             try:
                 # Record behavior and get behavioral findings
-                behavior_findings = await behavior.record_event(event)
+                behavior_findings = await reg.behavior.record_event(event)
 
                 # Read file content (with post-read size guard)
                 try:
                     content = await asyncio.to_thread(Path(event.path).read_bytes)
                 except (FileNotFoundError, PermissionError, OSError):
-                    # File gone — still evaluate behavior findings if any
+                    # File gone -- still evaluate behavior findings if any
                     if behavior_findings:
-                        score = scoring.evaluate(event, behavior_findings)
+                        score = reg.scoring.evaluate(event, behavior_findings)
                         if score.action != "ignore":
-                            await response.handle(event, score)
+                            await reg.response.handle(event, score)
                     continue
                 if len(content) > self.config.max_file_size:
                     continue
 
-                # Check hash cache — skip known-clean files
-                file_hash = self._hash_cache.get_hash(content)
-                if self._hash_cache.is_known_clean(file_hash) and not behavior_findings:
+                # Check hash cache -- skip known-clean files
+                file_hash = reg.hash_cache.get_hash(content)
+                if reg.hash_cache.is_known_clean(file_hash) and not behavior_findings:
                     continue
 
                 # Run all content scanners
-                content_findings = await scanner.scan(event.path, content)
+                content_findings = await reg.scanner.scan(event.path, content)
 
                 # Merge content + behavior findings
                 all_findings = content_findings + behavior_findings
 
                 if not all_findings:
-                    self._hash_cache.mark_clean(file_hash)
+                    reg.hash_cache.mark_clean(file_hash)
                     continue
 
                 # Score and respond
-                score = scoring.evaluate(event, all_findings)
-                self._hash_cache.mark_dirty(file_hash)
+                score = reg.scoring.evaluate(event, all_findings)
+                reg.hash_cache.mark_dirty(file_hash)
 
                 if score.action != "ignore":
-                    await response.handle(event, score)
+                    await reg.response.handle(event, score)
 
             except Exception:
                 logger.exception("Worker %d: error processing %s", worker_id, event.path)
             finally:
-                queue.task_done()
+                reg.scan_queue.task_done()
 
     @staticmethod
     def _make_auth_callback(detector, firewall, incidents):
@@ -411,7 +175,7 @@ class SecurityDaemon:
         return _on_waf_event
 
     async def _handle_process_threats(self, threats: list) -> None:
-        """Callback for process monitor — log threats."""
+        """Callback for process monitor -- log threats."""
         for threat in threats:
             logger.critical(
                 "PROCESS THREAT: pid=%d ppid=%d score=%d user=%s cmd=%s -- %s",

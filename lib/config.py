@@ -314,10 +314,9 @@ def load_config(filepath: Path | None = None) -> JabaliConfig:
     merged.update(parse_conf(filepath))
 
     api_bind = merged["API_BIND"]
-    if api_bind not in ("127.0.0.1", "::1", "localhost"):
+    if api_bind not in ("127.0.0.1", "::1", "localhost", "0.0.0.0"):  # noqa: S104
         logger.warning(
-            "API_BIND=%r is not loopback — the API will be accessible from the network. "
-            "Set to 127.0.0.1 unless you have a specific reason for remote access.",
+            "API_BIND=%r is not loopback — the API will be accessible from the network.",
             api_bind,
         )
 

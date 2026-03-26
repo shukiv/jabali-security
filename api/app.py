@@ -12,25 +12,11 @@ from api.routes import setup_routes
 logger = logging.getLogger(__name__)
 
 
-def create_app(
-    config,
-    daemon=None,
-    incidents=None,
-    quarantine=None,
-    scanner=None,
-    scoring=None,
-) -> web.Application:
-    """Create and configure the aiohttp web application."""
+def create_app() -> web.Application:
+    """Create and configure the aiohttp web application.
+
+    Component references are injected later via ComponentRegistry.populate_app().
+    """
     app = web.Application(middlewares=[request_logger, api_key_auth])
-
-    # Store references for route handlers
-    app["config"] = config
-    app["daemon"] = daemon
-    app["incidents"] = incidents
-    app["quarantine"] = quarantine
-    app["scanner"] = scanner
-    app["scoring"] = scoring
-
     setup_routes(app)
-
     return app

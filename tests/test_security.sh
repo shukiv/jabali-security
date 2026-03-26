@@ -1,0 +1,615 @@
+#!/bin/bash
+# ============================================================================
+# Jabali Security — External Security Test Script
+# ============================================================================
+# Non-destructive tests against a live Jabali-protected site to verify
+# that detection, WAF, WebShield, and brute-force protection are working.
+#
+# Usage:
+#   ./tests/test_security.sh <target>
+#   ./tests/test_security.sh jabali.site
+#   ./tests/test_security.sh jabali.site --quick    # skip nmap (faster)
+#
+# Requirements: curl, nmap (optional), openssl
+# ============================================================================
+set -euo pipefail
+
+# ── Config ──────────────────────────────────────────────────────────────────
+
+TARGET="${1:-}"
+QUICK="${2:-}"
+PROTO="https"
+REPORT_FILE="/tmp/jabali-security-test-$(date +%Y%m%d-%H%M%S).txt"
+
+PASS=0
+FAIL=0
+WARN=0
+
+# ── Helpers ─────────────────────────────────────────────────────────────────
+
+red()    { printf "\033[0;31m%s\033[0m\n" "$*"; }
+green()  { printf "\033[0;32m%s\033[0m\n" "$*"; }
+yellow() { printf "\033[0;33m%s\033[0m\n" "$*"; }
+bold()   { printf "\033[1m%s\033[0m\n" "$*"; }
+dim()    { printf "\033[2m%s\033[0m\n" "$*"; }
+
+log() {
+    local msg="$*"
+    echo "$msg" | tee -a "$REPORT_FILE"
+}
+
+pass() {
+    PASS=$((PASS + 1))
+    green "  [PASS] $*" | tee -a "$REPORT_FILE"
+}
+
+fail() {
+    FAIL=$((FAIL + 1))
+    red "  [FAIL] $*" | tee -a "$REPORT_FILE"
+}
+
+warn() {
+    WARN=$((WARN + 1))
+    yellow "  [WARN] $*" | tee -a "$REPORT_FILE"
+}
+
+info() {
+    dim "  [INFO] $*" | tee -a "$REPORT_FILE"
+}
+
+separator() {
+    log ""
+    log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+}
+
+http_code() {
+    curl -sk -o /dev/null -w "%{http_code}" --max-time 10 "$@" 2>/dev/null || echo "000"
+}
+
+http_response() {
+    curl -sk --max-time 10 "$@" 2>/dev/null
+}
+
+http_headers() {
+    curl -skI --max-time 10 "$@" 2>/dev/null
+}
+
+# ── Validation ──────────────────────────────────────────────────────────────
+
+if [ -z "$TARGET" ]; then
+    echo "Usage: $0 <target-domain> [--quick]"
+    echo "Example: $0 jabali.site"
+    exit 1
+fi
+
+# Verify target is reachable
+if ! curl -sk --max-time 5 -o /dev/null "${PROTO}://${TARGET}/" 2>/dev/null; then
+    red "Error: Cannot reach ${PROTO}://${TARGET}/"
+    red "Check the domain and try again."
+    exit 1
+fi
+
+# ── Start ───────────────────────────────────────────────────────────────────
+
+: > "$REPORT_FILE"
+
+bold "╔════════════════════════════════════════════════════════════════════════╗"
+bold "║           Jabali Security — External Test Suite                       ║"
+bold "╚════════════════════════════════════════════════════════════════════════╝"
+log ""
+log "Target:  ${TARGET}"
+log "Date:    $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+log "Report:  ${REPORT_FILE}"
+
+# ============================================================================
+# PHASE 1: RECONNAISSANCE
+# ============================================================================
+separator
+bold "PHASE 1: RECONNAISSANCE"
+separator
+
+# -- 1.1 Port Scan --
+if [ "$QUICK" != "--quick" ] && command -v nmap &>/dev/null; then
+    log ""
+    log "1.1 Port Scan (top 100 ports)"
+    nmap_out=$(nmap -sV -T3 --top-ports 100 "$TARGET" 2>&1)
+    open_ports=$(echo "$nmap_out" | grep "^[0-9].*open" || true)
+    if [ -n "$open_ports" ]; then
+        while IFS= read -r line; do
+            info "$line"
+        done <<< "$open_ports"
+    fi
+
+    # Check for risky exposed ports
+    if echo "$open_ports" | grep -qE "^3306|^5432|^6379|^27017|^11211"; then
+        fail "Database/cache ports exposed to the internet"
+    else
+        pass "No database/cache ports exposed"
+    fi
+
+    if echo "$open_ports" | grep -q "^8443.*waitress"; then
+        warn "Jabali web dashboard (8443) is exposed — should be behind auth or firewall"
+    fi
+else
+    log ""
+    log "1.1 Port Scan — SKIPPED (--quick mode or nmap not installed)"
+fi
+
+# -- 1.2 HTTP Headers --
+log ""
+log "1.2 HTTP Security Headers"
+headers=$(http_headers "${PROTO}://${TARGET}/")
+
+check_header() {
+    local name="$1"
+    local display="${2:-$1}"
+    if echo "$headers" | grep -qi "^${name}:"; then
+        pass "${display} header present"
+    else
+        fail "${display} header MISSING"
+    fi
+}
+
+check_header "Strict-Transport-Security" "HSTS"
+check_header "X-Frame-Options" "X-Frame-Options"
+check_header "X-Content-Type-Options" "X-Content-Type-Options"
+check_header "Content-Security-Policy" "Content-Security-Policy"
+check_header "Referrer-Policy" "Referrer-Policy"
+check_header "Permissions-Policy" "Permissions-Policy"
+check_header "X-XSS-Protection" "X-XSS-Protection (legacy)"
+
+# Server version disclosure
+if echo "$headers" | grep -qi "^server:.*nginx/[0-9]"; then
+    warn "Server header leaks nginx version"
+else
+    pass "Server header does not leak version"
+fi
+
+# -- 1.3 TLS Check --
+log ""
+log "1.3 TLS Certificate"
+tls_info=$(echo | openssl s_client -connect "${TARGET}:443" -servername "$TARGET" 2>/dev/null | openssl x509 -noout -subject -issuer -dates 2>/dev/null || echo "FAIL")
+if echo "$tls_info" | grep -q "subject="; then
+    pass "Valid TLS certificate"
+    info "$(echo "$tls_info" | grep 'subject=')"
+    info "$(echo "$tls_info" | grep 'issuer=')"
+    info "$(echo "$tls_info" | grep 'notAfter=')"
+else
+    fail "Could not verify TLS certificate"
+fi
+
+# -- 1.4 HTTP to HTTPS redirect --
+log ""
+log "1.4 HTTP -> HTTPS Redirect"
+http_status=$(http_code "http://${TARGET}/")
+if [ "$http_status" = "301" ] || [ "$http_status" = "302" ]; then
+    pass "HTTP redirects to HTTPS (${http_status})"
+else
+    fail "HTTP does not redirect to HTTPS (got ${http_status})"
+fi
+
+# ============================================================================
+# PHASE 2: WEBSHIELD TESTING
+# ============================================================================
+separator
+bold "PHASE 2: WEBSHIELD TESTING (Bot Filtering + Rate Limiting)"
+separator
+
+# -- 2.1 Malicious User-Agents --
+log ""
+log "2.1 Malicious User-Agent Filtering"
+
+test_ua() {
+    local name="$1"
+    local ua="$2"
+    local code
+    if [ -n "$ua" ]; then
+        code=$(http_code -H "User-Agent: ${ua}" "${PROTO}://${TARGET}/")
+    else
+        code=$(http_code "${PROTO}://${TARGET}/")
+    fi
+    if [ "$code" = "403" ] || [ "$code" = "429" ] || [ "$code" = "444" ]; then
+        pass "Blocked user-agent '${name}' -> ${code}"
+    elif [ "$code" = "200" ] || [ "$code" = "301" ] || [ "$code" = "302" ]; then
+        warn "User-agent '${name}' NOT blocked -> ${code}"
+    else
+        info "User-agent '${name}' -> ${code}"
+    fi
+}
+
+test_ua "sqlmap" "sqlmap/1.5#stable (http://sqlmap.org)"
+test_ua "nikto" "Mozilla/5.00 (Nikto/2.1.6)"
+test_ua "masscan" "masscan/1.3 (https://github.com/robertdavidgraham/masscan)"
+test_ua "dirbuster" "DirBuster-1.0-RC1 (http://www.owasp.org/)"
+test_ua "gobuster" "gobuster/3.1"
+test_ua "wpscan" "WPScan v3.8.22"
+test_ua "python-requests" "python-requests/2.28.1"
+test_ua "curl-default" ""
+
+# -- 2.2 Rate Limiting --
+log ""
+log "2.2 Rate Limiting (30 rapid requests)"
+rate_limited=false
+for i in $(seq 1 30); do
+    code=$(http_code "${PROTO}://${TARGET}/")
+    if [ "$code" = "429" ] || [ "$code" = "503" ] || [ "$code" = "444" ]; then
+        pass "Rate limited after ${i} requests -> ${code}"
+        rate_limited=true
+        break
+    fi
+done
+if [ "$rate_limited" = false ]; then
+    warn "No rate limiting detected after 30 rapid requests"
+fi
+
+# -- 2.3 JS Challenge --
+log ""
+log "2.3 JavaScript Challenge Detection"
+body=$(http_response -H "User-Agent: " "${PROTO}://${TARGET}/")
+if echo "$body" | grep -qi "challenge\|captcha\|verify.*human\|__cf_bm\|jabali.*challenge"; then
+    pass "JS challenge page detected for empty UA"
+else
+    info "No JS challenge detected (may only trigger on sustained bot traffic)"
+fi
+
+# ============================================================================
+# PHASE 3: WEB VULNERABILITY PROBES
+# ============================================================================
+separator
+bold "PHASE 3: WEB VULNERABILITY PROBES (WAF / Heuristic Detection)"
+separator
+
+# -- 3.1 Path Traversal --
+log ""
+log "3.1 Path Traversal Attempts"
+
+test_traversal() {
+    local payload="$1"
+    local code body
+    code=$(http_code "${PROTO}://${TARGET}${payload}")
+    body=$(http_response "${PROTO}://${TARGET}${payload}")
+    if echo "$body" | grep -q "root:"; then
+        fail "Path traversal SUCCEEDED: ${payload}"
+    elif [ "$code" = "403" ] || [ "$code" = "400" ] || [ "$code" = "444" ]; then
+        pass "Path traversal blocked: ${payload} -> ${code}"
+    else
+        pass "Path traversal returned ${code} (no sensitive data)"
+    fi
+}
+
+test_traversal "/../../../etc/passwd"
+test_traversal "/wp-content/../../../etc/shadow"
+test_traversal "/..%2f..%2f..%2fetc%2fpasswd"
+test_traversal "/?file=../../../etc/passwd"
+test_traversal "/?page=....//....//....//etc/passwd"
+
+# -- 3.2 XSS Probes --
+log ""
+log "3.2 XSS Injection Probes"
+
+test_xss() {
+    local payload="$1"
+    local code body
+    code=$(http_code "${PROTO}://${TARGET}${payload}")
+    body=$(http_response "${PROTO}://${TARGET}${payload}")
+    if [ "$code" = "403" ] || [ "$code" = "400" ] || [ "$code" = "444" ]; then
+        pass "XSS blocked -> ${code}"
+    elif echo "$body" | grep -qi "<script>alert"; then
+        fail "XSS reflected in response"
+    else
+        pass "XSS not reflected (${code})"
+    fi
+}
+
+test_xss "/?s=<script>alert(1)</script>"
+test_xss "/?s=<img%20src=x%20onerror=alert(1)>"
+test_xss '/?s="><svg/onload=alert(1)>'
+test_xss "/?s=javascript:alert(document.cookie)"
+test_xss "/?s=<iframe%20src=%27javascript:alert(1)%27>"
+
+# -- 3.3 SQL Injection Probes --
+log ""
+log "3.3 SQL Injection Probes"
+
+test_sqli() {
+    local payload="$1"
+    local code
+    code=$(http_code "${PROTO}://${TARGET}${payload}")
+    if [ "$code" = "403" ] || [ "$code" = "400" ] || [ "$code" = "444" ]; then
+        pass "SQLi blocked -> ${code}"
+    elif [ "$code" = "500" ]; then
+        warn "SQLi returned 500 (possible unhandled error)"
+    else
+        info "SQLi returned ${code}"
+    fi
+}
+
+test_sqli "/?id=1%27%20OR%20%271%27=%271"
+test_sqli "/?id=1%20UNION%20SELECT%20NULL,NULL,NULL--"
+test_sqli "/?id=1;%20DROP%20TABLE%20users--"
+test_sqli "/?s=1%27%20AND%201=1%20--%20-"
+test_sqli "/wp-login.php?log=admin%27%20OR%201=1--&pwd=test"
+
+# -- 3.4 Command Injection Probes --
+log ""
+log "3.4 Command Injection Probes"
+
+test_cmdi() {
+    local payload="$1"
+    local code
+    code=$(http_code "${PROTO}://${TARGET}${payload}")
+    if [ "$code" = "403" ] || [ "$code" = "400" ] || [ "$code" = "444" ]; then
+        pass "Command injection blocked -> ${code}"
+    else
+        info "Command injection returned ${code}"
+    fi
+}
+
+test_cmdi "/?cmd=;cat%20/etc/passwd"
+test_cmdi "/?file=|ls%20-la"
+test_cmdi "/?ping=127.0.0.1%0als"
+test_cmdi "/?input=%60whoami%60"
+
+# -- 3.5 Webshell Pattern Probes --
+log ""
+log "3.5 Webshell Pattern Probes (GET-based)"
+
+test_shell() {
+    local payload="$1"
+    local code
+    code=$(http_code "${PROTO}://${TARGET}${payload}")
+    if [ "$code" = "403" ] || [ "$code" = "400" ] || [ "$code" = "444" ]; then
+        pass "Webshell pattern blocked -> ${code}"
+    else
+        info "Webshell pattern returned ${code}"
+    fi
+}
+
+test_shell "/?cmd=system(%27id%27)"
+test_shell "/?c=passthru(%27cat+/etc/passwd%27)"
+test_shell "/?eval=base64_decode(%27cGhwaW5mbygp%27)"
+
+# ============================================================================
+# PHASE 4: WORDPRESS-SPECIFIC TESTS
+# ============================================================================
+separator
+bold "PHASE 4: WORDPRESS-SPECIFIC TESTS"
+separator
+
+# -- 4.1 User Enumeration --
+log ""
+log "4.1 WordPress User Enumeration"
+
+for i in 1 2 3 4 5; do
+    body=$(http_response "${PROTO}://${TARGET}/?author=${i}")
+    code=$(http_code "${PROTO}://${TARGET}/?author=${i}")
+    if echo "$body" | grep -qoE 'author/[a-zA-Z0-9_-]+'; then
+        username=$(echo "$body" | grep -oE 'author/[a-zA-Z0-9_-]+' | head -1 | cut -d/ -f2)
+        warn "User enumeration: author=${i} -> ${username}"
+    elif [ "$code" = "403" ]; then
+        pass "User enumeration blocked for author=${i}"
+    else
+        info "author=${i} -> ${code} (no username leaked)"
+    fi
+done
+
+# WP REST API user enum
+body=$(http_response "${PROTO}://${TARGET}/wp-json/wp/v2/users")
+code=$(http_code "${PROTO}://${TARGET}/wp-json/wp/v2/users")
+if [ "$code" = "200" ] && echo "$body" | grep -q '"slug"'; then
+    usernames=$(echo "$body" | grep -oE '"slug":"[^"]*"' | cut -d'"' -f4 | tr '\n' ', ')
+    fail "WP REST API exposes usernames: ${usernames}"
+elif [ "$code" = "403" ] || [ "$code" = "401" ]; then
+    pass "WP REST API user listing blocked -> ${code}"
+else
+    info "WP REST API users -> ${code}"
+fi
+
+# -- 4.2 XML-RPC --
+log ""
+log "4.2 XML-RPC Endpoint"
+
+xmlrpc_code=$(http_code "${PROTO}://${TARGET}/xmlrpc.php")
+if [ "$xmlrpc_code" = "405" ] || [ "$xmlrpc_code" = "200" ]; then
+    xmlrpc_body=$(curl -sk --max-time 10 -X POST \
+        -H "Content-Type: text/xml" \
+        -d '<?xml version="1.0"?><methodCall><methodName>system.listMethods</methodName></methodCall>' \
+        "${PROTO}://${TARGET}/xmlrpc.php" 2>/dev/null)
+    if echo "$xmlrpc_body" | grep -q "wp.getUsersBlogs"; then
+        fail "XML-RPC is enabled and exposes methods (brute-force vector)"
+    else
+        warn "XML-RPC endpoint is accessible (${xmlrpc_code}) but methods may be limited"
+    fi
+elif [ "$xmlrpc_code" = "403" ] || [ "$xmlrpc_code" = "444" ]; then
+    pass "XML-RPC endpoint blocked -> ${xmlrpc_code}"
+else
+    info "XML-RPC -> ${xmlrpc_code}"
+fi
+
+# -- 4.3 wp-login Brute Force (3 attempts) --
+log ""
+log "4.3 wp-login Brute-Force Detection (3 rapid failed logins)"
+
+bf_blocked=false
+for i in 1 2 3; do
+    code=$(curl -sk -o /dev/null -w "%{http_code}" \
+        -X POST "${PROTO}://${TARGET}/wp-login.php" \
+        -d "log=admin&pwd=wrongpassword${i}&wp-submit=Log+In" \
+        --max-time 10 2>/dev/null || echo "000")
+    if [ "$code" = "403" ] || [ "$code" = "429" ] || [ "$code" = "444" ]; then
+        pass "Brute-force blocked after attempt ${i} -> ${code}"
+        bf_blocked=true
+        break
+    fi
+done
+if [ "$bf_blocked" = false ]; then
+    warn "3 failed logins were not blocked (threshold may be higher)"
+fi
+
+# -- 4.4 Sensitive File Exposure --
+log ""
+log "4.4 Sensitive File Exposure"
+
+test_sensitive() {
+    local path="$1"
+    local code body
+    code=$(http_code "${PROTO}://${TARGET}${path}")
+    body=$(http_response "${PROTO}://${TARGET}${path}")
+
+    case "$path" in
+        *wp-config*|*.env|*.git*)
+            if [ "$code" = "200" ]; then
+                fail "Sensitive file EXPOSED: ${path}"
+            elif [ "$code" = "403" ]; then
+                pass "Sensitive file protected: ${path} -> 403"
+            else
+                pass "Sensitive file not accessible: ${path} -> ${code}"
+            fi
+            ;;
+        */debug.log)
+            if [ "$code" = "200" ] && [ "$(echo "$body" | wc -c)" -gt 100 ]; then
+                fail "Debug log exposed: ${path}"
+            else
+                pass "Debug log not exposed: ${path} -> ${code}"
+            fi
+            ;;
+        */readme.html|*/license.txt)
+            if [ "$code" = "200" ]; then
+                warn "Info file accessible (version disclosure): ${path}"
+            else
+                pass "Info file not accessible: ${path} -> ${code}"
+            fi
+            ;;
+        *)
+            if [ "$code" = "200" ]; then
+                warn "Path accessible: ${path}"
+            else
+                info "${path} -> ${code}"
+            fi
+            ;;
+    esac
+}
+
+test_sensitive "/wp-config.php"
+test_sensitive "/wp-config.php.bak"
+test_sensitive "/wp-config.php~"
+test_sensitive "/.env"
+test_sensitive "/.git/HEAD"
+test_sensitive "/.git/config"
+test_sensitive "/readme.html"
+test_sensitive "/license.txt"
+test_sensitive "/wp-admin/install.php"
+test_sensitive "/wp-content/debug.log"
+test_sensitive "/phpinfo.php"
+test_sensitive "/info.php"
+test_sensitive "/server-status"
+test_sensitive "/server-info"
+
+# -- 4.5 Directory Listing --
+log ""
+log "4.5 Directory Listing"
+
+test_dirlist() {
+    local path="$1"
+    local body
+    body=$(http_response "${PROTO}://${TARGET}${path}")
+    if echo "$body" | grep -qi "index of\|directory listing\|parent directory"; then
+        fail "Directory listing enabled: ${path}"
+    else
+        pass "No directory listing: ${path}"
+    fi
+}
+
+test_dirlist "/wp-content/uploads/"
+test_dirlist "/wp-content/plugins/"
+test_dirlist "/wp-content/themes/"
+test_dirlist "/wp-includes/"
+
+# ============================================================================
+# PHASE 5: JABALI DASHBOARD (PORT 8443)
+# ============================================================================
+separator
+bold "PHASE 5: JABALI WEB DASHBOARD (PORT 8443)"
+separator
+
+log ""
+log "5.1 Dashboard Accessibility"
+
+dash_code=$(http_code "https://${TARGET}:8443/" 2>/dev/null)
+if [ "$dash_code" = "000" ]; then
+    dash_code=$(http_code "http://${TARGET}:8443/" 2>/dev/null)
+fi
+
+if [ "$dash_code" = "000" ]; then
+    info "Dashboard on port 8443 not reachable (may be firewalled — good)"
+elif [ "$dash_code" = "200" ]; then
+    warn "Dashboard accessible on port 8443"
+    dash_body=$(http_response "https://${TARGET}:8443/" 2>/dev/null || http_response "http://${TARGET}:8443/" 2>/dev/null)
+    if echo "$dash_body" | grep -qi "login\|password\|auth"; then
+        pass "Dashboard shows login page"
+    else
+        fail "Dashboard may be accessible without login"
+    fi
+elif [ "$dash_code" = "401" ] || [ "$dash_code" = "403" ]; then
+    pass "Dashboard requires authentication -> ${dash_code}"
+else
+    info "Dashboard -> ${dash_code}"
+fi
+
+# ============================================================================
+# PHASE 6: JABALI API (PORT 9876)
+# ============================================================================
+separator
+bold "PHASE 6: JABALI REST API (PORT 9876)"
+separator
+
+log ""
+log "6.1 API Accessibility from External"
+
+api_code=$(http_code "http://${TARGET}:9876/api/v1/status" 2>/dev/null)
+if [ "$api_code" = "000" ]; then
+    pass "API port 9876 not reachable externally (localhost-only — correct)"
+elif [ "$api_code" = "401" ] || [ "$api_code" = "403" ]; then
+    warn "API port 9876 is reachable but requires auth -> ${api_code}"
+elif [ "$api_code" = "200" ]; then
+    fail "API port 9876 is reachable externally WITHOUT auth!"
+else
+    info "API port 9876 -> ${api_code}"
+fi
+
+# ============================================================================
+# SUMMARY
+# ============================================================================
+separator
+bold "RESULTS SUMMARY"
+separator
+log ""
+log "Target: ${TARGET}"
+log "Date:   $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+log ""
+green "  PASS: ${PASS}"
+if [ "$FAIL" -gt 0 ]; then
+    red "  FAIL: ${FAIL}"
+else
+    log "  FAIL: ${FAIL}"
+fi
+if [ "$WARN" -gt 0 ]; then
+    yellow "  WARN: ${WARN}"
+else
+    log "  WARN: ${WARN}"
+fi
+log ""
+log "Full report: ${REPORT_FILE}"
+
+separator
+
+if [ "$FAIL" -gt 0 ]; then
+    red "Security issues found. Review the FAIL entries above."
+    exit 1
+elif [ "$WARN" -gt 0 ]; then
+    yellow "Warnings found. Review the WARN entries above."
+    exit 0
+else
+    green "All tests passed!"
+    exit 0
+fi

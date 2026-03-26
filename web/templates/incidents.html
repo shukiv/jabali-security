@@ -25,9 +25,9 @@
                 <td><span class="badge badge-{{ inc.get('severity', 'low') }}">{{ inc.get('severity', '') }}</span></td>
                 <td>{{ inc.get('total_score', 0) }}</td>
                 <td>{{ inc.get('username', '') }}</td>
-                <td class="mono">{{ inc.get('file_event', {}).get('path', '') }}</td>
+                <td class="mono text-sm" title="{{ inc.get('path', '') }}">{{ inc.get('path', '').split('/')[-1] }}</td>
                 <td>{{ inc.get('action_taken', '') }}</td>
-                <td class="text-sm text-muted">{{ inc.get('timestamp', '') }}</td>
+                <td class="text-sm text-muted">{{ inc.get('timestamp', '')[:19] }}</td>
                 <td><a href="{{ url_for('incident_detail', incident_id=inc.get('id', '')) }}" class="btn btn-primary btn-sm">View</a></td>
             </tr>
             {% else %}
