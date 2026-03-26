@@ -1,7 +1,11 @@
 #!/bin/bash
 # Jabali Security — install / uninstall script
+# Usage:
+#   curl -fsSL https://git.linux-hosting.co.il/shukivaknin/jabali-security/raw/branch/master/install.sh | sudo bash
+#   sudo bash install.sh --uninstall
 set -euo pipefail
 
+REPO_URL="https://git.linux-hosting.co.il/shukivaknin/jabali-security.git"
 INSTALL_DIR="/usr/local/jabali-security"
 CONFIG_DIR="/etc/jabali-security"
 LOG_DIR="/var/log/jabali-security"
@@ -9,7 +13,6 @@ DATA_DIR="/var/lib/jabali-security"
 QUARANTINE_DIR="/var/security/quarantine"
 SERVICE_NAME="jabali-security"
 SYSCTL_CONF="/etc/sysctl.d/99-jabali-security.conf"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -22,6 +25,32 @@ require_root() {
         red "Error: this script must be run as root."
         exit 1
     fi
+}
+
+detect_pkg_manager() {
+    if command -v apt-get &>/dev/null; then
+        echo "apt"
+    elif command -v dnf &>/dev/null; then
+        echo "dnf"
+    elif command -v yum &>/dev/null; then
+        echo "yum"
+    else
+        echo "unknown"
+    fi
+}
+
+pkg_install() {
+    local pkg_mgr
+    pkg_mgr="$(detect_pkg_manager)"
+    case "$pkg_mgr" in
+        apt) apt-get update -qq && apt-get install -y -qq "$@" >/dev/null ;;
+        dnf) dnf install -y -q "$@" ;;
+        yum) yum install -y -q "$@" ;;
+        *)
+            red "Error: cannot detect package manager (apt/dnf/yum). Install manually: $*"
+            exit 1
+            ;;
+    esac
 }
 
 # ── Uninstall ──────────────────────────────────────────────────────────────
@@ -73,20 +102,20 @@ do_install() {
     require_root
     bold "Installing Jabali Security..."
 
-    # -- Install Python 3.12+ if missing --
+    # -- Install git if missing --
+    if ! command -v git &>/dev/null; then
+        echo "Installing git..."
+        pkg_install git
+    fi
+
+    # -- Install Python 3 if missing or too old --
     if ! command -v python3 &>/dev/null || [ "$(python3 -c 'import sys; print(sys.version_info >= (3,12))' 2>/dev/null)" != "True" ]; then
-        echo "Installing Python 3.12+..."
-        if command -v apt-get &>/dev/null; then
-            apt-get update -qq
-            apt-get install -y -qq python3 python3-venv python3-pip >/dev/null
-        elif command -v dnf &>/dev/null; then
-            dnf install -y -q python3 python3-pip
-        elif command -v yum &>/dev/null; then
-            yum install -y -q python3 python3-pip
-        else
-            red "Error: cannot detect package manager. Install Python 3.12+ manually."
-            exit 1
-        fi
+        echo "Installing Python 3..."
+        case "$(detect_pkg_manager)" in
+            apt) pkg_install python3 python3-venv python3-pip ;;
+            dnf) pkg_install python3 python3-pip ;;
+            yum) pkg_install python3 python3-pip ;;
+        esac
 
         if ! command -v python3 &>/dev/null; then
             red "Error: Python 3 installation failed."
@@ -95,19 +124,28 @@ do_install() {
         echo "Python $(python3 --version) installed."
     fi
 
+    # -- Clone repo to temp dir --
+    local tmp_dir
+    tmp_dir="$(mktemp -d)"
+    echo "Cloning repository..."
+    git clone --depth 1 --quiet "$REPO_URL" "$tmp_dir"
+
     # -- Copy application files --
     mkdir -p "$INSTALL_DIR"/{daemon,lib/watcher,lib/scanner,api,rules,etc,bin}
 
-    cp "$SCRIPT_DIR"/daemon/*.py "$INSTALL_DIR/daemon/"
-    cp "$SCRIPT_DIR"/lib/*.py "$INSTALL_DIR/lib/"
-    cp "$SCRIPT_DIR"/lib/watcher/*.py "$INSTALL_DIR/lib/watcher/"
-    cp "$SCRIPT_DIR"/lib/scanner/*.py "$INSTALL_DIR/lib/scanner/"
-    cp "$SCRIPT_DIR"/api/*.py "$INSTALL_DIR/api/"
-    cp "$SCRIPT_DIR"/rules/*.yar "$INSTALL_DIR/rules/"
-    cp "$SCRIPT_DIR"/etc/jabali-security.conf.example "$INSTALL_DIR/etc/"
-    cp "$SCRIPT_DIR"/etc/jabali-security.service "$INSTALL_DIR/etc/"
-    cp "$SCRIPT_DIR"/bin/jabali-security "$INSTALL_DIR/bin/"
+    cp "$tmp_dir"/daemon/*.py "$INSTALL_DIR/daemon/"
+    cp "$tmp_dir"/lib/*.py "$INSTALL_DIR/lib/"
+    cp "$tmp_dir"/lib/watcher/*.py "$INSTALL_DIR/lib/watcher/"
+    cp "$tmp_dir"/lib/scanner/*.py "$INSTALL_DIR/lib/scanner/"
+    cp "$tmp_dir"/api/*.py "$INSTALL_DIR/api/"
+    cp "$tmp_dir"/rules/*.yar "$INSTALL_DIR/rules/"
+    cp "$tmp_dir"/etc/jabali-security.conf.example "$INSTALL_DIR/etc/"
+    cp "$tmp_dir"/etc/jabali-security.service "$INSTALL_DIR/etc/"
+    cp "$tmp_dir"/bin/jabali-security "$INSTALL_DIR/bin/"
     chmod +x "$INSTALL_DIR/bin/jabali-security"
+
+    # Clean up temp clone
+    rm -rf "$tmp_dir"
 
     # -- CLI symlink --
     ln -sf "$INSTALL_DIR/bin/jabali-security" /usr/local/bin/jabali-security
@@ -156,7 +194,9 @@ do_install() {
     if [ ! -d "$_venv_dir" ] || [ ! -f "$_venv_dir/bin/python" ]; then
         echo "Creating Python venv..."
         if ! python3 -m venv "$_venv_dir" 2>/dev/null; then
-            red "WARNING: failed to create venv. Install python3-venv and re-run."
+            echo "Installing python3-venv..."
+            pkg_install python3-venv
+            python3 -m venv "$_venv_dir"
         fi
     fi
 
