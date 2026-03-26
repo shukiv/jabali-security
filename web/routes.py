@@ -116,8 +116,7 @@ def register_routes(app):
     @login_required
     def dashboard():
         status = api_call("GET", "/api/v1/status") or {}
-        config = api_call("GET", "/api/v1/config") or {}
-        return render_template("dashboard.html", status=status, config=config)
+        return render_template("dashboard.html", status=status, config=_config())
 
     @app.route("/toggle/<feature>", methods=["POST"])
     @login_required
@@ -282,7 +281,11 @@ def register_routes(app):
         return redirect(url_for("blocklist"))
 
     def _config():
-        return api_call("GET", "/api/v1/config") or {}
+        """Read config from file (not API) so toggles reflect latest changes."""
+        from lib.config import DEFAULTS, parse_conf
+        raw = dict(DEFAULTS)
+        raw.update(parse_conf(CONFIG_FILE))
+        return raw
 
     @app.route("/waf")
     @login_required
