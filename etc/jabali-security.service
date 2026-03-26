@@ -23,9 +23,10 @@ ReadWritePaths=/var/security/quarantine /var/lib/jabali-security /var/log/jabali
 ProtectHome=read-only
 PrivateTmp=yes
 # CAP_DAC_READ_SEARCH: read any file for scanning
-# CAP_KILL and CAP_NET_ADMIN: added when process suspension / IP blocking is implemented
-CapabilityBoundingSet=CAP_DAC_READ_SEARCH
-AmbientCapabilities=CAP_DAC_READ_SEARCH
+# CAP_NET_ADMIN: nftables IP blocking
+# CAP_KILL: process killer (proactive defense)
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH CAP_NET_ADMIN CAP_KILL
+AmbientCapabilities=CAP_DAC_READ_SEARCH CAP_NET_ADMIN CAP_KILL
 LimitNOFILE=65536
 MemoryMax=100M
 
