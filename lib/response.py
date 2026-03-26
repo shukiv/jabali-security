@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 
+from lib.cleanup.engine import CleanupEngine
 from lib.config import JabaliConfig
 from lib.incidents import IncidentStore
 from lib.models import FileEvent, Incident, ThreatScore
@@ -15,10 +16,17 @@ logger = logging.getLogger(__name__)
 
 
 class ResponseEngine:
-    def __init__(self, config: JabaliConfig, quarantine: QuarantineManager, incidents: IncidentStore) -> None:
+    def __init__(
+        self,
+        config: JabaliConfig,
+        quarantine: QuarantineManager,
+        incidents: IncidentStore,
+        cleanup: CleanupEngine | None = None,
+    ) -> None:
         self._config = config
         self._quarantine = quarantine
         self._incidents = incidents
+        self._cleanup = cleanup
         self._notify = NotificationEngine(config)
 
     async def handle(self, event: FileEvent, score: ThreatScore) -> Incident | None:
@@ -39,6 +47,23 @@ class ResponseEngine:
 
         # Save incident to database
         await self._incidents.save(incident)
+
+        # Try cleanup before quarantine if enabled
+        if self._cleanup and self._cleanup.enabled and self._cleanup.auto:
+            if score.action in ("quarantine", "suspend"):
+                try:
+                    cleanup_result = await self._cleanup.clean_file(event.path, score.findings)
+                    if cleanup_result.success:
+                        incident.action_taken = "cleaned"
+                        await self._incidents.save(incident)
+                        logger.info(
+                            "CLEANED [%s] %s (%d changes)",
+                            incident.id, event.path, len(cleanup_result.changes_made),
+                        )
+                        await self._notify.notify(incident)
+                        return incident
+                except Exception:
+                    logger.exception("Cleanup failed for [%s] %s, falling through to quarantine", incident.id, event.path)
 
         # Execute action
         match score.action:

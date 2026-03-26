@@ -68,6 +68,18 @@ CREATE TABLE IF NOT EXISTS waf_events (
 );
 CREATE INDEX IF NOT EXISTS idx_waf_events_ip ON waf_events(client_ip);
 CREATE INDEX IF NOT EXISTS idx_waf_events_created ON waf_events(created_at);
+
+CREATE TABLE IF NOT EXISTS cleanup_records (
+    id TEXT PRIMARY KEY,
+    path TEXT NOT NULL,
+    strategy TEXT NOT NULL,
+    success INTEGER NOT NULL,
+    backup_path TEXT,
+    changes_json TEXT,
+    error TEXT,
+    username TEXT,
+    created_at TEXT NOT NULL
+);
 """
 
 
@@ -237,6 +249,31 @@ class IncidentStore:
         )
         await self._db.commit()
         return cursor.rowcount > 0
+
+    async def save_cleanup(self, result) -> None:
+        """Save a cleanup result."""
+        assert self._db is not None  # noqa: S101
+        await self._db.execute(
+            """INSERT OR REPLACE INTO cleanup_records
+               (id, path, strategy, success, backup_path, changes_json, error, username, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (result.id, result.path, result.strategy, int(result.success),
+             result.backup_path, json.dumps(result.changes_made),
+             result.error, result.username, result.timestamp.isoformat()),
+        )
+        await self._db.commit()
+
+    async def list_cleanups(self, limit: int = 50) -> list[dict]:
+        """List recent cleanup records."""
+        assert self._db is not None  # noqa: S101
+        results = []
+        async with self._db.execute(
+            "SELECT * FROM cleanup_records ORDER BY created_at DESC LIMIT ?", (limit,)
+        ) as cursor:
+            cols = [d[0] for d in cursor.description]
+            async for row in cursor:
+                results.append(dict(zip(cols, row)))
+        return results
 
     @staticmethod
     def _row_to_incident(row, description) -> Incident | None:

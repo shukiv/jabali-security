@@ -15,6 +15,8 @@ from lib.behavior_tracker import BehaviorTracker
 from lib.bruteforce.detector import BruteForceDetector
 from lib.bruteforce.firewall import FirewallManager
 from lib.bruteforce.log_parser import AuthLogParser
+from lib.cleanup.engine import CleanupEngine
+from lib.cleanup.scheduler import ScanScheduler
 from lib.config import JabaliConfig
 from lib.constants import VERSION
 from lib.filter import PreFilter
@@ -109,9 +111,19 @@ class SecurityDaemon:
                 log_type=self.config.waf_audit_log_type,
             )
 
+        # Initialize cleanup engine
+        cleanup_engine: CleanupEngine | None = None
+        if self.config.cleanup_enabled:
+            cleanup_engine = CleanupEngine(
+                backup_dir=self.config.cleanup_backup_dir,
+                cms_checksums=self.config.cleanup_cms_checksums,
+                enabled=True,
+                auto=self.config.cleanup_auto,
+            )
+
         # Initialize quarantine + response
         quarantine = QuarantineManager(base_dir=self.config.quarantine_dir)
-        response = ResponseEngine(self.config, quarantine, self._incidents)
+        response = ResponseEngine(self.config, quarantine, self._incidents, cleanup=cleanup_engine)
 
         # Initialize process monitor
         proc_monitor = ProcessMonitor(
@@ -126,6 +138,18 @@ class SecurityDaemon:
             min_uid=self.config.process_kill_min_uid,
             whitelist_commands=self.config.process_kill_whitelist,
         )
+
+        # Initialize scan scheduler
+        scan_scheduler: ScanScheduler | None = None
+        if self.config.scheduled_scan_enabled:
+            scan_scheduler = ScanScheduler(
+                config=self.config,
+                scanner=scanner,
+                scoring=scoring,
+                response=response,
+                interval_hours=self.config.scheduled_scan_interval,
+                scan_paths=self.config.scheduled_scan_paths,
+            )
 
         php_hardener: PHPHardener | None = None
         if self.config.php_hardening_enabled:
@@ -149,6 +173,8 @@ class SecurityDaemon:
         app["waf_rules"] = waf_rules
         app["proactive_killer"] = proactive_killer
         app["php_hardener"] = php_hardener
+        app["cleanup"] = cleanup_engine
+        app["scheduler"] = scan_scheduler
         api_runner = web.AppRunner(app)
         await api_runner.setup()
         api_site = web.TCPSite(api_runner, self.config.api_bind, self.config.api_port)
@@ -197,6 +223,8 @@ class SecurityDaemon:
                     tg.create_task(waf_parser.run(
                         self._make_waf_callback(self._incidents)
                     ))
+                if scan_scheduler is not None:
+                    tg.create_task(scan_scheduler.run())
                 tg.create_task(self._wait_for_stop(stop_event))
         except* KeyboardInterrupt:
             pass

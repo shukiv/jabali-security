@@ -82,6 +82,11 @@ def setup_routes(app: web.Application) -> None:
     app.router.add_post("/api/v1/proactive/php/unharden", post_proactive_php_unharden)
     app.router.add_get("/api/v1/proactive/kills", get_proactive_kills)
 
+    app.router.add_get("/api/v1/cleanup/records", get_cleanup_records)
+    app.router.add_post("/api/v1/cleanup/file", post_cleanup_file)
+    app.router.add_post("/api/v1/scan/full", post_scan_full)
+    app.router.add_get("/api/v1/scan/scheduled", get_scan_scheduled)
+
 
 # -- Health / Status ---------------------------------------------------------
 
@@ -900,3 +905,56 @@ async def get_proactive_kills(request: web.Request) -> web.Response:
 
     records = killer.recent_kills
     return _ok([r.model_dump(mode="json") for r in records])
+
+
+# -- Cleanup -----------------------------------------------------------------
+
+async def get_cleanup_records(request: web.Request) -> web.Response:
+    incidents = request.app["incidents"]
+    records = await incidents.list_cleanups(limit=50)
+    return _ok(records)
+
+
+async def post_cleanup_file(request: web.Request) -> web.Response:
+    try:
+        body = await request.json()
+    except Exception:
+        return _err("Invalid JSON body")
+
+    path = body.get("path")
+    if not path or not isinstance(path, str):
+        return _err("'path' is required")
+
+    p = Path(path)
+    if p.is_symlink():
+        return _err("Symlinks not allowed")
+    if not p.is_file():
+        return _err("File not found", 404)
+
+    cleanup = request.app.get("cleanup")
+    if not cleanup:
+        return _err("Cleanup engine not available", 503)
+
+    result = await cleanup.clean_file(path)
+    # Save to DB
+    await request.app["incidents"].save_cleanup(result)
+    return _ok(result.model_dump())
+
+
+# -- Scheduled Scan ----------------------------------------------------------
+
+async def post_scan_full(request: web.Request) -> web.Response:
+    scheduler = request.app.get("scheduler")
+    if not scheduler:
+        return _err("Scan scheduler not available", 503)
+
+    import asyncio
+    asyncio.create_task(scheduler.run_now())
+    return _ok({"started": True, "status": scheduler.status})
+
+
+async def get_scan_scheduled(request: web.Request) -> web.Response:
+    scheduler = request.app.get("scheduler")
+    if not scheduler:
+        return _ok({"enabled": False})
+    return _ok(scheduler.status)

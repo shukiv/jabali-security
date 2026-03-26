@@ -75,6 +75,13 @@ DEFAULTS: dict[str, str] = {
     "PROCESS_KILL_THRESHOLD": "70",
     "PROCESS_KILL_MIN_UID": "1000",
     "PROCESS_KILL_WHITELIST": "wp-cron.php,artisan,composer",
+    "CLEANUP_ENABLED": "no",
+    "CLEANUP_AUTO": "no",
+    "CLEANUP_BACKUP_DIR": "/var/lib/jabali-security/backups",
+    "CLEANUP_CMS_CHECKSUMS": "yes",
+    "SCHEDULED_SCAN_ENABLED": "no",
+    "SCHEDULED_SCAN_INTERVAL": "24",
+    "SCHEDULED_SCAN_PATHS": "/home/*/public_html",
 }
 
 
@@ -228,6 +235,13 @@ class JabaliConfig:
     process_kill_threshold: int = 70
     process_kill_min_uid: int = 1000
     process_kill_whitelist: list[str] = field(default_factory=lambda: ["wp-cron.php", "artisan", "composer"])
+    cleanup_enabled: bool = False
+    cleanup_auto: bool = False
+    cleanup_backup_dir: str = "/var/lib/jabali-security/backups"
+    cleanup_cms_checksums: bool = True
+    scheduled_scan_enabled: bool = False
+    scheduled_scan_interval: int = 24
+    scheduled_scan_paths: list[str] = field(default_factory=lambda: ["/home/*/public_html"])
 
 
 def _safe_int(value: str, default: int, min_val: int | None = None, max_val: int | None = None) -> int:
@@ -331,4 +345,11 @@ def load_config(filepath: Path | None = None) -> JabaliConfig:
         process_kill_threshold=_safe_int(merged["PROCESS_KILL_THRESHOLD"], 70, min_val=1, max_val=100),
         process_kill_min_uid=_safe_int(merged["PROCESS_KILL_MIN_UID"], 1000, min_val=0),
         process_kill_whitelist=_csv_list(merged["PROCESS_KILL_WHITELIST"]),
+        cleanup_enabled=_bool(merged["CLEANUP_ENABLED"]),
+        cleanup_auto=_bool(merged["CLEANUP_AUTO"]),
+        cleanup_backup_dir=merged["CLEANUP_BACKUP_DIR"],
+        cleanup_cms_checksums=_bool(merged["CLEANUP_CMS_CHECKSUMS"]),
+        scheduled_scan_enabled=_bool(merged["SCHEDULED_SCAN_ENABLED"]),
+        scheduled_scan_interval=_safe_int(merged["SCHEDULED_SCAN_INTERVAL"], 24, min_val=1, max_val=8760),
+        scheduled_scan_paths=_csv_list(merged["SCHEDULED_SCAN_PATHS"]),
     )

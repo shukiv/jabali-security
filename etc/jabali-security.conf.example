@@ -176,6 +176,31 @@ PROCESS_KILL_MIN_UID="1000"
 # Comma-separated command substrings to whitelist from killing
 PROCESS_KILL_WHITELIST="wp-cron.php,artisan,composer"
 
+# -- Malware Cleanup ---------------------------------------------------------
+
+# Enable the cleanup engine (master switch)
+CLEANUP_ENABLED="no"
+
+# Automatically attempt cleanup before quarantine
+CLEANUP_AUTO="no"
+
+# Directory for file backups before cleanup
+CLEANUP_BACKUP_DIR="/var/lib/jabali-security/backups"
+
+# Use CMS checksums for integrity verification during cleanup
+CLEANUP_CMS_CHECKSUMS="yes"
+
+# -- Scheduled Scan ----------------------------------------------------------
+
+# Enable periodic full-path scanning
+SCHEDULED_SCAN_ENABLED="no"
+
+# Interval between scheduled scans in hours
+SCHEDULED_SCAN_INTERVAL="24"
+
+# Comma-separated paths/globs to scan on schedule
+SCHEDULED_SCAN_PATHS="/home/*/public_html"
+
 # -- Brute-Force Protection --------------------------------------------------
 
 # Enable brute-force detection and automatic IP blocking

@@ -1022,5 +1022,104 @@ def blocklist(as_json: bool) -> None:
         ))
 
 
+# -- cleanup group -----------------------------------------------------------
+
+@cli.group()
+def cleanup():
+    """Malware cleanup management."""
+
+
+@cleanup.command("records")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+def cleanup_records(as_json: bool) -> None:
+    """List recent cleanup operations."""
+    config = load_config()
+    data = _api_call(config, "GET", "/api/v1/cleanup/records")
+
+    if as_json:
+        click.echo(json.dumps(data, indent=2))
+        return
+
+    items = data if isinstance(data, list) else []
+    if not items:
+        click.echo("No cleanup records found.")
+        return
+
+    click.echo("%-16s  %-8s  %-10s  %-8s  %-30s  %s" % ("ID", "Strategy", "User", "Success", "Path", "Time"))
+    for item in items:
+        click.echo("%-16s  %-8s  %-10s  %-8s  %-30s  %s" % (
+            item.get("id", "")[:16],
+            item.get("strategy", ""),
+            item.get("username", "") or "",
+            "yes" if item.get("success") else "FAIL",
+            item.get("path", "")[:30],
+            item.get("created_at", ""),
+        ))
+
+
+@cleanup.command("file")
+@click.argument("path")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+def cleanup_file(path: str, as_json: bool) -> None:
+    """Manually clean a specific file."""
+    config = load_config()
+    p = Path(path)
+    if not p.is_file():
+        click.echo("File not found: %s" % path, err=True)
+        sys.exit(1)
+
+    if _daemon_is_reachable(config):
+        data = _api_call(config, "POST", "/api/v1/cleanup/file", {"path": str(p.resolve())})
+        if as_json:
+            click.echo(json.dumps(data, indent=2))
+        else:
+            success = data.get("success", False)
+            click.echo("Cleanup %s: %s" % ("succeeded" if success else "failed", str(p.resolve())))
+            if data.get("changes_made"):
+                click.echo("  Changes: %d" % len(data["changes_made"]))
+            if data.get("error"):
+                click.echo("  Error: %s" % data["error"])
+    else:
+        click.echo("Daemon is not running. Start the daemon to use cleanup.", err=True)
+        sys.exit(1)
+
+
+@cleanup.command("cms")
+@click.argument("path")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+def cleanup_cms(path: str, as_json: bool) -> None:
+    """Check CMS integrity and clean infections."""
+    config = load_config()
+    p = Path(path)
+    if not p.is_dir():
+        click.echo("Directory not found: %s" % path, err=True)
+        sys.exit(1)
+
+    if _daemon_is_reachable(config):
+        data = _api_call(config, "POST", "/api/v1/cleanup/file", {"path": str(p.resolve())})
+        if as_json:
+            click.echo(json.dumps(data, indent=2))
+        else:
+            click.echo("CMS cleanup for: %s" % str(p.resolve()))
+            success = data.get("success", False)
+            click.echo("  Result: %s" % ("clean" if success else "failed"))
+    else:
+        click.echo("Daemon is not running. Start the daemon to use CMS cleanup.", err=True)
+        sys.exit(1)
+
+
+@cli.command("scan-full")
+def scan_full() -> None:
+    """Trigger a full scheduled scan now."""
+    config = load_config()
+    data = _api_call(config, "POST", "/api/v1/scan/full")
+    started = data.get("started", False)
+    if started:
+        click.echo("Full scan started.")
+    else:
+        click.echo("Failed to start full scan.", err=True)
+        sys.exit(1)
+
+
 if __name__ == "__main__":
     cli()
