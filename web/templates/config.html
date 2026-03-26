@@ -3,7 +3,7 @@
 {% block content %}
 <div class="page-header">
     <h1>Configuration</h1>
-    <p>Edit daemon configuration — changes are saved to the config file immediately</p>
+    <p>Edit daemon configuration — changes are saved immediately</p>
 </div>
 
 {% set bool_keys = ["HEURISTIC_ENABLED", "ENTROPY_ENABLED", "YARA_ENABLED", "PROCESS_MONITOR_ENABLED",
@@ -17,13 +17,45 @@
 
 {% set secret_keys = ["API_KEY"] %}
 
-<div class="card">
+{% set categories = {
+    "Daemon": ["LOG_LEVEL", "LOG_DIR", "DATA_DIR", "QUARANTINE_DIR", "WORKERS"],
+    "API": ["API_BIND", "API_PORT", "API_KEY"],
+    "Web Dashboard": ["WEB_ENABLED", "WEB_BIND", "WEB_PORT"],
+    "File Watcher": ["WATCH_DIRS", "WATCHER_BACKEND"],
+    "Pre-Filter": ["SCAN_EXTENSIONS", "MAX_FILE_SIZE", "SKIP_DIRS"],
+    "Detection": ["HEURISTIC_ENABLED", "ENTROPY_ENABLED", "ENTROPY_THRESHOLD", "YARA_ENABLED", "YARA_RULES_DIR"],
+    "ClamAV": ["CLAMAV_ENABLED", "CLAMAV_SOCKET", "FRESHCLAM_ON_UPDATE"],
+    "Scoring": ["SCORE_LOG", "SCORE_QUARANTINE", "SCORE_SUSPEND"],
+    "Process Monitor": ["PROCESS_MONITOR_ENABLED", "PROCESS_POLL_INTERVAL"],
+    "Behavior": ["BEHAVIOR_TRACKING_ENABLED", "BEHAVIOR_TTL"],
+    "Response": ["AUTO_QUARANTINE", "AUTO_SUSPEND", "AUTO_BLOCK_IP"],
+    "WAF": ["WAF_ENABLED", "WAF_AUDIT_LOG", "WAF_AUDIT_LOG_TYPE", "WAF_RULES_DIR", "WAF_OVERRIDES_FILE", "WAF_CRS_AUTO_UPDATE", "WAF_WEB_SERVER"],
+    "Brute-Force": ["BRUTEFORCE_ENABLED", "BRUTEFORCE_SSH_LOG", "BRUTEFORCE_MAIL_LOG", "BRUTEFORCE_STALWART_LOG", "BRUTEFORCE_SSH_THRESHOLD", "BRUTEFORCE_SSH_WINDOW", "BRUTEFORCE_MAIL_THRESHOLD", "BRUTEFORCE_MAIL_WINDOW", "BRUTEFORCE_BLOCK_DURATIONS", "FIREWALL_BACKEND", "BRUTEFORCE_WHITELIST_IPS"],
+    "Proactive": ["PROACTIVE_ENABLED", "PHP_HARDENING_ENABLED", "PHP_HARDENING_AUTO", "PROCESS_KILL_ENABLED", "PROCESS_KILL_THRESHOLD", "PROCESS_KILL_MIN_UID", "PROCESS_KILL_WHITELIST"],
+    "Cleanup": ["CLEANUP_ENABLED", "CLEANUP_AUTO", "CLEANUP_BACKUP_DIR", "CLEANUP_CMS_CHECKSUMS"],
+    "Scheduled Scan": ["SCHEDULED_SCAN_ENABLED", "SCHEDULED_SCAN_INTERVAL", "SCHEDULED_SCAN_PATHS"],
+    "Threat Intel": ["THREAT_INTEL_ENABLED", "THREAT_INTEL_UPDATE_INTERVAL", "THREAT_INTEL_FEEDS", "THREAT_INTEL_AUTO_BLOCK", "THREAT_INTEL_AUTO_BLOCK_THRESHOLD"],
+    "WebShield": ["WEBSHIELD_ENABLED", "WEBSHIELD_RATE_LIMIT", "WEBSHIELD_RATE_BURST", "WEBSHIELD_CHALLENGE_ENABLED", "WEBSHIELD_BOT_FILTERING", "WEBSHIELD_NGINX_CONF_DIR"],
+    "Performance": ["DB_SCANNER_ENABLED", "RAPIDSCAN_WORKERS", "RAPIDSCAN_MTIME_CACHE"],
+    "Notifications": ["NOTIFY_EMAIL", "NOTIFY_WEBHOOK", "NOTIFY_MIN_SEVERITY"],
+    "Retention": ["INCIDENT_RETAIN_DAYS"],
+} %}
+
+<div class="config-tabs">
+    {% for cat in categories %}
+    <button class="config-tab {% if loop.first %}active{% endif %}" onclick="showTab('{{ cat|replace(' ', '-') }}', this)">{{ cat }}</button>
+    {% endfor %}
+</div>
+
+{% for cat, keys in categories.items() %}
+<div class="config-panel card {% if not loop.first %}hidden{% endif %}" id="tab-{{ cat|replace(' ', '-') }}">
+    <h3>{{ cat }}</h3>
     <table>
-        <thead>
-            <tr><th>Key</th><th>Value</th><th style="width:80px"></th></tr>
-        </thead>
+        <thead><tr><th>Key</th><th>Value</th><th style="width:80px"></th></tr></thead>
         <tbody>
-            {% for key, value in config.items()|sort %}
+            {% for key in keys %}
+            {% if key in config %}
+            {% set value = config[key] %}
             <tr>
                 <td class="mono" style="font-size:12px">{{ key }}</td>
                 <td>
@@ -47,16 +79,30 @@
                     {% endif %}
                 </td>
             </tr>
-            {% else %}
-            <tr><td colspan="3" class="text-muted">No configuration data available.</td></tr>
+            {% endif %}
             {% endfor %}
         </tbody>
     </table>
 </div>
+{% endfor %}
 
 <style>
+.config-tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 16px; }
+.config-tab { padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-muted); transition: all .15s; }
+.config-tab:hover { color: var(--text); border-color: var(--sidebar-active); }
+.config-tab.active { background: var(--sidebar-active); color: #fff; border-color: var(--sidebar-active); }
 .config-input { margin-bottom: 0; padding: 4px 8px; font-size: 12px; }
 .config-form { margin: 0; }
 select.config-input { width: auto; min-width: 70px; }
+.hidden { display: none; }
 </style>
+
+<script>
+function showTab(id, btn) {
+    document.querySelectorAll('.config-panel').forEach(p => p.classList.add('hidden'));
+    document.querySelectorAll('.config-tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('tab-' + id).classList.remove('hidden');
+    btn.classList.add('active');
+}
+</script>
 {% endblock %}
