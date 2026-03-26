@@ -27,6 +27,30 @@ require_root() {
     fi
 }
 
+detect_os() {
+    # Detect distro from /etc/os-release (standard on systemd-based distros)
+    if [ -f /etc/os-release ]; then
+        # shellcheck source=/dev/null
+        . /etc/os-release
+        OS_ID="${ID:-unknown}"
+        OS_VERSION="${VERSION_ID:-}"
+        OS_NAME="${PRETTY_NAME:-$OS_ID}"
+    elif [ -f /etc/redhat-release ]; then
+        OS_ID="rhel"
+        OS_VERSION="$(grep -oE '[0-9]+' /etc/redhat-release | head -1)"
+        OS_NAME="$(cat /etc/redhat-release)"
+    elif [ -f /etc/debian_version ]; then
+        OS_ID="debian"
+        OS_VERSION="$(cat /etc/debian_version)"
+        OS_NAME="Debian $OS_VERSION"
+    else
+        OS_ID="unknown"
+        OS_VERSION=""
+        OS_NAME="Unknown Linux"
+    fi
+    export OS_ID OS_VERSION OS_NAME
+}
+
 detect_pkg_manager() {
     if command -v apt-get &>/dev/null; then
         echo "apt"
@@ -102,26 +126,67 @@ do_install() {
     require_root
     bold "Installing Jabali Security..."
 
-    # -- Install git if missing --
-    if ! command -v git &>/dev/null; then
-        echo "Installing git..."
-        pkg_install git
-    fi
+    # -- Detect OS --
+    detect_os
+    echo "Detected OS: $OS_NAME (id=$OS_ID, version=${OS_VERSION:-n/a})"
 
-    # -- Install Python 3 if missing or too old --
-    if ! command -v python3 &>/dev/null || [ "$(python3 -c 'import sys; print(sys.version_info >= (3,12))' 2>/dev/null)" != "True" ]; then
-        echo "Installing Python 3..."
-        case "$(detect_pkg_manager)" in
-            apt) pkg_install python3 python3-venv python3-pip ;;
-            dnf) pkg_install python3 python3-pip ;;
-            yum) pkg_install python3 python3-pip ;;
-        esac
+    # -- Install system dependencies --
+    echo "Installing system dependencies..."
+    local pkg_mgr
+    pkg_mgr="$(detect_pkg_manager)"
 
-        if ! command -v python3 &>/dev/null; then
-            red "Error: Python 3 installation failed."
+    case "$pkg_mgr" in
+        apt)
+            pkg_install git python3 python3-venv python3-pip file coreutils
+            ;;
+        dnf)
+            pkg_install git python3 python3-pip file coreutils
+            ;;
+        yum)
+            pkg_install git python3 python3-pip file coreutils
+            ;;
+        *)
+            red "Error: cannot detect package manager (apt/dnf/yum)."
             exit 1
+            ;;
+    esac
+
+    # -- Verify Python 3.12+ --
+    if ! command -v python3 &>/dev/null; then
+        red "Error: Python 3 installation failed."
+        exit 1
+    fi
+    if [ "$(python3 -c 'import sys; print(sys.version_info >= (3,12))' 2>/dev/null)" != "True" ]; then
+        red "Error: Python 3.12+ is required. Found: $(python3 --version 2>&1)"
+        red "Please install Python 3.12 or later manually."
+        exit 1
+    fi
+    echo "Python $(python3 --version 2>&1) — OK"
+
+    # -- Optional: install ClamAV if not present --
+    if ! command -v clamd &>/dev/null && ! command -v clamdscan &>/dev/null; then
+        echo ""
+        echo "ClamAV is not installed. It provides an optional scanning backend."
+        echo "Install ClamAV? (y/N) "
+        if [ -t 0 ]; then
+            read -r install_clamav
+        else
+            install_clamav="n"
+            echo "(non-interactive mode — skipping ClamAV)"
         fi
-        echo "Python $(python3 --version) installed."
+        if [ "${install_clamav,,}" = "y" ]; then
+            echo "Installing ClamAV..."
+            case "$pkg_mgr" in
+                apt) pkg_install clamav-daemon clamav-freshclam ;;
+                dnf) pkg_install clamav clamd clamav-update ;;
+                yum) pkg_install clamav clamd clamav-update ;;
+            esac
+            echo "ClamAV installed."
+        else
+            echo "Skipping ClamAV (can be installed later)."
+        fi
+    else
+        echo "ClamAV detected — OK"
     fi
 
     # -- Clone repo to temp dir --
