@@ -297,13 +297,10 @@ def status(as_json: bool) -> None:
         sys.exit(0)
 
     config = load_config()
-    url = "http://%s:%d/api/v1/status" % (config.api_bind, config.api_port)
 
     try:
-        req = Request(url, method="GET")  # noqa: S310
-        with urlopen(req, timeout=5) as resp:  # noqa: S310
-            data = json.loads(resp.read().decode())
-    except (URLError, OSError, json.JSONDecodeError):
+        data = _api_call(config, "GET", "/api/v1/status")
+    except SystemExit:
         if as_json:
             click.echo(json.dumps({"running": False, "pid": pid, "error": "API unreachable"}))
         else:
