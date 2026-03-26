@@ -334,6 +334,23 @@ def register_routes(app):
         rules = rules if isinstance(rules, list) else []
         return render_template("webshield.html", status=status, rules=rules, config=_config())
 
+    @app.route("/webshield/install", methods=["POST"])
+    @login_required
+    def webshield_install():
+        result = api_call("POST", "/api/v1/webshield/install") or {}
+        if result.get("success"):
+            flash("WebShield installed. Add the nginx includes to your server config.", "success")
+        else:
+            flash("Install failed: %s" % result.get("error", "unknown"), "error")
+        return redirect(url_for("webshield"))
+
+    @app.route("/webshield/uninstall", methods=["POST"])
+    @login_required
+    def webshield_uninstall():
+        api_call("POST", "/api/v1/webshield/uninstall")
+        flash("WebShield uninstalled.", "success")
+        return redirect(url_for("webshield"))
+
     @app.route("/reset", methods=["POST"])
     @login_required
     def reset_stats():
