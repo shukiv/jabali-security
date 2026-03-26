@@ -197,16 +197,28 @@ do_install() {
     git clone --depth 1 --quiet "$REPO_URL" "$tmp_dir"
 
     # -- Copy application files --
-    mkdir -p "$INSTALL_DIR"/{daemon,lib/watcher,lib/scanner,api,rules,etc,bin}
+    mkdir -p "$INSTALL_DIR"/{daemon,api,rules,etc,bin}
+    mkdir -p "$INSTALL_DIR"/lib/{watcher,scanner,bruteforce,waf,proactive,cleanup,threat_intel,webshield}
+    mkdir -p "$INSTALL_DIR"/web/{templates,static/css,static/js}
 
     cp "$tmp_dir"/daemon/*.py "$INSTALL_DIR/daemon/"
     cp "$tmp_dir"/lib/*.py "$INSTALL_DIR/lib/"
     cp "$tmp_dir"/lib/watcher/*.py "$INSTALL_DIR/lib/watcher/"
     cp "$tmp_dir"/lib/scanner/*.py "$INSTALL_DIR/lib/scanner/"
+    cp "$tmp_dir"/lib/bruteforce/*.py "$INSTALL_DIR/lib/bruteforce/"
+    cp "$tmp_dir"/lib/waf/*.py "$INSTALL_DIR/lib/waf/"
+    cp "$tmp_dir"/lib/proactive/*.py "$INSTALL_DIR/lib/proactive/"
+    cp "$tmp_dir"/lib/cleanup/*.py "$INSTALL_DIR/lib/cleanup/"
+    cp "$tmp_dir"/lib/threat_intel/*.py "$INSTALL_DIR/lib/threat_intel/"
+    cp "$tmp_dir"/lib/webshield/*.py "$INSTALL_DIR/lib/webshield/"
     cp "$tmp_dir"/api/*.py "$INSTALL_DIR/api/"
+    cp "$tmp_dir"/web/*.py "$INSTALL_DIR/web/"
+    cp "$tmp_dir"/web/templates/*.html "$INSTALL_DIR/web/templates/"
+    cp -r "$tmp_dir"/web/static/* "$INSTALL_DIR/web/static/"
     cp "$tmp_dir"/rules/*.yar "$INSTALL_DIR/rules/"
     cp "$tmp_dir"/etc/jabali-security.conf.example "$INSTALL_DIR/etc/"
     cp "$tmp_dir"/etc/jabali-security.service "$INSTALL_DIR/etc/"
+    cp -r "$tmp_dir"/etc/webshield "$INSTALL_DIR/etc/" 2>/dev/null || true
     cp "$tmp_dir"/bin/jabali-security "$INSTALL_DIR/bin/"
     chmod +x "$INSTALL_DIR/bin/jabali-security"
 
