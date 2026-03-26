@@ -27,15 +27,14 @@
     {% set ips = blocked.get('blocked_ips', []) %}
     {% if ips %}
     <table>
-        <thead><tr><th>IP Address</th><th>Service</th><th>Attempts</th><th>Blocked At</th><th>Expires</th></tr></thead>
+        <thead><tr><th>IP Address</th><th>Reason</th><th>Blocked At</th><th>Expires</th></tr></thead>
         <tbody>
-            {% for ip in ips %}
+            {% for entry in ips %}
             <tr>
-                <td class="mono">{{ ip.get('ip', '') if ip is mapping else ip }}</td>
-                <td>{{ ip.get('service', '') if ip is mapping else '' }}</td>
-                <td>{{ ip.get('attempts', '') if ip is mapping else '' }}</td>
-                <td class="text-sm text-muted">{{ ip.get('blocked_at', '') if ip is mapping else '' }}</td>
-                <td class="text-sm text-muted">{{ ip.get('expires_at', 'permanent') if ip is mapping else '' }}</td>
+                <td class="mono">{{ entry.get('ip', '') if entry is mapping else entry }}</td>
+                <td class="text-sm">{{ entry.get('reason', '') if entry is mapping else '' }}</td>
+                <td class="text-sm text-muted">{{ entry.get('blocked_at', '')[:19] if entry is mapping else '' }}</td>
+                <td class="text-sm text-muted">{{ entry.get('expires_at', 'permanent')[:19] if entry is mapping and entry.get('expires_at') else 'permanent' }}</td>
             </tr>
             {% endfor %}
         </tbody>

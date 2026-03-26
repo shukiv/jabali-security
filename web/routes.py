@@ -291,7 +291,11 @@ def register_routes(app):
     @login_required
     def bruteforce():
         stats = api_call("GET", "/api/v1/bruteforce/stats") or {}
-        blocked = api_call("GET", "/api/v1/bruteforce/blocked") or {}
+        # Get blocked IPs from general blocklist, filter to bruteforce only
+        all_blocked = api_call("GET", "/api/v1/blocklist")
+        all_blocked = all_blocked if isinstance(all_blocked, list) else []
+        bf_blocked = [b for b in all_blocked if b.get("blocked_by") == "bruteforce"]
+        blocked = {"blocked_ips": bf_blocked}
         return render_template("bruteforce.html", stats=stats, blocked=blocked, config=_config())
 
     @app.route("/proactive")
