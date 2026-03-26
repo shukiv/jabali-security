@@ -67,7 +67,7 @@ pkg_install() {
     local pkg_mgr
     pkg_mgr="$(detect_pkg_manager)"
     case "$pkg_mgr" in
-        apt) apt-get update -qq && apt-get install -y -qq "$@" >/dev/null ;;
+        apt) DEBIAN_FRONTEND=noninteractive apt-get update -qq 2>/dev/null && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq "$@" >/dev/null 2>&1 ;;
         dnf) dnf install -y -q "$@" ;;
         yum) yum install -y -q "$@" ;;
         *)
