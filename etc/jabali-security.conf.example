@@ -153,6 +153,29 @@ WAF_CRS_AUTO_UPDATE="no"
 # Web server to reload after rule changes: "auto", "nginx", "apache"
 WAF_WEB_SERVER="auto"
 
+# -- Proactive Defense -------------------------------------------------------
+
+# Enable proactive defense subsystem (master switch)
+PROACTIVE_ENABLED="no"
+
+# Enable automatic PHP-FPM pool hardening (disable_functions, open_basedir)
+PHP_HARDENING_ENABLED="no"
+
+# Automatically harden new/unhardened pools at startup
+PHP_HARDENING_AUTO="no"
+
+# Enable proactive killing of suspicious processes above score threshold
+PROCESS_KILL_ENABLED="no"
+
+# Minimum threat score to kill a process (1-100)
+PROCESS_KILL_THRESHOLD="70"
+
+# Minimum UID for killable processes (never kills system processes below this)
+PROCESS_KILL_MIN_UID="1000"
+
+# Comma-separated command substrings to whitelist from killing
+PROCESS_KILL_WHITELIST="wp-cron.php,artisan,composer"
+
 # -- Brute-Force Protection --------------------------------------------------
 
 # Enable brute-force detection and automatic IP blocking

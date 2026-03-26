@@ -20,6 +20,8 @@ from lib.constants import VERSION
 from lib.filter import PreFilter
 from lib.hash_cache import HashCache
 from lib.incidents import IncidentStore
+from lib.proactive.php_hardener import PHPHardener
+from lib.proactive.process_killer import ProactiveProcessKiller
 from lib.process_monitor import ProcessMonitor
 from lib.quarantine import QuarantineManager
 from lib.queue import ScanQueue
@@ -117,6 +119,21 @@ class SecurityDaemon:
             enabled=self.config.process_monitor_enabled,
         )
 
+        # Initialize proactive defense components
+        proactive_killer = ProactiveProcessKiller(
+            enabled=self.config.process_kill_enabled,
+            threshold=self.config.process_kill_threshold,
+            min_uid=self.config.process_kill_min_uid,
+            whitelist_commands=self.config.process_kill_whitelist,
+        )
+
+        php_hardener: PHPHardener | None = None
+        if self.config.php_hardening_enabled:
+            php_hardener = PHPHardener(
+                enabled=True,
+                auto=self.config.php_hardening_auto,
+            )
+
         # Initialize REST API
         app = create_app(
             config=self.config,
@@ -130,6 +147,8 @@ class SecurityDaemon:
         app["bruteforce_detector"] = bf_detector
         app["waf_parser"] = waf_parser
         app["waf_rules"] = waf_rules
+        app["proactive_killer"] = proactive_killer
+        app["php_hardener"] = php_hardener
         api_runner = web.AppRunner(app)
         await api_runner.setup()
         api_site = web.TCPSite(api_runner, self.config.api_bind, self.config.api_port)
@@ -152,6 +171,15 @@ class SecurityDaemon:
         await api_site.start()
         logger.info("REST API listening on %s:%d", self.config.api_bind, self.config.api_port)
 
+        # Run initial PHP-FPM auto-hardening if enabled
+        if php_hardener is not None:
+            try:
+                hardened_count = await php_hardener.auto_harden_all()
+                if hardened_count:
+                    logger.info("Auto-hardened %d PHP-FPM pools at startup", hardened_count)
+            except Exception:
+                logger.exception("Error during initial PHP-FPM auto-hardening")
+
         # Launch tasks with TaskGroup
         try:
             async with asyncio.TaskGroup() as tg:
@@ -160,7 +188,7 @@ class SecurityDaemon:
                     tg.create_task(
                         self._scan_worker(scan_queue, scanner, scoring, behavior, response, i)
                     )
-                tg.create_task(proc_monitor.run(self._handle_process_threats))
+                tg.create_task(proc_monitor.run(proactive_killer.handle_threats))
                 if self.config.bruteforce_enabled and auth_parser is not None:
                     tg.create_task(auth_parser.run(
                         self._make_auth_callback(bf_detector, firewall, self._incidents)

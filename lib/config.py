@@ -68,6 +68,13 @@ DEFAULTS: dict[str, str] = {
     "WAF_OVERRIDES_FILE": "/etc/modsecurity/jabali-overrides.conf",
     "WAF_CRS_AUTO_UPDATE": "no",
     "WAF_WEB_SERVER": "auto",
+    "PROACTIVE_ENABLED": "no",
+    "PHP_HARDENING_ENABLED": "no",
+    "PHP_HARDENING_AUTO": "no",
+    "PROCESS_KILL_ENABLED": "no",
+    "PROCESS_KILL_THRESHOLD": "70",
+    "PROCESS_KILL_MIN_UID": "1000",
+    "PROCESS_KILL_WHITELIST": "wp-cron.php,artisan,composer",
 }
 
 
@@ -214,6 +221,13 @@ class JabaliConfig:
     waf_overrides_file: str = "/etc/modsecurity/jabali-overrides.conf"
     waf_crs_auto_update: bool = False
     waf_web_server: str = "auto"
+    proactive_enabled: bool = False
+    php_hardening_enabled: bool = False
+    php_hardening_auto: bool = False
+    process_kill_enabled: bool = False
+    process_kill_threshold: int = 70
+    process_kill_min_uid: int = 1000
+    process_kill_whitelist: list[str] = field(default_factory=lambda: ["wp-cron.php", "artisan", "composer"])
 
 
 def _safe_int(value: str, default: int, min_val: int | None = None, max_val: int | None = None) -> int:
@@ -310,4 +324,11 @@ def load_config(filepath: Path | None = None) -> JabaliConfig:
         waf_overrides_file=merged["WAF_OVERRIDES_FILE"],
         waf_crs_auto_update=_bool(merged["WAF_CRS_AUTO_UPDATE"]),
         waf_web_server=merged["WAF_WEB_SERVER"],
+        proactive_enabled=_bool(merged["PROACTIVE_ENABLED"]),
+        php_hardening_enabled=_bool(merged["PHP_HARDENING_ENABLED"]),
+        php_hardening_auto=_bool(merged["PHP_HARDENING_AUTO"]),
+        process_kill_enabled=_bool(merged["PROCESS_KILL_ENABLED"]),
+        process_kill_threshold=_safe_int(merged["PROCESS_KILL_THRESHOLD"], 70, min_val=1, max_val=100),
+        process_kill_min_uid=_safe_int(merged["PROCESS_KILL_MIN_UID"], 1000, min_val=0),
+        process_kill_whitelist=_csv_list(merged["PROCESS_KILL_WHITELIST"]),
     )

@@ -857,6 +857,117 @@ def waf_update() -> None:
         click.echo("CRS update failed: %s" % data.get("error", "unknown error"), err=True)
 
 
+# -- proactive group ---------------------------------------------------------
+
+@cli.group()
+def proactive():
+    """Proactive defense management."""
+
+
+@proactive.command("status")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+def proactive_status(as_json: bool) -> None:
+    """Show proactive defense status."""
+    config = load_config()
+    data = _api_call(config, "GET", "/api/v1/proactive/status")
+
+    if as_json:
+        click.echo(json.dumps(data, indent=2))
+        return
+
+    click.echo("Proactive defense status:")
+    click.echo("  Process kill enabled:  %s" % data.get("process_kill_enabled", False))
+    click.echo("  Process kill count:    %s" % data.get("process_kill_count", 0))
+    click.echo("  PHP hardening enabled: %s" % data.get("php_hardening_enabled", False))
+
+
+@proactive.command("php-pools")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+def proactive_php_pools(as_json: bool) -> None:
+    """List PHP-FPM pools and their hardening status."""
+    config = load_config()
+    data = _api_call(config, "GET", "/api/v1/proactive/php/pools")
+
+    if as_json:
+        click.echo(json.dumps(data, indent=2))
+        return
+
+    pools = data if isinstance(data, list) else []
+    if not pools:
+        click.echo("No PHP-FPM pools found.")
+        return
+
+    click.echo("%-20s  %-6s  %-12s  %-8s  %s" % ("Pool", "PHP", "User", "Hardened", "Issues"))
+    for pool in pools:
+        issues = ", ".join(pool.get("issues", [])) or "none"
+        click.echo("%-20s  %-6s  %-12s  %-8s  %s" % (
+            pool.get("pool_name", "")[:20],
+            pool.get("php_version", "?"),
+            pool.get("user", ""),
+            "yes" if pool.get("hardened") else "NO",
+            issues[:50],
+        ))
+
+
+@proactive.command("harden")
+@click.option("--all", "harden_all", is_flag=True, help="Harden all unhardened pools")
+@click.option("--pool", "pool_path", default=None, help="Path to pool config file")
+def proactive_harden(harden_all: bool, pool_path: str | None) -> None:
+    """Harden PHP-FPM pools with disable_functions and open_basedir."""
+    if not harden_all and not pool_path:
+        click.echo("Specify --all or --pool PATH", err=True)
+        sys.exit(1)
+
+    config = load_config()
+
+    if harden_all:
+        data = _api_call(config, "POST", "/api/v1/proactive/php/harden", {"all": True})
+        click.echo("Hardened %d pools." % data.get("hardened_count", 0))
+    else:
+        data = _api_call(config, "POST", "/api/v1/proactive/php/harden", {"conf_path": pool_path})
+        click.echo("Hardened pool at %s." % pool_path)
+
+
+@proactive.command("unharden")
+@click.option("--pool", "pool_path", required=True, help="Path to pool config file")
+def proactive_unharden(pool_path: str) -> None:
+    """Remove Jabali hardening from a PHP-FPM pool."""
+    config = load_config()
+    _api_call(config, "POST", "/api/v1/proactive/php/unharden", {"conf_path": pool_path})
+    click.echo("Removed hardening from %s." % pool_path)
+
+
+@proactive.command("kills")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+def proactive_kills(as_json: bool) -> None:
+    """List recent process kills."""
+    config = load_config()
+    data = _api_call(config, "GET", "/api/v1/proactive/kills")
+
+    if as_json:
+        click.echo(json.dumps(data, indent=2))
+        return
+
+    records = data if isinstance(data, list) else []
+    if not records:
+        click.echo("No process kills recorded.")
+        return
+
+    click.echo("%-16s  %6s  %6s  %-10s  %5s  %-8s  %s" % (
+        "ID", "PID", "PPID", "User", "Score", "Success", "Reason",
+    ))
+    for rec in records:
+        click.echo("%-16s  %6d  %6d  %-10s  %5d  %-8s  %s" % (
+            rec.get("id", "")[:16],
+            rec.get("pid", 0),
+            rec.get("ppid", 0),
+            rec.get("username", "") or "",
+            rec.get("score", 0),
+            "yes" if rec.get("success") else "FAIL",
+            rec.get("reason", "")[:40],
+        ))
+
+
 # -- block / unblock / blocklist commands ------------------------------------
 
 @cli.command()
