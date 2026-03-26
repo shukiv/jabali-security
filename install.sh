@@ -73,6 +73,28 @@ do_install() {
     require_root
     bold "Installing Jabali Security..."
 
+    # -- Install Python 3.12+ if missing --
+    if ! command -v python3 &>/dev/null || [ "$(python3 -c 'import sys; print(sys.version_info >= (3,12))' 2>/dev/null)" != "True" ]; then
+        echo "Installing Python 3.12+..."
+        if command -v apt-get &>/dev/null; then
+            apt-get update -qq
+            apt-get install -y -qq python3 python3-venv python3-pip >/dev/null
+        elif command -v dnf &>/dev/null; then
+            dnf install -y -q python3 python3-pip
+        elif command -v yum &>/dev/null; then
+            yum install -y -q python3 python3-pip
+        else
+            red "Error: cannot detect package manager. Install Python 3.12+ manually."
+            exit 1
+        fi
+
+        if ! command -v python3 &>/dev/null; then
+            red "Error: Python 3 installation failed."
+            exit 1
+        fi
+        echo "Python $(python3 --version) installed."
+    fi
+
     # -- Copy application files --
     mkdir -p "$INSTALL_DIR"/{daemon,lib/watcher,lib/scanner,api,rules,etc,bin}
 
@@ -111,7 +133,7 @@ do_install() {
     # -- Generate API_KEY if not set --
     if ! grep -q "^API_KEY=" "$CONFIG_DIR/jabali-security.conf" 2>/dev/null || \
        grep -q '^API_KEY=""' "$CONFIG_DIR/jabali-security.conf" 2>/dev/null; then
-        api_key="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')"
+        api_key="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))' 2>/dev/null || head -c 32 /dev/urandom | base64 | tr -d '/+=' | head -c 43)"
         if grep -q "^API_KEY=" "$CONFIG_DIR/jabali-security.conf"; then
             sed -i "s|^API_KEY=.*|API_KEY=\"${api_key}\"|" "$CONFIG_DIR/jabali-security.conf"
         else
