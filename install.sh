@@ -204,6 +204,8 @@ do_install() {
     cp "$tmp_dir"/rules/*.yar "$INSTALL_DIR/rules/"
     cp "$tmp_dir"/etc/jabali-security.conf.example "$INSTALL_DIR/etc/"
     cp "$tmp_dir"/etc/jabali-security.service "$INSTALL_DIR/etc/"
+    cp "$tmp_dir"/etc/jabali-security-web.service "$INSTALL_DIR/etc/"
+    cp "$tmp_dir"/etc/jabali-security.service "$INSTALL_DIR/etc/"
     cp -r "$tmp_dir"/etc/webshield "$INSTALL_DIR/etc/" 2>/dev/null || true
     cp "$tmp_dir"/bin/jabali-security "$INSTALL_DIR/bin/"
     chmod +x "$INSTALL_DIR/bin/jabali-security"
