@@ -87,6 +87,12 @@ DEFAULTS: dict[str, str] = {
     "THREAT_INTEL_FEEDS": "spamhaus_drop,spamhaus_edrop,blocklist_de_all,malwarebazaar_recent",
     "THREAT_INTEL_AUTO_BLOCK": "no",
     "THREAT_INTEL_AUTO_BLOCK_THRESHOLD": "3",
+    "WEBSHIELD_ENABLED": "no",
+    "WEBSHIELD_RATE_LIMIT": "10",
+    "WEBSHIELD_RATE_BURST": "20",
+    "WEBSHIELD_CHALLENGE_ENABLED": "yes",
+    "WEBSHIELD_BOT_FILTERING": "yes",
+    "WEBSHIELD_NGINX_CONF_DIR": "/etc/nginx/jabali",
 }
 
 
@@ -254,6 +260,12 @@ class JabaliConfig:
     )
     threat_intel_auto_block: bool = False
     threat_intel_auto_block_threshold: int = 3
+    webshield_enabled: bool = False
+    webshield_rate_limit: int = 10
+    webshield_rate_burst: int = 20
+    webshield_challenge_enabled: bool = True
+    webshield_bot_filtering: bool = True
+    webshield_nginx_conf_dir: str = "/etc/nginx/jabali"
 
 
 def _safe_int(value: str, default: int, min_val: int | None = None, max_val: int | None = None) -> int:
@@ -369,4 +381,10 @@ def load_config(filepath: Path | None = None) -> JabaliConfig:
         threat_intel_feeds=_csv_list(merged["THREAT_INTEL_FEEDS"]),
         threat_intel_auto_block=_bool(merged["THREAT_INTEL_AUTO_BLOCK"]),
         threat_intel_auto_block_threshold=_safe_int(merged["THREAT_INTEL_AUTO_BLOCK_THRESHOLD"], 3, min_val=1, max_val=10),
+        webshield_enabled=_bool(merged["WEBSHIELD_ENABLED"]),
+        webshield_rate_limit=_safe_int(merged["WEBSHIELD_RATE_LIMIT"], 10, min_val=1, max_val=10000),
+        webshield_rate_burst=_safe_int(merged["WEBSHIELD_RATE_BURST"], 20, min_val=1, max_val=100000),
+        webshield_challenge_enabled=_bool(merged["WEBSHIELD_CHALLENGE_ENABLED"]),
+        webshield_bot_filtering=_bool(merged["WEBSHIELD_BOT_FILTERING"]),
+        webshield_nginx_conf_dir=merged["WEBSHIELD_NGINX_CONF_DIR"],
     )

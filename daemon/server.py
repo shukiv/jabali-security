@@ -34,6 +34,7 @@ from lib.threat_intel.feed_manager import FeedManager
 from lib.waf.audit_log_parser import ModSecAuditLogParser
 from lib.waf.rule_manager import WafRuleManager
 from lib.watcher.inotify import InotifyWatcher
+from lib.webshield.manager import WebShieldManager
 
 logger = logging.getLogger("jabali-security")
 
@@ -167,6 +168,17 @@ class SecurityDaemon:
                 auto=self.config.php_hardening_auto,
             )
 
+        # Initialize WebShield (if enabled)
+        webshield: WebShieldManager | None = None
+        if self.config.webshield_enabled:
+            webshield = WebShieldManager(
+                config_dir=self.config.webshield_nginx_conf_dir,
+                rate_limit=self.config.webshield_rate_limit,
+                rate_burst=self.config.webshield_rate_burst,
+                challenge_enabled=self.config.webshield_challenge_enabled,
+                bot_filtering=self.config.webshield_bot_filtering,
+            )
+
         # Initialize REST API
         app = create_app(
             config=self.config,
@@ -185,6 +197,7 @@ class SecurityDaemon:
         app["cleanup"] = cleanup_engine
         app["scheduler"] = scan_scheduler
         app["threat_intel"] = feed_manager
+        app["webshield"] = webshield
         api_runner = web.AppRunner(app)
         await api_runner.setup()
         api_site = web.TCPSite(api_runner, self.config.api_bind, self.config.api_port)

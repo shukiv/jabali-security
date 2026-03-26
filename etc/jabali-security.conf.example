@@ -252,6 +252,26 @@ THREAT_INTEL_AUTO_BLOCK="no"
 # Number of feed matches required before auto-blocking an IP (1-10)
 THREAT_INTEL_AUTO_BLOCK_THRESHOLD="3"
 
+# -- WebShield (Bot Filtering + Rate Limiting) ------------------------------
+
+# Enable WebShield nginx integration (generates nginx config snippets)
+WEBSHIELD_ENABLED="no"
+
+# Requests per second allowed per IP before rate limiting kicks in
+WEBSHIELD_RATE_LIMIT="10"
+
+# Burst size for rate limiter (requests allowed above the rate before 429)
+WEBSHIELD_RATE_BURST="20"
+
+# Enable JavaScript challenge page for suspicious bots
+WEBSHIELD_CHALLENGE_ENABLED="yes"
+
+# Enable user-agent based bot filtering
+WEBSHIELD_BOT_FILTERING="yes"
+
+# Directory for generated nginx config snippets
+WEBSHIELD_NGINX_CONF_DIR="/etc/nginx/jabali"
+
 # -- Retention ---------------------------------------------------------------
 
 # Number of days to retain incident records

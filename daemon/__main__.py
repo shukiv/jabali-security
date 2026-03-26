@@ -1222,5 +1222,100 @@ def scan_full() -> None:
         sys.exit(1)
 
 
+# -- webshield group ---------------------------------------------------------
+
+@cli.group()
+def webshield():
+    """WebShield bot filtering management."""
+
+
+@webshield.command("status")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+def webshield_status(as_json: bool) -> None:
+    """Show WebShield installation status."""
+    config = load_config()
+    data = _api_call(config, "GET", "/api/v1/webshield/status")
+
+    if as_json:
+        click.echo(json.dumps(data, indent=2))
+        return
+
+    click.echo("WebShield status:")
+    click.echo("  Installed:      %s" % ("yes" if data.get("installed") else "no"))
+    click.echo("  Nginx available: %s" % ("yes" if data.get("nginx_available") else "no"))
+    click.echo("  Rate limiting:  %s" % ("active" if data.get("rate_limiting") else "inactive"))
+    click.echo("  Bot filtering:  %s" % ("active" if data.get("bot_filtering") else "inactive"))
+    click.echo("  Challenge:      %s" % ("enabled" if data.get("challenge_enabled") else "disabled"))
+    click.echo("  Blocked IPs:    %s" % data.get("blocked_ips_count", 0))
+    click.echo("  Config dir:     %s" % data.get("config_dir", ""))
+
+
+@webshield.command("install")
+def webshield_install() -> None:
+    """Install WebShield nginx configuration files."""
+    config = load_config()
+    click.echo("Installing WebShield nginx configs...")
+    data = _api_call(config, "POST", "/api/v1/webshield/install")
+
+    files = data.get("files_written", [])
+    if files:
+        click.echo("Files written:")
+        for f in files:
+            click.echo("  %s" % f)
+
+    valid = data.get("nginx_config_valid")
+    if valid is True:
+        click.echo("Nginx config test: OK")
+    elif valid is False:
+        click.echo("Nginx config test: FAILED (check nginx -t output)")
+
+    note = data.get("note", "")
+    if note:
+        click.echo("")
+        click.echo("Note: %s" % note)
+
+
+@webshield.command("uninstall")
+def webshield_uninstall() -> None:
+    """Remove WebShield nginx configuration files."""
+    config = load_config()
+    data = _api_call(config, "POST", "/api/v1/webshield/uninstall")
+
+    removed = data.get("files_removed", [])
+    if removed:
+        click.echo("Files removed:")
+        for f in removed:
+            click.echo("  %s" % f)
+    else:
+        click.echo("No WebShield files found to remove.")
+
+
+@webshield.command("rules")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+def webshield_rules(as_json: bool) -> None:
+    """List bot detection rules."""
+    config = load_config()
+    data = _api_call(config, "GET", "/api/v1/webshield/rules")
+
+    if as_json:
+        click.echo(json.dumps(data, indent=2))
+        return
+
+    items = data if isinstance(data, list) else []
+    if not items:
+        click.echo("No bot rules configured.")
+        return
+
+    click.echo("%-20s  %-10s  %-12s  %-25s  %s" % ("Name", "Action", "Category", "Pattern", "Enabled"))
+    for rule in items:
+        click.echo("%-20s  %-10s  %-12s  %-25s  %s" % (
+            rule.get("name", ""),
+            rule.get("action", ""),
+            rule.get("category", ""),
+            rule.get("pattern", "")[:25],
+            "yes" if rule.get("enabled") else "no",
+        ))
+
+
 if __name__ == "__main__":
     cli()
