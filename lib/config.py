@@ -51,6 +51,16 @@ DEFAULTS: dict[str, str] = {
     "CLAMAV_ENABLED": "auto",
     "CLAMAV_SOCKET": "/var/run/clamav/clamd.ctl",
     "FRESHCLAM_ON_UPDATE": "yes",
+    "BRUTEFORCE_ENABLED": "no",
+    "BRUTEFORCE_SSH_LOG": "/var/log/auth.log",
+    "BRUTEFORCE_MAIL_LOG": "/var/log/mail.log",
+    "BRUTEFORCE_SSH_THRESHOLD": "5",
+    "BRUTEFORCE_SSH_WINDOW": "300",
+    "BRUTEFORCE_MAIL_THRESHOLD": "10",
+    "BRUTEFORCE_MAIL_WINDOW": "600",
+    "BRUTEFORCE_BLOCK_DURATIONS": "600,3600,86400,0",
+    "FIREWALL_BACKEND": "auto",
+    "BRUTEFORCE_WHITELIST_IPS": "",
 }
 
 
@@ -180,6 +190,16 @@ class JabaliConfig:
     clamav_enabled: str = "auto"
     clamav_socket: str = "/var/run/clamav/clamd.ctl"
     freshclam_on_update: bool = True
+    bruteforce_enabled: bool = False
+    bruteforce_ssh_log: str = "/var/log/auth.log"
+    bruteforce_mail_log: str = "/var/log/mail.log"
+    bruteforce_ssh_threshold: int = 5
+    bruteforce_ssh_window: int = 300
+    bruteforce_mail_threshold: int = 10
+    bruteforce_mail_window: int = 600
+    bruteforce_block_durations: list[int] = field(default_factory=lambda: [600, 3600, 86400, 0])
+    firewall_backend: str = "auto"
+    bruteforce_whitelist_ips: list[str] = field(default_factory=list)
 
 
 def _safe_int(value: str, default: int, min_val: int | None = None, max_val: int | None = None) -> int:
@@ -256,4 +276,17 @@ def load_config(filepath: Path | None = None) -> JabaliConfig:
         clamav_enabled=merged["CLAMAV_ENABLED"],
         clamav_socket=merged["CLAMAV_SOCKET"],
         freshclam_on_update=_bool(merged["FRESHCLAM_ON_UPDATE"]),
+        bruteforce_enabled=_bool(merged["BRUTEFORCE_ENABLED"]),
+        bruteforce_ssh_log=merged["BRUTEFORCE_SSH_LOG"],
+        bruteforce_mail_log=merged["BRUTEFORCE_MAIL_LOG"],
+        bruteforce_ssh_threshold=_safe_int(merged["BRUTEFORCE_SSH_THRESHOLD"], 5, min_val=1),
+        bruteforce_ssh_window=_safe_int(merged["BRUTEFORCE_SSH_WINDOW"], 300, min_val=10),
+        bruteforce_mail_threshold=_safe_int(merged["BRUTEFORCE_MAIL_THRESHOLD"], 10, min_val=1),
+        bruteforce_mail_window=_safe_int(merged["BRUTEFORCE_MAIL_WINDOW"], 600, min_val=10),
+        bruteforce_block_durations=[
+            int(x) for x in merged["BRUTEFORCE_BLOCK_DURATIONS"].split(",")
+            if x.strip().lstrip("-").isdigit()
+        ],
+        firewall_backend=merged["FIREWALL_BACKEND"],
+        bruteforce_whitelist_ips=_csv_list(merged["BRUTEFORCE_WHITELIST_IPS"]),
     )

@@ -12,6 +12,9 @@ from aiohttp import web
 
 from api.app import create_app
 from lib.behavior_tracker import BehaviorTracker
+from lib.bruteforce.detector import BruteForceDetector
+from lib.bruteforce.firewall import FirewallManager
+from lib.bruteforce.log_parser import AuthLogParser
 from lib.config import JabaliConfig
 from lib.constants import VERSION
 from lib.filter import PreFilter
@@ -62,6 +65,32 @@ class SecurityDaemon:
         self._incidents = IncidentStore(db_path=data_dir / "incidents.db")
         await self._incidents.open()
 
+        # Initialize firewall
+        firewall = FirewallManager(backend=self.config.firewall_backend)
+        await firewall.initialize()
+
+        # Initialize brute-force detector + log parser (if enabled)
+        bf_detector: BruteForceDetector | None = None
+        auth_parser: AuthLogParser | None = None
+        if self.config.bruteforce_enabled:
+            bf_detector = BruteForceDetector(
+                thresholds={
+                    "ssh": (self.config.bruteforce_ssh_threshold, self.config.bruteforce_ssh_window),
+                    "dovecot": (self.config.bruteforce_mail_threshold, self.config.bruteforce_mail_window),
+                    "exim": (self.config.bruteforce_mail_threshold, self.config.bruteforce_mail_window),
+                    "postfix": (self.config.bruteforce_mail_threshold, self.config.bruteforce_mail_window),
+                },
+                block_durations=self.config.bruteforce_block_durations,
+                whitelist=set(self.config.bruteforce_whitelist_ips),
+            )
+            log_configs: dict[str, str] = {}
+            if Path(self.config.bruteforce_ssh_log).exists():
+                log_configs["ssh"] = self.config.bruteforce_ssh_log
+            if Path(self.config.bruteforce_mail_log).exists():
+                log_configs["dovecot"] = self.config.bruteforce_mail_log
+                log_configs["postfix"] = self.config.bruteforce_mail_log
+            auth_parser = AuthLogParser(log_configs)
+
         # Initialize quarantine + response
         quarantine = QuarantineManager(base_dir=self.config.quarantine_dir)
         response = ResponseEngine(self.config, quarantine, self._incidents)
@@ -81,6 +110,8 @@ class SecurityDaemon:
             scanner=scanner,
             scoring=scoring,
         )
+        app["firewall"] = firewall
+        app["bruteforce_detector"] = bf_detector
         api_runner = web.AppRunner(app)
         await api_runner.setup()
         api_site = web.TCPSite(api_runner, self.config.api_bind, self.config.api_port)
@@ -112,6 +143,10 @@ class SecurityDaemon:
                         self._scan_worker(scan_queue, scanner, scoring, behavior, response, i)
                     )
                 tg.create_task(proc_monitor.run(self._handle_process_threats))
+                if self.config.bruteforce_enabled and auth_parser is not None:
+                    tg.create_task(auth_parser.run(
+                        self._make_auth_callback(bf_detector, firewall, self._incidents)
+                    ))
                 tg.create_task(self._wait_for_stop(stop_event))
         except* KeyboardInterrupt:
             pass
@@ -181,6 +216,32 @@ class SecurityDaemon:
                 logger.exception("Worker %d: error processing %s", worker_id, event.path)
             finally:
                 queue.task_done()
+
+    @staticmethod
+    def _make_auth_callback(detector, firewall, incidents):
+        """Build the async callback that bridges log parser -> detector -> firewall."""
+        from datetime import datetime, timedelta, timezone
+
+        async def _on_auth_event(event):
+            decision = detector.record(event)
+            if decision is None:
+                return
+            await firewall.block_ip(decision.ip, decision.duration)
+            # Persist to blocked_ips table
+            db = incidents._db
+            if db is not None:
+                now = datetime.now(timezone.utc)
+                expires_at = None
+                if decision.duration > 0:
+                    expires_at = (now + timedelta(seconds=decision.duration)).isoformat()
+                await db.execute(
+                    "INSERT OR REPLACE INTO blocked_ips (ip, reason, blocked_at, expires_at, blocked_by) "
+                    "VALUES (?, ?, ?, ?, ?)",
+                    (decision.ip, decision.reason, now.isoformat(), expires_at, "bruteforce"),
+                )
+                await db.commit()
+
+        return _on_auth_event
 
     async def _handle_process_threats(self, threats: list) -> None:
         """Callback for process monitor — log threats."""

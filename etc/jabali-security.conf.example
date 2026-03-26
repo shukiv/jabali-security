@@ -130,6 +130,39 @@ NOTIFY_WEBHOOK=""
 # Minimum severity to trigger notifications: low, medium, high, critical
 NOTIFY_MIN_SEVERITY="high"
 
+# -- Brute-Force Protection --------------------------------------------------
+
+# Enable brute-force detection and automatic IP blocking
+BRUTEFORCE_ENABLED="no"
+
+# Log file for SSH authentication events
+BRUTEFORCE_SSH_LOG="/var/log/auth.log"
+
+# Log file for mail service authentication events (Dovecot, Postfix, Exim)
+BRUTEFORCE_MAIL_LOG="/var/log/mail.log"
+
+# SSH: number of failed attempts before blocking
+BRUTEFORCE_SSH_THRESHOLD="5"
+
+# SSH: sliding window in seconds for counting attempts
+BRUTEFORCE_SSH_WINDOW="300"
+
+# Mail services: number of failed attempts before blocking
+BRUTEFORCE_MAIL_THRESHOLD="10"
+
+# Mail services: sliding window in seconds for counting attempts
+BRUTEFORCE_MAIL_WINDOW="600"
+
+# Progressive block durations in seconds (comma-separated)
+# Each repeat offense uses the next duration; 0 = permanent
+BRUTEFORCE_BLOCK_DURATIONS="600,3600,86400,0"
+
+# Firewall backend: "auto" (detect nftables/iptables), "nftables", "iptables", "none"
+FIREWALL_BACKEND="auto"
+
+# Comma-separated IPs to never block (whitelist)
+BRUTEFORCE_WHITELIST_IPS=""
+
 # -- Retention ---------------------------------------------------------------
 
 # Number of days to retain incident records
