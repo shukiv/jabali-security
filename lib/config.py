@@ -25,7 +25,7 @@ DEFAULTS: dict[str, str] = {
     "API_BIND": "127.0.0.1",
     "API_PORT": "9876",
     "API_KEY": "",
-    "WATCH_DIRS": "/home/*/public_html,/home/*/tmp,/var/www",
+    "WATCH_DIRS": "/home/*/public_html,/home/*/domains/*/public_html,/home/*/tmp",
     "SCAN_EXTENSIONS": ".php,.phtml,.js,.py,.sh,.cgi,.pl,.asp,.aspx,.jsp",
     "MAX_FILE_SIZE": "2097152",
     "SKIP_DIRS": ".git,node_modules,vendor,__pycache__,.cache",

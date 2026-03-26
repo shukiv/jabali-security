@@ -19,7 +19,8 @@ SyslogIdentifier=jabali-security
 # Security hardening
 NoNewPrivileges=yes
 ProtectSystem=strict
-ReadWritePaths=/var/security/quarantine /var/lib/jabali-security /var/log/jabali-security /var/run/jabali-security
+ReadWritePaths=/var/security/quarantine /var/lib/jabali-security /var/log/jabali-security /etc/php
+RuntimeDirectory=jabali-security
 ProtectHome=read-only
 PrivateTmp=yes
 # CAP_DAC_READ_SEARCH: read any file for scanning

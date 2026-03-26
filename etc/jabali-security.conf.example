@@ -37,7 +37,7 @@ API_KEY=""
 # -- File Watcher ------------------------------------------------------------
 
 # Comma-separated list of directories/globs to watch recursively
-WATCH_DIRS="/home/*/public_html,/home/*/tmp,/var/www"
+WATCH_DIRS="/home/*/public_html,/home/*/domains/*/public_html,/home/*/tmp"
 
 # Watcher backend: inotify (default), fanotify (future)
 WATCHER_BACKEND="inotify"

@@ -25,6 +25,9 @@ PASS=0
 FAIL=0
 WARN=0
 
+# Legitimate browser UA to bypass WebShield bot challenge for actual vuln tests
+BROWSER_UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+
 # ── Helpers ─────────────────────────────────────────────────────────────────
 
 red()    { printf "\033[0;31m%s\033[0m\n" "$*"; }
@@ -63,15 +66,24 @@ separator() {
 }
 
 http_code() {
-    curl -sk -o /dev/null -w "%{http_code}" --max-time 10 "$@" 2>/dev/null || echo "000"
+    curl -sk -o /dev/null -w "%{http_code}" --max-time 10 -H "User-Agent: ${BROWSER_UA}" "$@" 2>/dev/null || echo "000"
 }
 
 http_response() {
-    curl -sk --max-time 10 "$@" 2>/dev/null
+    curl -sk --max-time 10 -H "User-Agent: ${BROWSER_UA}" "$@" 2>/dev/null
 }
 
 http_headers() {
-    curl -skI --max-time 10 "$@" 2>/dev/null
+    curl -skI --max-time 10 -H "User-Agent: ${BROWSER_UA}" "$@" 2>/dev/null
+}
+
+# Raw curl without browser UA — for bot-specific tests
+http_code_raw() {
+    curl -sk -o /dev/null -w "%{http_code}" --max-time 10 "$@" 2>/dev/null || echo "000"
+}
+
+http_response_raw() {
+    curl -sk --max-time 10 "$@" 2>/dev/null
 }
 
 # ── Validation ──────────────────────────────────────────────────────────────
@@ -204,9 +216,9 @@ test_ua() {
     local ua="$2"
     local code
     if [ -n "$ua" ]; then
-        code=$(http_code -H "User-Agent: ${ua}" "${PROTO}://${TARGET}/")
+        code=$(http_code_raw -H "User-Agent: ${ua}" "${PROTO}://${TARGET}/")
     else
-        code=$(http_code "${PROTO}://${TARGET}/")
+        code=$(http_code_raw "${PROTO}://${TARGET}/")
     fi
     if [ "$code" = "403" ] || [ "$code" = "429" ] || [ "$code" = "444" ]; then
         pass "Blocked user-agent '${name}' -> ${code}"
@@ -228,28 +240,33 @@ test_ua "curl-default" ""
 
 # -- 2.2 Rate Limiting --
 log ""
-log "2.2 Rate Limiting (30 rapid requests)"
+log "2.2 Rate Limiting (50 rapid requests with browser UA)"
 rate_limited=false
-for i in $(seq 1 30); do
+for i in $(seq 1 50); do
     code=$(http_code "${PROTO}://${TARGET}/")
-    if [ "$code" = "429" ] || [ "$code" = "503" ] || [ "$code" = "444" ]; then
-        pass "Rate limited after ${i} requests -> ${code}"
+    if [ "$code" = "429" ]; then
+        pass "Rate limited after ${i} requests -> 429"
         rate_limited=true
         break
     fi
 done
 if [ "$rate_limited" = false ]; then
-    warn "No rate limiting detected after 30 rapid requests"
+    warn "No rate limiting detected after 50 rapid requests"
 fi
 
 # -- 2.3 JS Challenge --
 log ""
 log "2.3 JavaScript Challenge Detection"
-body=$(http_response -H "User-Agent: " "${PROTO}://${TARGET}/")
-if echo "$body" | grep -qi "challenge\|captcha\|verify.*human\|__cf_bm\|jabali.*challenge"; then
-    pass "JS challenge page detected for empty UA"
+body=$(http_response_raw -H "User-Agent: python-requests/2.28.1" "${PROTO}://${TARGET}/")
+if echo "$body" | grep -qi "challenge\|captcha\|verify.*human\|jabali"; then
+    pass "JS challenge page served for suspicious UA"
 else
-    info "No JS challenge detected (may only trigger on sustained bot traffic)"
+    code=$(http_code_raw -H "User-Agent: python-requests/2.28.1" "${PROTO}://${TARGET}/")
+    if [ "$code" = "503" ]; then
+        pass "Suspicious UA gets 503 challenge response"
+    else
+        warn "No JS challenge detected for suspicious UA (got ${code})"
+    fi
 fi
 
 # ============================================================================
@@ -413,6 +430,7 @@ xmlrpc_code=$(http_code "${PROTO}://${TARGET}/xmlrpc.php")
 if [ "$xmlrpc_code" = "405" ] || [ "$xmlrpc_code" = "200" ]; then
     xmlrpc_body=$(curl -sk --max-time 10 -X POST \
         -H "Content-Type: text/xml" \
+        -H "User-Agent: ${BROWSER_UA}" \
         -d '<?xml version="1.0"?><methodCall><methodName>system.listMethods</methodName></methodCall>' \
         "${PROTO}://${TARGET}/xmlrpc.php" 2>/dev/null)
     if echo "$xmlrpc_body" | grep -q "wp.getUsersBlogs"; then
