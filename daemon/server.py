@@ -126,10 +126,9 @@ class SecurityDaemon:
         cleanup_engine: CleanupEngine | None = None
         if self.config.cleanup_enabled:
             cleanup_engine = CleanupEngine(
-                backup_dir=self.config.cleanup_backup_dir,
-                cms_checksums=self.config.cleanup_cms_checksums,
                 enabled=True,
                 auto=self.config.cleanup_auto,
+                use_checksums=self.config.cleanup_cms_checksums,
             )
 
         # Initialize quarantine + response
