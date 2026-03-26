@@ -1,0 +1,259 @@
+"""KEY=VALUE config parser — gniza4linux pattern."""
+
+from __future__ import annotations
+
+import logging
+import os
+import re
+import tempfile
+from dataclasses import dataclass, field
+from pathlib import Path
+
+from lib.constants import CONFIG_FILE
+
+logger = logging.getLogger(__name__)
+
+_KV_RE = re.compile(r'^([A-Z_][A-Z_0-9]*)=(.*)')
+_QUOTED_RE = re.compile(r'^"(.*)"$|^\'(.*)\'$')
+
+DEFAULTS: dict[str, str] = {
+    "LOG_LEVEL": "info",
+    "LOG_DIR": "/var/log/jabali-security",
+    "DATA_DIR": "/var/lib/jabali-security",
+    "QUARANTINE_DIR": "/var/security/quarantine",
+    "WORKERS": "2",
+    "API_BIND": "127.0.0.1",
+    "API_PORT": "9876",
+    "API_KEY": "",
+    "WATCH_DIRS": "/home/*/public_html,/home/*/tmp,/var/www",
+    "SCAN_EXTENSIONS": ".php,.phtml,.js,.py,.sh,.cgi,.pl,.asp,.aspx,.jsp",
+    "MAX_FILE_SIZE": "2097152",
+    "SKIP_DIRS": ".git,node_modules,vendor,__pycache__,.cache",
+    "HEURISTIC_ENABLED": "yes",
+    "ENTROPY_ENABLED": "yes",
+    "ENTROPY_THRESHOLD": "4.5",
+    "YARA_ENABLED": "yes",
+    "YARA_RULES_DIR": "/usr/local/jabali-security/rules",
+    "SCORE_LOG": "40",
+    "SCORE_QUARANTINE": "70",
+    "SCORE_SUSPEND": "100",
+    "PROCESS_MONITOR_ENABLED": "yes",
+    "PROCESS_POLL_INTERVAL": "2",
+    "BEHAVIOR_TRACKING_ENABLED": "yes",
+    "BEHAVIOR_TTL": "300",
+    "AUTO_QUARANTINE": "yes",
+    "AUTO_SUSPEND": "no",
+    "AUTO_BLOCK_IP": "no",
+    "NOTIFY_EMAIL": "",
+    "NOTIFY_WEBHOOK": "",
+    "NOTIFY_MIN_SEVERITY": "high",
+    "INCIDENT_RETAIN_DAYS": "90",
+    "CLAMAV_ENABLED": "auto",
+    "CLAMAV_SOCKET": "/var/run/clamav/clamd.ctl",
+    "FRESHCLAM_ON_UPDATE": "yes",
+}
+
+
+def _sanitize_value(value: str) -> str:
+    """Escape backslash, double-quote, newline, and carriage return."""
+    return value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n").replace("\r", "")
+
+
+def parse_conf(filepath: Path) -> dict[str, str]:
+    """Parse KEY="value" lines from a config file. Skip # comments and blanks."""
+    result: dict[str, str] = {}
+    if not filepath.is_file():
+        return result
+    text = filepath.read_text(encoding="utf-8")
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        m = _KV_RE.match(line)
+        if not m:
+            continue
+        key = m.group(1)
+        raw_value = m.group(2).strip()
+        qm = _QUOTED_RE.match(raw_value)
+        if qm:
+            value = qm.group(1) if qm.group(1) is not None else qm.group(2)
+        else:
+            value = raw_value
+        result[key] = value
+    return result
+
+
+def _atomic_write(filepath: Path, content: str) -> None:
+    """Write content atomically via temp file + rename. Creates with mode 0o600."""
+    filepath.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_path = tempfile.mkstemp(dir=str(filepath.parent), suffix=".tmp")
+    try:
+        os.write(fd, content.encode("utf-8"))
+        os.fchmod(fd, 0o600)
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+    os.rename(tmp_path, str(filepath))
+
+
+def write_conf(filepath: Path, data: dict[str, str]) -> None:
+    """Write config merging with existing values. Atomic write with mode 0o600."""
+    existing = parse_conf(filepath)
+    existing.update(data)
+    lines: list[str] = []
+    for key, value in sorted(existing.items()):
+        safe = _sanitize_value(value)
+        lines.append(f'{key}="{safe}"')
+    _atomic_write(filepath, "\n".join(lines) + "\n")
+
+
+def update_conf_key(filepath: Path, key: str, value: str) -> None:
+    """Update a single key in-place, preserving other lines and comments. Atomic write."""
+    safe = _sanitize_value(value)
+    new_line = f'{key}="{safe}"'
+    if not filepath.is_file():
+        _atomic_write(filepath, new_line + "\n")
+        return
+
+    text = filepath.read_text(encoding="utf-8")
+    lines = text.splitlines()
+    found = False
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            continue
+        m = _KV_RE.match(stripped)
+        if m and m.group(1) == key:
+            lines[i] = new_line
+            found = True
+            break
+    if not found:
+        lines.append(new_line)
+    _atomic_write(filepath, "\n".join(lines) + "\n")
+
+
+def _bool(value: str) -> bool:
+    return value.lower() in ("yes", "true", "1", "on")
+
+
+def _csv_list(value: str) -> list[str]:
+    return [v.strip() for v in value.split(",") if v.strip()]
+
+
+@dataclass
+class JabaliConfig:
+    """Typed config values loaded from the config file merged with defaults."""
+
+    log_level: str = "info"
+    log_dir: str = "/var/log/jabali-security"
+    data_dir: str = "/var/lib/jabali-security"
+    quarantine_dir: str = "/var/security/quarantine"
+    workers: int = 2
+    api_bind: str = "127.0.0.1"
+    api_port: int = 9876
+    api_key: str = ""
+    watch_dirs: list[str] = field(default_factory=lambda: ["/home/*/public_html", "/home/*/tmp", "/var/www"])
+    scan_extensions: list[str] = field(
+        default_factory=lambda: [".php", ".phtml", ".js", ".py", ".sh", ".cgi", ".pl", ".asp", ".aspx", ".jsp"]
+    )
+    max_file_size: int = 2097152
+    skip_dirs: list[str] = field(default_factory=lambda: [".git", "node_modules", "vendor", "__pycache__", ".cache"])
+    heuristic_enabled: bool = True
+    entropy_enabled: bool = True
+    entropy_threshold: float = 4.5
+    yara_enabled: bool = True
+    yara_rules_dir: str = "/usr/local/jabali-security/rules"
+    score_log: int = 40
+    score_quarantine: int = 70
+    score_suspend: int = 100
+    process_monitor_enabled: bool = True
+    process_poll_interval: int = 2
+    behavior_tracking_enabled: bool = True
+    behavior_ttl: int = 300
+    auto_quarantine: bool = True
+    auto_suspend: bool = False
+    auto_block_ip: bool = False
+    notify_email: str = ""
+    notify_webhook: str = ""
+    notify_min_severity: str = "high"
+    incident_retain_days: int = 90
+    clamav_enabled: str = "auto"
+    clamav_socket: str = "/var/run/clamav/clamd.ctl"
+    freshclam_on_update: bool = True
+
+
+def _safe_int(value: str, default: int, min_val: int | None = None, max_val: int | None = None) -> int:
+    """Parse int with fallback default and optional range clamping."""
+    try:
+        result = int(value)
+    except (ValueError, TypeError):
+        logger.warning("Invalid integer %r, using default %d", value, default)
+        return default
+    if min_val is not None and result < min_val:
+        return min_val
+    if max_val is not None and result > max_val:
+        return max_val
+    return result
+
+
+def _safe_float(value: str, default: float, min_val: float = 0.0, max_val: float = 8.0) -> float:
+    """Parse float with fallback default and range clamping."""
+    try:
+        result = float(value)
+    except (ValueError, TypeError):
+        logger.warning("Invalid float %r, using default %s", value, default)
+        return default
+    return max(min_val, min(result, max_val))
+
+
+def load_config(filepath: Path | None = None) -> JabaliConfig:
+    """Load config from file merged with defaults, returning typed JabaliConfig."""
+    if filepath is None:
+        filepath = CONFIG_FILE
+    merged = dict(DEFAULTS)
+    merged.update(parse_conf(filepath))
+
+    api_bind = merged["API_BIND"]
+    if api_bind not in ("127.0.0.1", "::1", "localhost"):
+        logger.warning(
+            "API_BIND=%r is not loopback — the API will be accessible from the network. "
+            "Set to 127.0.0.1 unless you have a specific reason for remote access.",
+            api_bind,
+        )
+
+    return JabaliConfig(
+        log_level=merged["LOG_LEVEL"],
+        log_dir=merged["LOG_DIR"],
+        data_dir=merged["DATA_DIR"],
+        quarantine_dir=merged["QUARANTINE_DIR"],
+        workers=_safe_int(merged["WORKERS"], 2, min_val=1, max_val=32),
+        api_bind=api_bind,
+        api_port=_safe_int(merged["API_PORT"], 9876, min_val=1024, max_val=65535),
+        api_key=merged["API_KEY"],
+        watch_dirs=_csv_list(merged["WATCH_DIRS"]),
+        scan_extensions=_csv_list(merged["SCAN_EXTENSIONS"]),
+        max_file_size=_safe_int(merged["MAX_FILE_SIZE"], 2097152, min_val=1024),
+        skip_dirs=_csv_list(merged["SKIP_DIRS"]),
+        heuristic_enabled=_bool(merged["HEURISTIC_ENABLED"]),
+        entropy_enabled=_bool(merged["ENTROPY_ENABLED"]),
+        entropy_threshold=_safe_float(merged["ENTROPY_THRESHOLD"], 4.5, 0.0, 8.0),
+        yara_enabled=_bool(merged["YARA_ENABLED"]),
+        yara_rules_dir=merged["YARA_RULES_DIR"],
+        score_log=_safe_int(merged["SCORE_LOG"], 40, min_val=0),
+        score_quarantine=_safe_int(merged["SCORE_QUARANTINE"], 70, min_val=0),
+        score_suspend=_safe_int(merged["SCORE_SUSPEND"], 100, min_val=0),
+        process_monitor_enabled=_bool(merged["PROCESS_MONITOR_ENABLED"]),
+        process_poll_interval=_safe_int(merged["PROCESS_POLL_INTERVAL"], 2, min_val=1, max_val=300),
+        behavior_tracking_enabled=_bool(merged["BEHAVIOR_TRACKING_ENABLED"]),
+        behavior_ttl=_safe_int(merged["BEHAVIOR_TTL"], 300, min_val=10),
+        auto_quarantine=_bool(merged["AUTO_QUARANTINE"]),
+        auto_suspend=_bool(merged["AUTO_SUSPEND"]),
+        auto_block_ip=_bool(merged["AUTO_BLOCK_IP"]),
+        notify_email=merged["NOTIFY_EMAIL"],
+        notify_webhook=merged["NOTIFY_WEBHOOK"],
+        notify_min_severity=merged["NOTIFY_MIN_SEVERITY"],
+        incident_retain_days=_safe_int(merged["INCIDENT_RETAIN_DAYS"], 90, min_val=1),
+        clamav_enabled=merged["CLAMAV_ENABLED"],
+        clamav_socket=merged["CLAMAV_SOCKET"],
+        freshclam_on_update=_bool(merged["FRESHCLAM_ON_UPDATE"]),
+    )

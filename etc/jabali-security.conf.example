@@ -1,0 +1,136 @@
+# ============================================================================
+# Jabali Security Configuration
+# ============================================================================
+# Format: KEY="value"
+# Lines starting with # are comments. Blank lines are ignored.
+# Copy to /etc/jabali-security/jabali-security.conf and edit as needed.
+# ============================================================================
+
+# -- Daemon ------------------------------------------------------------------
+
+# Log verbosity: debug, info, warning, error, critical
+LOG_LEVEL="info"
+
+# Directory for log files (auto-created on start)
+LOG_DIR="/var/log/jabali-security"
+
+# Persistent data directory (SQLite database, state files)
+DATA_DIR="/var/lib/jabali-security"
+
+# Quarantine directory for malicious files
+QUARANTINE_DIR="/var/security/quarantine"
+
+# Number of async scan workers
+WORKERS="2"
+
+# -- API ---------------------------------------------------------------------
+
+# Bind address for the REST API (127.0.0.1 = localhost only)
+API_BIND="127.0.0.1"
+
+# Port for the REST API
+API_PORT="9876"
+
+# API authentication key (auto-generated on install; change if needed)
+API_KEY=""
+
+# -- File Watcher ------------------------------------------------------------
+
+# Comma-separated list of directories/globs to watch recursively
+WATCH_DIRS="/home/*/public_html,/home/*/tmp,/var/www"
+
+# Watcher backend: inotify (default), fanotify (future)
+WATCHER_BACKEND="inotify"
+
+# -- Pre-Filter --------------------------------------------------------------
+
+# Comma-separated extensions to scan
+SCAN_EXTENSIONS=".php,.phtml,.js,.py,.sh,.cgi,.pl,.asp,.aspx,.jsp"
+
+# Maximum file size to scan in bytes (default 2MB)
+MAX_FILE_SIZE="2097152"
+
+# Comma-separated directory names to skip
+SKIP_DIRS=".git,node_modules,vendor,__pycache__,.cache"
+
+# -- Detection ---------------------------------------------------------------
+
+# Enable heuristic analysis (regex pattern matching)
+HEURISTIC_ENABLED="yes"
+
+# Enable Shannon entropy analysis
+ENTROPY_ENABLED="yes"
+
+# Entropy threshold (0.0 - 8.0); content above this is flagged
+ENTROPY_THRESHOLD="4.5"
+
+# Enable YARA-X signature scanning
+YARA_ENABLED="yes"
+
+# Directory containing YARA-X rule files (.yar)
+YARA_RULES_DIR="/usr/local/jabali-security/rules"
+
+# -- ClamAV (optional) ------------------------------------------------------
+
+# Enable ClamAV scanning: "auto" (detect clamd), "yes" (require), "no" (disable)
+CLAMAV_ENABLED="auto"
+
+# Path to clamd Unix socket
+CLAMAV_SOCKET="/var/run/clamav/clamd.ctl"
+
+# Run freshclam when `jabali-security rules update` is called
+FRESHCLAM_ON_UPDATE="yes"
+
+# -- Scoring -----------------------------------------------------------------
+
+# Minimum score to generate a log entry
+SCORE_LOG="40"
+
+# Minimum score to quarantine the file
+SCORE_QUARANTINE="70"
+
+# Minimum score to suspend the hosting account
+SCORE_SUSPEND="100"
+
+# -- Process Monitor ---------------------------------------------------------
+
+# Enable monitoring of suspicious process trees
+PROCESS_MONITOR_ENABLED="yes"
+
+# Poll interval in seconds for /proc scanning
+PROCESS_POLL_INTERVAL="2"
+
+# -- Behavior Tracking -------------------------------------------------------
+
+# Enable file lifecycle tracking (CREATE -> MODIFY -> EXECUTE patterns)
+BEHAVIOR_TRACKING_ENABLED="yes"
+
+# Time-to-live in seconds for behavior tracking records
+BEHAVIOR_TTL="300"
+
+# -- Response ----------------------------------------------------------------
+
+# Automatically quarantine files exceeding SCORE_QUARANTINE
+AUTO_QUARANTINE="yes"
+
+# Automatically suspend accounts exceeding SCORE_SUSPEND
+AUTO_SUSPEND="no"
+
+# Automatically block attacker IP addresses
+AUTO_BLOCK_IP="no"
+
+# -- Notifications -----------------------------------------------------------
+
+# Email address for alert notifications (empty = disabled)
+NOTIFY_EMAIL=""
+
+# Webhook URL for alert notifications (empty = disabled)
+NOTIFY_WEBHOOK=""
+
+# Minimum severity to trigger notifications: low, medium, high, critical
+NOTIFY_MIN_SEVERITY="high"
+
+# -- Retention ---------------------------------------------------------------
+
+# Number of days to retain incident records
+INCIDENT_RETAIN_DAYS="90"
