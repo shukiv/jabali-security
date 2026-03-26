@@ -166,29 +166,15 @@ do_install() {
     fi
     echo "Python $(python3 --version 2>&1) — OK"
 
-    # -- Optional: install ClamAV if not present --
+    # -- Install ClamAV if not present --
     if ! command -v clamd &>/dev/null && ! command -v clamdscan &>/dev/null; then
-        echo ""
-        echo "ClamAV is not installed. It provides an optional scanning backend."
-        if [ -t 0 ]; then
-            read -r -p "Install ClamAV? (y/N) " install_clamav
-        elif [ -e /dev/tty ]; then
-            read -r -p "Install ClamAV? (y/N) " install_clamav < /dev/tty
-        else
-            install_clamav="n"
-            echo "(non-interactive mode — skipping ClamAV)"
-        fi
-        if [ "${install_clamav,,}" = "y" ]; then
-            echo "Installing ClamAV..."
-            case "$pkg_mgr" in
-                apt) pkg_install clamav-daemon clamav-freshclam ;;
-                dnf) pkg_install clamav clamd clamav-update ;;
-                yum) pkg_install clamav clamd clamav-update ;;
-            esac
-            echo "ClamAV installed."
-        else
-            echo "Skipping ClamAV (can be installed later)."
-        fi
+        echo "Installing ClamAV (optional scanning backend)..."
+        case "$pkg_mgr" in
+            apt) pkg_install clamav-daemon clamav-freshclam ;;
+            dnf) pkg_install clamav clamd clamav-update ;;
+            yum) pkg_install clamav clamd clamav-update ;;
+        esac
+        echo "ClamAV installed."
     else
         echo "ClamAV detected — OK"
     fi
