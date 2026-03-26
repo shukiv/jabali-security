@@ -30,5 +30,5 @@ def api_call(method: str, path: str, body: dict | None = None) -> dict | list | 
             return result["data"]
         return result
     except (URLError, OSError, json.JSONDecodeError) as exc:
-        logger.debug("API call failed: %s %s -- %s", method, path, exc)
+        logger.error("API call failed: %s %s -- %s", method, path, exc)
         return None
