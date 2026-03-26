@@ -279,19 +279,18 @@ do_install() {
         fi
     fi
 
-    # -- Enable features with detected dependencies --
+    # -- Enable features with detected dependencies (on fresh install) --
     if command -v nft &>/dev/null || command -v iptables &>/dev/null; then
-        if ! grep -q "^BRUTEFORCE_ENABLED=" "$CONFIG_DIR/jabali-security.conf" 2>/dev/null; then
-            echo 'BRUTEFORCE_ENABLED="yes"' >> "$CONFIG_DIR/jabali-security.conf"
-            echo "Brute-force protection enabled (firewall detected)."
-        fi
+        sed -i 's|^BRUTEFORCE_ENABLED="no"|BRUTEFORCE_ENABLED="yes"|' "$CONFIG_DIR/jabali-security.conf"
+        echo "Brute-force protection enabled."
     fi
     if [ -n "$CRS_DIR" ]; then
-        if ! grep -q "^WAF_ENABLED=" "$CONFIG_DIR/jabali-security.conf" 2>/dev/null; then
-            echo 'WAF_ENABLED="yes"' >> "$CONFIG_DIR/jabali-security.conf"
-            echo "WAF enabled (ModSecurity CRS detected)."
-        fi
+        sed -i 's|^WAF_ENABLED="no"|WAF_ENABLED="yes"|' "$CONFIG_DIR/jabali-security.conf"
+        echo "WAF enabled."
     fi
+    # Enable proactive defense + process monitor by default
+    sed -i 's|^PROACTIVE_ENABLED="no"|PROACTIVE_ENABLED="yes"|' "$CONFIG_DIR/jabali-security.conf" 2>/dev/null
+    sed -i 's|^PROCESS_KILL_ENABLED="no"|PROCESS_KILL_ENABLED="yes"|' "$CONFIG_DIR/jabali-security.conf" 2>/dev/null
 
     # -- Set inotify watch limit --
     current_watches=$(cat /proc/sys/fs/inotify/max_user_watches 2>/dev/null || echo 0)
