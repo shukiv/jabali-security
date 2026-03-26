@@ -10,9 +10,31 @@ from flask import (
     url_for,
 )
 
-from lib.config import load_config
+from lib.config import load_config, update_conf_key
+from lib.constants import CONFIG_FILE
 from web.api_client import api_call
 from web.app import login_required
+
+# Config keys that map to protection toggles
+_TOGGLE_KEYS = {
+    "waf": "WAF_ENABLED",
+    "bruteforce": "BRUTEFORCE_ENABLED",
+    "proactive": "PROACTIVE_ENABLED",
+    "php_hardening": "PHP_HARDENING_ENABLED",
+    "process_kill": "PROCESS_KILL_ENABLED",
+    "cleanup": "CLEANUP_ENABLED",
+    "cleanup_auto": "CLEANUP_AUTO",
+    "scheduled_scan": "SCHEDULED_SCAN_ENABLED",
+    "threat_intel": "THREAT_INTEL_ENABLED",
+    "webshield": "WEBSHIELD_ENABLED",
+    "auto_quarantine": "AUTO_QUARANTINE",
+    "auto_suspend": "AUTO_SUSPEND",
+    "heuristic": "HEURISTIC_ENABLED",
+    "entropy": "ENTROPY_ENABLED",
+    "yara": "YARA_ENABLED",
+    "process_monitor": "PROCESS_MONITOR_ENABLED",
+    "behavior_tracking": "BEHAVIOR_TRACKING_ENABLED",
+}
 
 
 def register_routes(app):
@@ -38,7 +60,28 @@ def register_routes(app):
     @login_required
     def dashboard():
         status = api_call("GET", "/api/v1/status") or {}
-        return render_template("dashboard.html", status=status)
+        config = api_call("GET", "/api/v1/config") or {}
+        return render_template("dashboard.html", status=status, config=config)
+
+    @app.route("/toggle/<feature>", methods=["POST"])
+    @login_required
+    def toggle_feature(feature):
+        if feature not in _TOGGLE_KEYS:
+            flash("Unknown feature: %s" % feature, "error")
+            return redirect(url_for("dashboard"))
+        conf_key = _TOGGLE_KEYS[feature]
+        config = load_config()
+        # Get current value and flip it
+        current = getattr(config, feature, None)
+        if current is None:
+            # Try the config key directly
+            current = getattr(config, conf_key.lower(), False)
+        new_val = "no" if current else "yes"
+        update_conf_key(CONFIG_FILE, conf_key, new_val)
+        # Also push to running daemon
+        api_call("PATCH", "/api/v1/config", {conf_key: new_val})
+        flash("%s %s." % (feature.replace("_", " ").title(), "enabled" if new_val == "yes" else "disabled"), "success")
+        return redirect(request.referrer or url_for("dashboard"))
 
     @app.route("/incidents")
     @login_required
@@ -140,6 +183,9 @@ def register_routes(app):
         flash("IP %s unblocked." % ip, "success")
         return redirect(url_for("blocklist"))
 
+    def _config():
+        return api_call("GET", "/api/v1/config") or {}
+
     @app.route("/waf")
     @login_required
     def waf():
@@ -150,6 +196,7 @@ def register_routes(app):
             events=events if isinstance(events, list) else [],
             stats=stats or {},
             rules=rules or {},
+            config=_config(),
         )
 
     @app.route("/bruteforce")
@@ -157,7 +204,7 @@ def register_routes(app):
     def bruteforce():
         stats = api_call("GET", "/api/v1/bruteforce/stats") or {}
         blocked = api_call("GET", "/api/v1/bruteforce/blocked") or {}
-        return render_template("bruteforce.html", stats=stats, blocked=blocked)
+        return render_template("bruteforce.html", stats=stats, blocked=blocked, config=_config())
 
     @app.route("/proactive")
     @login_required
@@ -167,7 +214,7 @@ def register_routes(app):
         pools = pools if isinstance(pools, list) else []
         kills = api_call("GET", "/api/v1/proactive/kills")
         kills = kills if isinstance(kills, list) else []
-        return render_template("proactive.html", status=status, pools=pools, kills=kills)
+        return render_template("proactive.html", status=status, pools=pools, kills=kills, config=_config())
 
     @app.route("/cleanup")
     @login_required
@@ -175,14 +222,14 @@ def register_routes(app):
         records = api_call("GET", "/api/v1/cleanup/records")
         records = records if isinstance(records, list) else []
         scheduled = api_call("GET", "/api/v1/scan/scheduled") or {}
-        return render_template("cleanup.html", records=records, scheduled=scheduled)
+        return render_template("cleanup.html", records=records, scheduled=scheduled, config=_config())
 
     @app.route("/threat-intel")
     @login_required
     def threat_intel():
         feeds = api_call("GET", "/api/v1/threat-intel/feeds")
         feeds = feeds if isinstance(feeds, list) else []
-        return render_template("threat_intel.html", feeds=feeds)
+        return render_template("threat_intel.html", feeds=feeds, config=_config())
 
     @app.route("/threat-intel/update", methods=["POST"])
     @login_required
@@ -197,7 +244,7 @@ def register_routes(app):
         status = api_call("GET", "/api/v1/webshield/status") or {}
         rules = api_call("GET", "/api/v1/webshield/rules")
         rules = rules if isinstance(rules, list) else []
-        return render_template("webshield.html", status=status, rules=rules)
+        return render_template("webshield.html", status=status, rules=rules, config=_config())
 
     @app.route("/config")
     @login_required

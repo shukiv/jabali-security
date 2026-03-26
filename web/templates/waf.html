@@ -1,9 +1,10 @@
 {% extends "base.html" %}
 {% block title %}WAF{% endblock %}
 {% block content %}
-<div class="page-header">
-    <h1>Web Application Firewall</h1>
-    <p>ModSecurity WAF events and rules</p>
+{% from "macros.html" import protection_toggle %}
+<div class="page-header flex items-center" style="justify-content:space-between">
+    <div><h1>Web Application Firewall</h1><p>ModSecurity WAF events and rules</p></div>
+    {{ protection_toggle("waf", "WAF", config.get("WAF_ENABLED", "no") in ("yes", "true", "1")) }}
 </div>
 
 <div class="stats-grid">

@@ -1,9 +1,10 @@
 {% extends "base.html" %}
 {% block title %}Brute-Force Protection{% endblock %}
 {% block content %}
-<div class="page-header">
-    <h1>Brute-Force Protection</h1>
-    <p>SSH and mail login attack detection</p>
+{% from "macros.html" import protection_toggle %}
+<div class="page-header flex items-center" style="justify-content:space-between">
+    <div><h1>Brute-Force Protection</h1><p>SSH and mail login attack detection</p></div>
+    {{ protection_toggle("bruteforce", "Brute-Force", config.get("BRUTEFORCE_ENABLED", "no") in ("yes", "true", "1")) }}
 </div>
 
 <div class="stats-grid">

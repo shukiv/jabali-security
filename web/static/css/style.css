@@ -104,3 +104,23 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--i
 .gap-2 { gap: 8px; }
 .items-center { align-items: center; }
 .mono { font-family: 'SF Mono', Monaco, monospace; font-size: 12px; }
+
+/* Toggle switches */
+.toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.toggle-row:last-child { border-bottom: none; }
+.toggle-label { font-size: 13px; font-weight: 500; }
+.toggle-desc { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.toggle-form { flex-shrink: 0; margin-left: 16px; }
+.toggle-btn { padding: 4px 14px; border-radius: 12px; font-size: 11px; font-weight: 600; cursor: pointer; border: none; transition: all .15s; }
+.toggle-btn-on { background: rgba(16,185,129,.15); color: var(--success); }
+.toggle-btn-on:hover { background: rgba(239,68,68,.15); color: var(--danger); }
+.toggle-btn-off { background: rgba(107,114,128,.1); color: var(--text-muted); }
+.toggle-btn-off:hover { background: rgba(16,185,129,.15); color: var(--success); }
+
+/* Protection grid on dashboard */
+.protection-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin-bottom: 24px; }
+.protection-card { background: var(--card-bg); border-radius: 8px; padding: 14px 16px; border: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.protection-info { display: flex; align-items: center; gap: 10px; }
+.protection-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.protection-dot-on { background: var(--success); }
+.protection-dot-off { background: var(--text-muted); }
