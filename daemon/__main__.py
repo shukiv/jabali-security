@@ -135,12 +135,23 @@ def _daemon_not_running() -> None:
 
 
 def _api_call(config: JabaliConfig, method: str, path: str, body: dict | None = None) -> dict:
-    """Wrapper around _api_request that handles connection errors."""
+    """Wrapper around _api_request that handles connection errors.
+
+    Unwraps the standard API envelope: {"success": ..., "data": ..., "error": ...}
+    Returns the "data" payload directly.
+    """
     try:
-        return _api_request(config, method, path, body)
+        resp = _api_request(config, method, path, body)
     except (URLError, ConnectionRefusedError, OSError):
         _daemon_not_running()
         return {}  # unreachable, satisfies type checker
+
+    if isinstance(resp, dict) and "data" in resp:
+        if not resp.get("success"):
+            click.echo("Error: %s" % resp.get("error", "unknown"), err=True)
+            sys.exit(1)
+        return resp["data"] if resp["data"] is not None else {}
+    return resp
 
 
 # -- Standalone scan helpers -------------------------------------------------
@@ -393,7 +404,7 @@ def incidents_list(limit: int, user: str | None, severity: str | None, as_json: 
         click.echo(json.dumps(data, indent=2))
         return
 
-    items = data.get("incidents", [])
+    items = data if isinstance(data, list) else data.get("incidents", [])
     if not items:
         click.echo("No incidents found.")
         return
@@ -430,7 +441,7 @@ def quarantine_list(user: str | None, as_json: bool) -> None:
         click.echo(json.dumps(data, indent=2))
         return
 
-    items = data.get("records", [])
+    items = data if isinstance(data, list) else data.get("records", [])
     if not items:
         click.echo("No quarantined files found.")
         return
@@ -555,13 +566,19 @@ def rules_list() -> None:
     config = load_config()
     data = _api_call(config, "GET", "/api/v1/rules")
 
-    items = data.get("rules", [])
-    if not items:
-        click.echo("No rules loaded.")
-        return
+    scanners = data.get("scanners", [])
+    yara_rules = data.get("yara_rules", [])
 
-    for rule in items:
-        click.echo("  [%s] %s" % (rule.get("source", ""), rule.get("name", "")))
+    click.echo("Active scanners: %s" % ", ".join(scanners) if scanners else "none")
+    click.echo("YARA rules dir:  %s" % data.get("yara_rules_dir", "?"))
+    click.echo("ClamAV enabled:  %s" % data.get("clamav_enabled", False))
+    click.echo("")
+    if yara_rules:
+        click.echo("YARA rule files:")
+        for rule in yara_rules:
+            click.echo("  %s (%d bytes)" % (rule.get("name", ""), rule.get("size", 0)))
+    else:
+        click.echo("No YARA rules loaded.")
 
 
 @rules.command("update")
@@ -587,7 +604,7 @@ def user_list(min_score: int, as_json: bool) -> None:
     config = load_config()
     data = _api_call(config, "GET", "/api/v1/users")
 
-    users = data.get("users", [])
+    users = data if isinstance(data, list) else data.get("users", [])
     if min_score > 0:
         users = [u for u in users if u.get("risk_score", 0) >= min_score]
 
@@ -675,7 +692,7 @@ def blocklist(as_json: bool) -> None:
         click.echo(json.dumps(data, indent=2))
         return
 
-    items = data.get("blocked", [])
+    items = data if isinstance(data, list) else data.get("blocked", [])
     if not items:
         click.echo("No blocked IPs.")
         return
