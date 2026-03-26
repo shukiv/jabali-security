@@ -337,12 +337,25 @@ def register_routes(app):
     @app.route("/config")
     @login_required
     def config_page():
-        data = _config()
-        # Redact API key
-        if "API_KEY" in data and data["API_KEY"]:
-            data = dict(data)
-            data["API_KEY"] = "***"
-        return render_template("config.html", config=data)
+        return render_template("config.html", config=_config())
+
+    @app.route("/config/update", methods=["POST"])
+    @login_required
+    def config_update():
+        key = request.form.get("key", "").strip()
+        value = request.form.get("value", "").strip()
+        if not key:
+            flash("Key is required.", "error")
+            return redirect(url_for("config_page"))
+        # Validate key exists in defaults
+        from lib.config import DEFAULTS
+        if key not in DEFAULTS:
+            flash("Unknown config key: %s" % key, "error")
+            return redirect(url_for("config_page"))
+        update_conf_key(CONFIG_FILE, key, value)
+        api_call("PATCH", "/api/v1/config", {key: value})
+        flash("%s updated." % key, "success")
+        return redirect(url_for("config_page"))
 
     @app.route("/rules")
     @login_required

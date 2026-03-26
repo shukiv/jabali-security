@@ -3,24 +3,60 @@
 {% block content %}
 <div class="page-header">
     <h1>Configuration</h1>
-    <p>Current daemon configuration (read-only)</p>
+    <p>Edit daemon configuration — changes are saved to the config file immediately</p>
 </div>
+
+{% set bool_keys = ["HEURISTIC_ENABLED", "ENTROPY_ENABLED", "YARA_ENABLED", "PROCESS_MONITOR_ENABLED",
+    "BEHAVIOR_TRACKING_ENABLED", "AUTO_QUARANTINE", "AUTO_SUSPEND", "AUTO_BLOCK_IP",
+    "WAF_ENABLED", "WAF_CRS_AUTO_UPDATE", "BRUTEFORCE_ENABLED", "PROACTIVE_ENABLED",
+    "PHP_HARDENING_ENABLED", "PHP_HARDENING_AUTO", "PROCESS_KILL_ENABLED",
+    "CLEANUP_ENABLED", "CLEANUP_AUTO", "CLEANUP_CMS_CHECKSUMS",
+    "SCHEDULED_SCAN_ENABLED", "THREAT_INTEL_ENABLED", "THREAT_INTEL_AUTO_BLOCK",
+    "WEBSHIELD_ENABLED", "WEBSHIELD_CHALLENGE_ENABLED", "WEBSHIELD_BOT_FILTERING",
+    "WEB_ENABLED", "DB_SCANNER_ENABLED", "RAPIDSCAN_MTIME_CACHE", "FRESHCLAM_ON_UPDATE"] %}
+
+{% set secret_keys = ["API_KEY"] %}
 
 <div class="card">
     <table>
         <thead>
-            <tr><th>Key</th><th>Value</th></tr>
+            <tr><th>Key</th><th>Value</th><th style="width:80px"></th></tr>
         </thead>
         <tbody>
             {% for key, value in config.items()|sort %}
             <tr>
-                <td class="mono">{{ key }}</td>
-                <td class="mono">{{ value }}</td>
+                <td class="mono" style="font-size:12px">{{ key }}</td>
+                <td>
+                    <form method="post" action="/config/update" class="config-form" id="form-{{ key }}">
+                        <input type="hidden" name="key" value="{{ key }}">
+                        {% if key in bool_keys %}
+                            <select name="value" class="config-input" onchange="this.form.submit()">
+                                <option value="yes" {{ 'selected' if value in ('yes', 'true', '1') }}>yes</option>
+                                <option value="no" {{ 'selected' if value not in ('yes', 'true', '1') }}>no</option>
+                            </select>
+                        {% elif key in secret_keys %}
+                            <input type="password" name="value" value="{{ value }}" class="config-input mono">
+                        {% else %}
+                            <input type="text" name="value" value="{{ value }}" class="config-input mono">
+                        {% endif %}
+                    </form>
+                </td>
+                <td>
+                    {% if key not in bool_keys %}
+                    <button type="submit" form="form-{{ key }}" class="btn btn-sm btn-primary">Save</button>
+                    {% endif %}
+                </td>
             </tr>
             {% else %}
-            <tr><td colspan="2" class="text-muted">No configuration data available.</td></tr>
+            <tr><td colspan="3" class="text-muted">No configuration data available.</td></tr>
             {% endfor %}
         </tbody>
     </table>
 </div>
+
+<style>
+.config-input { margin-bottom: 0; padding: 4px 8px; font-size: 12px; }
+.config-form { margin: 0; }
+select.config-input { width: auto; min-width: 70px; }
+</style>
 {% endblock %}
