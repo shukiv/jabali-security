@@ -206,6 +206,7 @@ class FirewallManager:
     # -- helper --
 
     @staticmethod
+    @staticmethod
     async def _run(*args: str) -> int:
         """Run a command, return exit code. Never uses shell."""
         try:
@@ -214,10 +215,12 @@ class FirewallManager:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            await proc.communicate()
+            _stdout, stderr = await proc.communicate()
+            if proc.returncode != 0 and stderr:
+                logger.warning("nft command failed: %s -- %s", " ".join(args), stderr.decode()[:200])
             return proc.returncode or 0
         except OSError as exc:
-            logger.debug("Firewall command failed: %s -- %s", " ".join(args), exc)
+            logger.error("Firewall command failed: %s -- %s", " ".join(args), exc)
             return 1
 
     @property
