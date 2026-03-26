@@ -1222,6 +1222,123 @@ def scan_full() -> None:
         sys.exit(1)
 
 
+# -- scan-db command ---------------------------------------------------------
+
+_VALID_DB_NAME_CLI = __import__("re").compile(r"^[a-zA-Z0-9_]+$")
+
+
+@cli.command("scan-db")
+@click.argument("database")
+@click.option("--user", default="root", help="MySQL user")
+@click.option("--host", default="localhost", help="MySQL host")
+@click.option("--cms", default="wordpress", type=click.Choice(["wordpress", "joomla"]))
+@click.option("--prefix", default="wp_", help="Table prefix")
+@click.option("--json", "as_json", is_flag=True)
+def scan_db(database: str, user: str, host: str, cms: str, prefix: str, as_json: bool) -> None:
+    """Scan a MySQL database for malware."""
+    if not _VALID_DB_NAME_CLI.match(database):
+        click.echo("Invalid database name (alphanumeric and underscores only).", err=True)
+        sys.exit(1)
+
+    config = load_config()
+
+    if _daemon_is_reachable(config):
+        data = _api_call(config, "POST", "/api/v1/scan/database", {
+            "database": database,
+            "user": user,
+            "host": host,
+            "cms_type": cms,
+            "table_prefix": prefix,
+        })
+        if as_json:
+            click.echo(json.dumps(data, indent=2))
+        else:
+            count = data.get("findings_count", 0)
+            click.echo("Database: %s" % database)
+            click.echo("Findings: %d" % count)
+            for f in data.get("findings", []):
+                click.echo("  [%s] %s.%s row %s: %s" % (
+                    f.get("pattern", ""),
+                    f.get("table", ""),
+                    f.get("column", ""),
+                    f.get("row_id", ""),
+                    f.get("description", ""),
+                ))
+        return
+
+    # Standalone scan without daemon
+    from lib.scanner.database import DatabaseScanner
+    scanner = DatabaseScanner(enabled=True)
+    findings = asyncio.run(scanner.scan_database(database, user, host, cms, prefix))
+
+    if as_json:
+        click.echo(json.dumps({"database": database, "findings_count": len(findings), "findings": findings}, indent=2))
+    else:
+        click.echo("Database: %s" % database)
+        click.echo("Findings: %d" % len(findings))
+        for f in findings:
+            click.echo("  [%s] %s.%s row %s: %s" % (
+                f.get("pattern", ""),
+                f.get("table", ""),
+                f.get("column", ""),
+                f.get("row_id", ""),
+                f.get("description", ""),
+            ))
+
+
+# -- scan-rapid command ------------------------------------------------------
+
+@cli.command("scan-rapid")
+@click.argument("path")
+@click.option("--workers", "-w", default=4, help="Parallel workers")
+@click.option("--json", "as_json", is_flag=True)
+def scan_rapid(path: str, workers: int, as_json: bool) -> None:
+    """Fast parallel scan with mtime cache."""
+    target = Path(path)
+    if not target.is_dir():
+        click.echo("Directory not found: %s" % path, err=True)
+        sys.exit(1)
+
+    config = load_config()
+
+    if _daemon_is_reachable(config):
+        data = _api_call(config, "POST", "/api/v1/scan/rapid", {"path": str(target.resolve())})
+        if as_json:
+            click.echo(json.dumps(data, indent=2))
+        else:
+            click.echo("RapidScan: %s" % data.get("directory", path))
+            click.echo("  Files scanned:  %d" % data.get("files_scanned", 0))
+            click.echo("  Files skipped:  %d (unchanged)" % data.get("files_skipped", 0))
+            click.echo("  Threats found:  %d" % data.get("threats_found", 0))
+            for r in data.get("results", []):
+                click.echo("  [%d] %s -> %s" % (r.get("score", 0), r.get("path", ""), r.get("action", "")))
+        return
+
+    # Standalone scan without daemon
+    from lib.rapidscan import RapidScanEngine
+    from lib.scanner import ScanOrchestrator
+    from lib.scoring import ScoringEngine
+
+    scanner = ScanOrchestrator(config)
+    scoring = ScoringEngine(config)
+    engine = RapidScanEngine(config, workers=workers)
+    if config.rapidscan_mtime_cache:
+        cache_path = Path(config.data_dir) / "rapidscan_mtime.json"
+        engine.set_cache_path(cache_path)
+
+    result = asyncio.run(engine.scan_directory(str(target.resolve()), scanner, scoring))
+
+    if as_json:
+        click.echo(json.dumps(result, indent=2))
+    else:
+        click.echo("RapidScan: %s" % result.get("directory", path))
+        click.echo("  Files scanned:  %d" % result.get("files_scanned", 0))
+        click.echo("  Files skipped:  %d (unchanged)" % result.get("files_skipped", 0))
+        click.echo("  Threats found:  %d" % result.get("threats_found", 0))
+        for r in result.get("results", []):
+            click.echo("  [%d] %s -> %s" % (r.get("score", 0), r.get("path", ""), r.get("action", "")))
+
+
 # -- webshield group ---------------------------------------------------------
 
 @cli.group()

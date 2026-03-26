@@ -98,6 +98,9 @@ def setup_routes(app: web.Application) -> None:
     app.router.add_get("/api/v1/webshield/rules", get_webshield_rules)
     app.router.add_post("/api/v1/webshield/update-blocklist", post_webshield_update_blocklist)
 
+    app.router.add_post("/api/v1/scan/database", post_scan_database)
+    app.router.add_post("/api/v1/scan/rapid", post_scan_rapid)
+
 
 # -- Health / Status ---------------------------------------------------------
 
@@ -1108,3 +1111,67 @@ async def post_webshield_update_blocklist(request: web.Request) -> web.Response:
         return _err("Failed to write blocked IPs file", 500)
 
     return _ok({"updated": True, "count": len(ips)})
+
+
+# -- Database Scan -----------------------------------------------------------
+
+_VALID_DB_NAME_RE = re.compile(r"^[a-zA-Z0-9_]+$")
+_VALID_DB_HOST_RE = re.compile(r"^[a-zA-Z0-9._-]+$")
+
+
+async def post_scan_database(request: web.Request) -> web.Response:
+    try:
+        body = await request.json()
+    except Exception:
+        return _err("Invalid JSON body")
+
+    db_name = body.get("database")
+    if not db_name or not isinstance(db_name, str):
+        return _err("'database' is required")
+    if not _VALID_DB_NAME_RE.match(db_name):
+        return _err("Invalid database name")
+
+    db_user = body.get("user", "root")
+    if not isinstance(db_user, str) or not _VALID_DB_NAME_RE.match(db_user):
+        return _err("Invalid database user")
+
+    db_host = body.get("host", "localhost")
+    if not isinstance(db_host, str) or not _VALID_DB_HOST_RE.match(db_host):
+        return _err("Invalid database host")
+
+    cms_type = body.get("cms_type", "wordpress")
+    if cms_type not in ("wordpress", "joomla"):
+        return _err("'cms_type' must be 'wordpress' or 'joomla'")
+
+    table_prefix = body.get("table_prefix", "wp_")
+    if not isinstance(table_prefix, str) or not _VALID_DB_NAME_RE.match(table_prefix.rstrip("_")):
+        return _err("Invalid table prefix")
+
+    from lib.scanner.database import DatabaseScanner
+    scanner = DatabaseScanner(enabled=True)
+    findings = await scanner.scan_database(db_name, db_user, db_host, cms_type, table_prefix)
+    return _ok({"database": db_name, "findings_count": len(findings), "findings": findings})
+
+
+# -- RapidScan ---------------------------------------------------------------
+
+async def post_scan_rapid(request: web.Request) -> web.Response:
+    try:
+        body = await request.json()
+    except Exception:
+        return _err("Invalid JSON body")
+
+    path = body.get("path")
+    if not path or not isinstance(path, str):
+        return _err("'path' is required")
+    if not Path(path).is_dir():
+        return _err("Directory not found", 404)
+
+    from lib.rapidscan import RapidScanEngine
+    config = request.app["config"]
+    engine = RapidScanEngine(config, workers=config.rapidscan_workers)
+    if config.rapidscan_mtime_cache:
+        cache_path = Path(config.data_dir) / "rapidscan_mtime.json"
+        engine.set_cache_path(cache_path)
+    result = await engine.scan_directory(path, request.app["scanner"], request.app["scoring"])
+    return _ok(result)

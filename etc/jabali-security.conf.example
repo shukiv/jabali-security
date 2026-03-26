@@ -272,6 +272,19 @@ WEBSHIELD_BOT_FILTERING="yes"
 # Directory for generated nginx config snippets
 WEBSHIELD_NGINX_CONF_DIR="/etc/nginx/jabali"
 
+# -- Database Scanner --------------------------------------------------------
+
+# Enable MySQL database malware scanning (scans CMS tables for injected payloads)
+DB_SCANNER_ENABLED="no"
+
+# -- RapidScan ---------------------------------------------------------------
+
+# Number of parallel workers for rapid directory scanning
+RAPIDSCAN_WORKERS="4"
+
+# Cache file modification times to skip unchanged files between scans
+RAPIDSCAN_MTIME_CACHE="yes"
+
 # -- Retention ---------------------------------------------------------------
 
 # Number of days to retain incident records
