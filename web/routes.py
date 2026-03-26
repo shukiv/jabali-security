@@ -337,7 +337,11 @@ def register_routes(app):
     @app.route("/config")
     @login_required
     def config_page():
-        data = api_call("GET", "/api/v1/config") or {}
+        data = _config()
+        # Redact API key
+        if "API_KEY" in data and data["API_KEY"]:
+            data = dict(data)
+            data["API_KEY"] = "***"
         return render_template("config.html", config=data)
 
     @app.route("/rules")
