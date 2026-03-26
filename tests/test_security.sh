@@ -451,6 +451,7 @@ log "4.3 wp-login Brute-Force Detection (3 rapid failed logins)"
 bf_blocked=false
 for i in 1 2 3; do
     code=$(curl -sk -o /dev/null -w "%{http_code}" \
+        -H "User-Agent: ${BROWSER_UA}" \
         -X POST "${PROTO}://${TARGET}/wp-login.php" \
         -d "log=admin&pwd=wrongpassword${i}&wp-submit=Log+In" \
         --max-time 10 2>/dev/null || echo "000")

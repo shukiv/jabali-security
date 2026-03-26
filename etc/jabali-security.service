@@ -21,13 +21,15 @@ NoNewPrivileges=yes
 ProtectSystem=strict
 ReadWritePaths=/var/security/quarantine /var/lib/jabali-security /var/log/jabali-security /etc/php
 RuntimeDirectory=jabali-security
-ProtectHome=read-only
+ProtectHome=no
 PrivateTmp=yes
 # CAP_DAC_READ_SEARCH: read any file for scanning
+# CAP_DAC_OVERRIDE: delete/move files for quarantine
 # CAP_NET_ADMIN: nftables IP blocking
 # CAP_KILL: process killer (proactive defense)
-CapabilityBoundingSet=CAP_DAC_READ_SEARCH CAP_NET_ADMIN CAP_KILL
-AmbientCapabilities=CAP_DAC_READ_SEARCH CAP_NET_ADMIN CAP_KILL
+# CAP_FOWNER: change permissions on quarantined files
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH CAP_DAC_OVERRIDE CAP_NET_ADMIN CAP_KILL CAP_FOWNER
+AmbientCapabilities=CAP_DAC_READ_SEARCH CAP_DAC_OVERRIDE CAP_NET_ADMIN CAP_KILL CAP_FOWNER
 LimitNOFILE=65536
 MemoryMax=100M
 
