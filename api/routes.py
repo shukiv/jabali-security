@@ -415,11 +415,19 @@ async def post_block(request: web.Request) -> web.Response:
     )
     await db.commit()
 
+    # Also block in firewall
+    firewall = request.app.get("firewall")
+    fw_ok = False
+    if firewall:
+        dur = int(duration) if duration else 0
+        fw_ok = await firewall.block_ip(ip, dur)
+
     return _ok({
         "blocked": True,
         "ip": ip,
         "reason": reason,
         "expires_at": expires_at,
+        "firewall": fw_ok,
     })
 
 
@@ -439,6 +447,11 @@ async def delete_block(request: web.Request) -> web.Response:
 
     if cursor.rowcount == 0:
         return _err("IP not found in blocklist", 404)
+
+    # Also unblock in firewall
+    firewall = request.app.get("firewall")
+    if firewall:
+        await firewall.unblock_ip(ip)
 
     return _ok({"unblocked": True, "ip": ip})
 

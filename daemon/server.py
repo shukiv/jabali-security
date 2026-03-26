@@ -77,6 +77,29 @@ class SecurityDaemon:
         firewall = FirewallManager(backend=self.config.firewall_backend)
         await firewall.initialize()
 
+        # Re-sync blocked IPs from DB to firewall on startup
+        if self._incidents and self._incidents._db:
+            db = self._incidents._db
+            async with db.execute(
+                "SELECT ip, blocked_at, expires_at FROM blocked_ips"
+            ) as cursor:
+                sync_count = 0
+                async for row in cursor:
+                    ip_addr, _blocked_at, expires_at = row
+                    # Skip expired blocks
+                    if expires_at:
+                        from datetime import datetime as dt
+                        try:
+                            exp = dt.fromisoformat(expires_at)
+                            if exp < datetime.now(timezone.utc):
+                                continue
+                        except (ValueError, TypeError):
+                            pass
+                    await firewall.block_ip(ip_addr, 0)
+                    sync_count += 1
+                if sync_count:
+                    logger.info("Synced %d blocked IPs to firewall", sync_count)
+
         # Initialize brute-force detector + log parser (if enabled)
         bf_detector: BruteForceDetector | None = None
         auth_parser: AuthLogParser | None = None
