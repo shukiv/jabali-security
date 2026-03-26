@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 # Packages required by each feature (apt package names)
 # Only features that REQUIRE packages to function at all
 _FEATURE_DEPS: dict[str, list[str]] = {
-    "waf": ["libmodsecurity3"],
+    "waf": ["libnginx-mod-http-modsecurity"],
     "webshield": [],
 }
 # All other features work without extra packages
