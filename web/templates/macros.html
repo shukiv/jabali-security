@@ -1,5 +1,5 @@
 {% macro protection_toggle(feature, label, enabled) %}
-<form method="post" action="{{ url_for('toggle_feature', feature=feature) }}" style="display:inline">
+<form method="post" action="/toggle/{{ feature }}" style="display:inline">
     <button type="submit" class="toggle-btn {{ 'toggle-btn-on' if enabled else 'toggle-btn-off' }}">
         {{ "Enabled" if enabled else "Disabled" }}
     </button>
