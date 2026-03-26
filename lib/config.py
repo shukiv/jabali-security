@@ -93,7 +93,7 @@ DEFAULTS: dict[str, str] = {
     "WEBSHIELD_RATE_BURST": "20",
     "WEBSHIELD_CHALLENGE_ENABLED": "yes",
     "WEBSHIELD_BOT_FILTERING": "yes",
-    "WEBSHIELD_NGINX_CONF_DIR": "/etc/nginx/jabali",
+    "WEBSHIELD_NGINX_CONF_DIR": "/etc/nginx/jabali-security",
     "DB_SCANNER_ENABLED": "no",
     "RAPIDSCAN_WORKERS": "4",
     "RAPIDSCAN_MTIME_CACHE": "yes",
@@ -273,7 +273,7 @@ class JabaliConfig:
     webshield_rate_burst: int = 20
     webshield_challenge_enabled: bool = True
     webshield_bot_filtering: bool = True
-    webshield_nginx_conf_dir: str = "/etc/nginx/jabali"
+    webshield_nginx_conf_dir: str = "/etc/nginx/jabali-security"
     db_scanner_enabled: bool = False
     rapidscan_workers: int = 4
     rapidscan_mtime_cache: bool = True

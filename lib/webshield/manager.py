@@ -18,7 +18,7 @@ class WebShieldManager:
 
     def __init__(
         self,
-        config_dir: str = "/etc/nginx/jabali",
+        config_dir: str = "/etc/nginx/jabali-security",
         rate_limit: int = 10,
         rate_burst: int = 20,
         challenge_enabled: bool = True,

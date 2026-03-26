@@ -270,7 +270,7 @@ WEBSHIELD_CHALLENGE_ENABLED="yes"
 WEBSHIELD_BOT_FILTERING="yes"
 
 # Directory for generated nginx config snippets
-WEBSHIELD_NGINX_CONF_DIR="/etc/nginx/jabali"
+WEBSHIELD_NGINX_CONF_DIR="/etc/nginx/jabali-security"
 
 # -- Database Scanner --------------------------------------------------------
 
