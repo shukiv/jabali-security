@@ -87,6 +87,7 @@ class SecurityDaemon:
                     "dovecot": (self.config.bruteforce_mail_threshold, self.config.bruteforce_mail_window),
                     "exim": (self.config.bruteforce_mail_threshold, self.config.bruteforce_mail_window),
                     "postfix": (self.config.bruteforce_mail_threshold, self.config.bruteforce_mail_window),
+                    "stalwart": (self.config.bruteforce_mail_threshold, self.config.bruteforce_mail_window),
                 },
                 block_durations=self.config.bruteforce_block_durations,
                 whitelist=set(self.config.bruteforce_whitelist_ips),
@@ -97,6 +98,14 @@ class SecurityDaemon:
             if Path(self.config.bruteforce_mail_log).exists():
                 log_configs["dovecot"] = self.config.bruteforce_mail_log
                 log_configs["postfix"] = self.config.bruteforce_mail_log
+            # Stalwart uses dated log files: stalwart.log.YYYY-MM-DD
+            stalwart_dir = Path(self.config.bruteforce_stalwart_log)
+            if stalwart_dir.is_dir():
+                from datetime import date
+                today_log = stalwart_dir / ("stalwart.log.%s" % date.today().isoformat())
+                if today_log.exists():
+                    log_configs["stalwart"] = str(today_log)
+                    logger.info("Stalwart log detected: %s", today_log)
             auth_parser = AuthLogParser(log_configs)
 
         # Initialize WAF components (if enabled)

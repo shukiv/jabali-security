@@ -39,6 +39,20 @@ _LOG_PATTERNS: dict[str, list[tuple[str, re.Pattern[str]]]] = {
             r"SASL (?:LOGIN|PLAIN|CRAM-MD5) authentication failed.*\[(?P<ip>\d+\.\d+\.\d+\.\d+)\]"
         )),
     ],
+    "stalwart": [
+        # Stalwart log format: 2026-03-19T20:22:55Z WARN ... (auth.failed) remote-ip = 1.2.3.4
+        ("stalwart_auth_failed", re.compile(
+            r"(?:auth\.failed|auth\.error|Authentication failed).{0,200}remote-ip\s*=\s*(?P<ip>\d+\.\d+\.\d+\.\d+)"
+        )),
+        # Alternative format: ... (security.authentication-failed) ... remote-ip = x.x.x.x
+        ("stalwart_security_auth_failed", re.compile(
+            r"security\.authentication-failed.{0,200}remote-ip\s*=\s*(?P<ip>\d+\.\d+\.\d+\.\d+)"
+        )),
+        # Brute force detection by Stalwart itself
+        ("stalwart_brute_force", re.compile(
+            r"(?:security\.brute-force|too many auth).{0,200}remote-ip\s*=\s*(?P<ip>\d+\.\d+\.\d+\.\d+)"
+        )),
+    ],
 }
 
 

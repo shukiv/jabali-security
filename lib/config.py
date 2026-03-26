@@ -54,6 +54,7 @@ DEFAULTS: dict[str, str] = {
     "BRUTEFORCE_ENABLED": "no",
     "BRUTEFORCE_SSH_LOG": "/var/log/auth.log",
     "BRUTEFORCE_MAIL_LOG": "/var/log/mail.log",
+    "BRUTEFORCE_STALWART_LOG": "/var/log/stalwart-mail",
     "BRUTEFORCE_SSH_THRESHOLD": "5",
     "BRUTEFORCE_SSH_WINDOW": "300",
     "BRUTEFORCE_MAIL_THRESHOLD": "10",
@@ -231,6 +232,7 @@ class JabaliConfig:
     bruteforce_enabled: bool = False
     bruteforce_ssh_log: str = "/var/log/auth.log"
     bruteforce_mail_log: str = "/var/log/mail.log"
+    bruteforce_stalwart_log: str = "/var/log/stalwart-mail"
     bruteforce_ssh_threshold: int = 5
     bruteforce_ssh_window: int = 300
     bruteforce_mail_threshold: int = 10
@@ -357,6 +359,7 @@ def load_config(filepath: Path | None = None) -> JabaliConfig:
         bruteforce_enabled=_bool(merged["BRUTEFORCE_ENABLED"]),
         bruteforce_ssh_log=merged["BRUTEFORCE_SSH_LOG"],
         bruteforce_mail_log=merged["BRUTEFORCE_MAIL_LOG"],
+        bruteforce_stalwart_log=merged["BRUTEFORCE_STALWART_LOG"],
         bruteforce_ssh_threshold=_safe_int(merged["BRUTEFORCE_SSH_THRESHOLD"], 5, min_val=1),
         bruteforce_ssh_window=_safe_int(merged["BRUTEFORCE_SSH_WINDOW"], 300, min_val=10),
         bruteforce_mail_threshold=_safe_int(merged["BRUTEFORCE_MAIL_THRESHOLD"], 10, min_val=1),
