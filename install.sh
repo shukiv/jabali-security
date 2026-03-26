@@ -137,13 +137,16 @@ do_install() {
 
     case "$pkg_mgr" in
         apt)
-            pkg_install git python3 python3-venv python3-pip file coreutils
+            pkg_install git python3 python3-venv python3-pip file coreutils \
+                nftables libnginx-mod-http-modsecurity modsecurity-crs
             ;;
         dnf)
-            pkg_install git python3 python3-pip file coreutils
+            pkg_install git python3 python3-pip file coreutils \
+                nftables mod_security mod_security_crs
             ;;
         yum)
-            pkg_install git python3 python3-pip file coreutils
+            pkg_install git python3 python3-pip file coreutils \
+                nftables mod_security mod_security_crs
             ;;
         *)
             red "Error: cannot detect package manager (apt/dnf/yum)."
@@ -257,6 +260,37 @@ do_install() {
         fi
         chmod 600 "$CONFIG_DIR/jabali-security.conf"
         echo "API key generated."
+    fi
+
+    # -- Auto-detect and configure WAF/CRS paths --
+    CRS_DIR=""
+    for d in /usr/share/modsecurity-crs/rules /etc/modsecurity/crs /usr/share/modsecurity-crs; do
+        if [ -d "$d" ] && ls "$d"/*.conf &>/dev/null; then
+            CRS_DIR="$d"
+            break
+        fi
+    done
+    if [ -n "$CRS_DIR" ]; then
+        echo "OWASP CRS found at $CRS_DIR"
+        if ! grep -q "^WAF_RULES_DIR=" "$CONFIG_DIR/jabali-security.conf" 2>/dev/null; then
+            echo "WAF_RULES_DIR=\"$CRS_DIR\"" >> "$CONFIG_DIR/jabali-security.conf"
+        else
+            sed -i "s|^WAF_RULES_DIR=.*|WAF_RULES_DIR=\"$CRS_DIR\"|" "$CONFIG_DIR/jabali-security.conf"
+        fi
+    fi
+
+    # -- Enable features with detected dependencies --
+    if command -v nft &>/dev/null || command -v iptables &>/dev/null; then
+        if ! grep -q "^BRUTEFORCE_ENABLED=" "$CONFIG_DIR/jabali-security.conf" 2>/dev/null; then
+            echo 'BRUTEFORCE_ENABLED="yes"' >> "$CONFIG_DIR/jabali-security.conf"
+            echo "Brute-force protection enabled (firewall detected)."
+        fi
+    fi
+    if [ -n "$CRS_DIR" ]; then
+        if ! grep -q "^WAF_ENABLED=" "$CONFIG_DIR/jabali-security.conf" 2>/dev/null; then
+            echo 'WAF_ENABLED="yes"' >> "$CONFIG_DIR/jabali-security.conf"
+            echo "WAF enabled (ModSecurity CRS detected)."
+        fi
     fi
 
     # -- Set inotify watch limit --
