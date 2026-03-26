@@ -156,9 +156,9 @@ class SecurityDaemon:
                 config=self.config,
                 scanner=scanner,
                 scoring=scoring,
-                response=response,
+                enabled=True,
                 interval_hours=self.config.scheduled_scan_interval,
-                scan_paths=self.config.scheduled_scan_paths,
+                paths=self.config.scheduled_scan_paths,
             )
 
         # Initialize threat intelligence feed manager (if enabled)
