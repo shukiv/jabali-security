@@ -83,4 +83,12 @@
         <tr><td class="text-muted">Uptime</td><td>{% set u = status.get('uptime_seconds', 0)|int %}{{ "%dh %dm %ds"|format(u // 3600, (u % 3600) // 60, u % 60) }}</td></tr>
     </table>
 </div>
+
+<div class="card">
+    <h3>Maintenance</h3>
+    <form method="post" action="/reset" onsubmit="return confirm('This will delete ALL incidents, quarantine records, WAF events, blocked IPs, and cleanup records. Are you sure?')">
+        <button type="submit" class="btn btn-danger">Reset All Stats</button>
+        <span class="text-muted text-sm" style="margin-left:8px">Clears all incidents, quarantine, WAF events, blocked IPs, and cleanup records</span>
+    </form>
+</div>
 {% endblock %}

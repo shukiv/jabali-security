@@ -334,6 +334,34 @@ def register_routes(app):
         rules = rules if isinstance(rules, list) else []
         return render_template("webshield.html", status=status, rules=rules, config=_config())
 
+    @app.route("/reset", methods=["POST"])
+    @login_required
+    def reset_stats():
+        """Reset all incidents, quarantine records, WAF events, and blocked IPs."""
+        from lib.config import parse_conf
+        from lib.constants import CONFIG_FILE as cf
+        raw = parse_conf(cf)
+        db_path = raw.get("DATA_DIR", "/var/lib/jabali-security") + "/incidents.db"
+
+        import asyncio
+
+        import aiosqlite
+        async def _reset():
+            db = await aiosqlite.connect(db_path)
+            await db.execute("DELETE FROM incidents")
+            await db.execute("DELETE FROM quarantine")
+            await db.execute("DELETE FROM blocked_ips")
+            await db.execute("DELETE FROM waf_events")
+            await db.execute("DELETE FROM cleanup_records")
+            await db.commit()
+            await db.close()
+        try:
+            asyncio.run(_reset())
+            flash("All stats and records have been reset.", "success")
+        except Exception as exc:
+            flash("Reset failed: %s" % exc, "error")
+        return redirect(url_for("dashboard"))
+
     @app.route("/config")
     @login_required
     def config_page():
