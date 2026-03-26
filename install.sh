@@ -83,15 +83,12 @@ do_uninstall() {
     require_root
     bold "Uninstalling Jabali Security..."
 
-    # Stop and disable service
-    if systemctl is-active "$SERVICE_NAME" &>/dev/null; then
-        echo "Stopping $SERVICE_NAME..."
-        systemctl stop "$SERVICE_NAME" 2>/dev/null || true
-    fi
-    if systemctl is-enabled "$SERVICE_NAME" &>/dev/null; then
-        systemctl disable "$SERVICE_NAME" 2>/dev/null || true
-    fi
-    rm -f "/etc/systemd/system/${SERVICE_NAME}.service"
+    # Stop and disable services
+    for svc in "$SERVICE_NAME" jabali-security-web; do
+        systemctl stop "$svc" 2>/dev/null || true
+        systemctl disable "$svc" 2>/dev/null || true
+        rm -f "/etc/systemd/system/${svc}.service"
+    done
     systemctl daemon-reload 2>/dev/null || true
 
     # Remove installation
@@ -311,19 +308,22 @@ do_install() {
         fi
     fi
 
-    # -- Install systemd service --
+    # -- Install systemd services (daemon + web) --
     cp "$INSTALL_DIR/etc/jabali-security.service" /etc/systemd/system/
+    cp "$INSTALL_DIR/etc/jabali-security-web.service" /etc/systemd/system/
     systemctl daemon-reload 2>/dev/null || true
-    systemctl enable "$SERVICE_NAME" 2>/dev/null || true
-    systemctl start "$SERVICE_NAME" 2>/dev/null || true
+    systemctl enable "$SERVICE_NAME" jabali-security-web 2>/dev/null || true
+    systemctl restart "$SERVICE_NAME" 2>/dev/null || true
+    systemctl restart jabali-security-web 2>/dev/null || true
 
     echo ""
     green "Jabali Security installed successfully!"
     echo ""
-    echo "  Service:  systemctl status $SERVICE_NAME"
-    echo "  Config:   $CONFIG_DIR/jabali-security.conf"
-    echo "  CLI:      jabali-security --help"
-    echo "  Logs:     journalctl -u $SERVICE_NAME -f"
+    echo "  Daemon:    systemctl status $SERVICE_NAME"
+    echo "  Dashboard: http://0.0.0.0:8443"
+    echo "  Config:    $CONFIG_DIR/jabali-security.conf"
+    echo "  CLI:       jabali-security --help"
+    echo "  Logs:      journalctl -u $SERVICE_NAME -f"
 }
 
 # ── Main ───────────────────────────────────────────────────────────────────
