@@ -13,6 +13,7 @@ DATA_DIR="/var/lib/jabali-security"
 QUARANTINE_DIR="/var/security/quarantine"
 SERVICE_NAME="jabali-security"
 SYSCTL_CONF="/etc/sysctl.d/99-jabali-security.conf"
+INSTALL_WEB="${JABALI_WEB:-yes}"   # set JABALI_WEB=no to skip web dashboard
 
 # ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -185,7 +186,9 @@ do_install() {
     # -- Copy application files --
     mkdir -p "$INSTALL_DIR"/{daemon,api,rules,etc,bin}
     mkdir -p "$INSTALL_DIR"/lib/{watcher,scanner,bruteforce,waf,proactive,cleanup,threat_intel,webshield,ufw}
-    mkdir -p "$INSTALL_DIR"/web/{templates,static/css,static/js}
+    if [ "$INSTALL_WEB" = "yes" ]; then
+        mkdir -p "$INSTALL_DIR"/web/{templates,static/css,static/js}
+    fi
 
     cp "$tmp_dir"/daemon/*.py "$INSTALL_DIR/daemon/"
     cp "$tmp_dir"/lib/*.py "$INSTALL_DIR/lib/"
@@ -201,9 +204,11 @@ do_install() {
     cp "$tmp_dir"/api/*.py "$INSTALL_DIR/api/"
     mkdir -p "$INSTALL_DIR/api/routes"
     cp "$tmp_dir"/api/routes/*.py "$INSTALL_DIR/api/routes/"
-    cp "$tmp_dir"/web/*.py "$INSTALL_DIR/web/"
-    cp "$tmp_dir"/web/templates/*.html "$INSTALL_DIR/web/templates/"
-    cp -r "$tmp_dir"/web/static/* "$INSTALL_DIR/web/static/"
+    if [ "$INSTALL_WEB" = "yes" ]; then
+        cp "$tmp_dir"/web/*.py "$INSTALL_DIR/web/"
+        cp "$tmp_dir"/web/templates/*.html "$INSTALL_DIR/web/templates/"
+        cp -r "$tmp_dir"/web/static/* "$INSTALL_DIR/web/static/"
+    fi
     cp "$tmp_dir"/rules/*.yar "$INSTALL_DIR/rules/"
     cp "$tmp_dir"/etc/jabali-security.conf.example "$INSTALL_DIR/etc/"
     cp "$tmp_dir"/etc/jabali-security.service "$INSTALL_DIR/etc/"
@@ -305,25 +310,38 @@ do_install() {
 
     if [ -f "$_venv_dir/bin/pip" ]; then
         echo "Installing Python dependencies..."
+        local pip_pkgs="pydantic>=2.0 yara-x>=0.11 click>=8.0 aiohttp>=3.9 pyyaml>=6.0 aiosqlite>=0.20"
+        if [ "$INSTALL_WEB" = "yes" ]; then
+            pip_pkgs="$pip_pkgs flask>=3.0 waitress>=3.0"
+        fi
         if command -v uv &>/dev/null; then
-            uv pip install --python "$_venv_dir/bin/python" \
-                "pydantic>=2.0" "yara-x>=0.11" "click>=8.0" "aiohttp>=3.9" "pyyaml>=6.0" "aiosqlite>=0.20" "flask>=3.0" "waitress>=3.0" \
-                2>&1 | tail -1
-        elif "$_venv_dir/bin/pip" install --quiet \
-            "pydantic>=2.0" "yara-x>=0.11" "click>=8.0" "aiohttp>=3.9" "pyyaml>=6.0" "aiosqlite>=0.20" "flask>=3.0" "waitress>=3.0"; then
+            # shellcheck disable=SC2086
+            uv pip install --python "$_venv_dir/bin/python" $pip_pkgs 2>&1 | tail -1
+        # shellcheck disable=SC2086
+        elif "$_venv_dir/bin/pip" install --quiet $pip_pkgs; then
             echo "Dependencies installed."
         else
             red "WARNING: failed to install dependencies. Check network and re-run."
         fi
     fi
 
-    # -- Install systemd services (daemon + web) --
+    # -- Install systemd services --
     cp "$INSTALL_DIR/etc/jabali-security.service" /etc/systemd/system/
-    cp "$INSTALL_DIR/etc/jabali-security-web.service" /etc/systemd/system/
     systemctl daemon-reload 2>/dev/null || true
-    systemctl enable "$SERVICE_NAME" jabali-security-web 2>/dev/null || true
+    systemctl enable "$SERVICE_NAME" 2>/dev/null || true
     systemctl restart "$SERVICE_NAME" 2>/dev/null || true
-    systemctl restart jabali-security-web 2>/dev/null || true
+
+    if [ "$INSTALL_WEB" = "yes" ]; then
+        cp "$INSTALL_DIR/etc/jabali-security-web.service" /etc/systemd/system/
+        systemctl daemon-reload 2>/dev/null || true
+        systemctl enable jabali-security-web 2>/dev/null || true
+        systemctl restart jabali-security-web 2>/dev/null || true
+    else
+        # Stop web service if previously installed
+        systemctl stop jabali-security-web 2>/dev/null || true
+        systemctl disable jabali-security-web 2>/dev/null || true
+        echo "Web dashboard skipped (JABALI_WEB=no)."
+    fi
 
     # Read the API key for display
     local api_key
@@ -333,7 +351,9 @@ do_install() {
     green "Jabali Security installed successfully!"
     echo ""
     echo "  Daemon:    systemctl status $SERVICE_NAME"
-    echo "  Dashboard: http://0.0.0.0:8443"
+    if [ "$INSTALL_WEB" = "yes" ]; then
+        echo "  Dashboard: http://0.0.0.0:8443"
+    fi
     echo "  API Key:   $api_key"
     echo "  Config:    $CONFIG_DIR/jabali-security.conf"
     echo "  CLI:       jabali-security --help"
@@ -351,6 +371,9 @@ case "${1:-}" in
         echo ""
         echo "  (no args)     Install Jabali Security"
         echo "  --uninstall   Completely remove Jabali Security (config, data, logs)"
+        echo ""
+        echo "Environment variables:"
+        echo "  JABALI_WEB=no   Skip web dashboard installation"
         ;;
     "")
         do_install
