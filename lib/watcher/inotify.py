@@ -57,6 +57,9 @@ _EVENT_HEADER_FMT = "iIII"
 _EVENT_HEADER_SIZE = struct.calcsize(_EVENT_HEADER_FMT)  # 16 bytes
 
 
+_RESCAN_INTERVAL = 60  # seconds between glob re-scans
+
+
 class InotifyWatcher:
     """Watch directories for file changes via Linux inotify."""
 
@@ -65,9 +68,11 @@ class InotifyWatcher:
         self._pre_filter = pre_filter
         self._fd: int = -1
         self._wd_to_path: dict[int, str] = {}
+        self._watched_roots: set[str] = set()  # root dirs already watched
         self._queue: ScanQueue | None = None
         self._loop: asyncio.AbstractEventLoop | None = None
         self._stop_event: asyncio.Event | None = None
+        self._rescan_task: asyncio.Task | None = None
 
     # ------------------------------------------------------------------
     # Public API
@@ -86,31 +91,25 @@ class InotifyWatcher:
         self._fd = fd
 
         # Expand globs and add recursive watches.
-        resolved_dirs: list[str] = []
-        for pattern in self._watch_dirs:
-            expanded = glob.glob(pattern)
-            if not expanded:
-                logger.warning("watch pattern matched nothing: %s", pattern)
-            resolved_dirs.extend(expanded)
-
-        for dir_path in resolved_dirs:
-            # Skip symlinks to prevent watching outside intended scope
-            if os.path.islink(dir_path):
-                logger.warning("skipping symlink in watch dirs: %s", dir_path)
-                continue
-            if os.path.isdir(dir_path):
-                self._add_watch_recursive(dir_path)
+        self._resolve_and_watch()
 
         logger.info("inotify watcher started: %d watches on fd %d", self.watch_count, self._fd)
 
         # Register the fd with the event loop for readable events.
         self._loop.add_reader(self._fd, self._on_readable)
 
+        # Start periodic re-scan for new directories matching globs.
+        self._rescan_task = asyncio.create_task(self._rescan_loop())
+
         # Block until stop() is called.
         await self._stop_event.wait()
 
     async def stop(self) -> None:
         """Remove the fd reader, clean up all watches, and close the fd."""
+        if self._rescan_task is not None:
+            self._rescan_task.cancel()
+            self._rescan_task = None
+
         if self._loop is not None and self._fd >= 0:
             try:
                 self._loop.remove_reader(self._fd)
@@ -139,6 +138,37 @@ class InotifyWatcher:
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
+
+    def _resolve_and_watch(self) -> int:
+        """Expand watch globs and add watches for any new root directories.
+
+        Returns the number of new root directories added.
+        """
+        added = 0
+        for pattern in self._watch_dirs:
+            for dir_path in glob.glob(pattern):
+                if dir_path in self._watched_roots:
+                    continue
+                if os.path.islink(dir_path):
+                    logger.warning("skipping symlink in watch dirs: %s", dir_path)
+                    continue
+                if os.path.isdir(dir_path):
+                    self._add_watch_recursive(dir_path)
+                    self._watched_roots.add(dir_path)
+                    added += 1
+        return added
+
+    async def _rescan_loop(self) -> None:
+        """Periodically re-expand watch globs to pick up new directories."""
+        while True:
+            await asyncio.sleep(_RESCAN_INTERVAL)
+            try:
+                added = self._resolve_and_watch()
+                if added:
+                    logger.info("Rescan: added %d new root directories (%d total watches)",
+                                added, self.watch_count)
+            except Exception:
+                logger.exception("Error during watch directory rescan")
 
     def _add_watch_recursive(self, dir_path: str) -> None:
         """Add an inotify watch for *dir_path* and all its subdirectories.
