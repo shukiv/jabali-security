@@ -336,6 +336,14 @@ do_install() {
         systemctl daemon-reload 2>/dev/null || true
         systemctl enable jabali-security-web 2>/dev/null || true
         systemctl restart jabali-security-web 2>/dev/null || true
+        # Open web dashboard port in UFW if active
+        if command -v ufw &>/dev/null && ufw status | grep -q "^Status: active"; then
+            local web_port
+            web_port=$(grep "^WEB_PORT=" "$CONFIG_DIR/jabali-security.conf" 2>/dev/null | cut -d'"' -f2)
+            web_port="${web_port:-8443}"
+            ufw allow "$web_port/tcp" comment "Jabali Security Dashboard" 2>/dev/null || true
+            echo "UFW: opened port $web_port/tcp for web dashboard."
+        fi
     else
         # Stop web service if previously installed
         systemctl stop jabali-security-web 2>/dev/null || true
