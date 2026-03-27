@@ -107,17 +107,37 @@ class ProactiveProcessKiller:
 
     @staticmethod
     def _kill_process(pid: int) -> bool:
-        """Send SIGKILL to a process. Returns True if successful."""
+        """Send SIGTERM first, wait 5s, then SIGKILL if still alive."""
+        import signal
+        import time
+
         try:
-            os.kill(pid, 9)  # SIGKILL
-            return True
+            os.kill(pid, signal.SIGTERM)
         except ProcessLookupError:
-            return True  # Already dead -- consider success
+            return True  # Already dead
         except PermissionError:
             logger.error("Permission denied killing pid=%d", pid)
             return False
         except OSError as exc:
-            logger.error("Failed to kill pid=%d: %s", pid, exc)
+            logger.error("Failed to signal pid=%d: %s", pid, exc)
+            return False
+
+        # Wait up to 5 seconds for graceful exit
+        for _ in range(10):
+            time.sleep(0.5)
+            try:
+                os.kill(pid, 0)  # Check if still alive
+            except ProcessLookupError:
+                return True  # Died gracefully
+
+        # Still alive — force kill
+        try:
+            os.kill(pid, signal.SIGKILL)
+            logger.info("Process pid=%d did not exit after SIGTERM, sent SIGKILL", pid)
+            return True
+        except ProcessLookupError:
+            return True
+        except OSError:
             return False
 
     @staticmethod

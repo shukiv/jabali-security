@@ -41,7 +41,11 @@
     "Retention": ["INCIDENT_RETAIN_DAYS"],
 } %}
 
-<div class="config-tabs">
+<div style="margin-bottom: 12px;">
+    <input type="text" id="config-search" class="config-input mono" placeholder="Search configuration keys..." style="width: 100%; padding: 8px 12px; font-size: 13px;" oninput="filterConfig(this.value)">
+</div>
+
+<div class="config-tabs" id="config-tabs">
     {% for cat in categories %}
     <button class="config-tab {% if loop.first %}active{% endif %}" onclick="showTab('{{ cat|replace(' ', '-') }}', this)">{{ cat }}</button>
     {% endfor %}
@@ -103,6 +107,49 @@ function showTab(id, btn) {
     document.querySelectorAll('.config-tab').forEach(t => t.classList.remove('active'));
     document.getElementById('tab-' + id).classList.remove('hidden');
     btn.classList.add('active');
+}
+
+function filterConfig(query) {
+    const q = query.toLowerCase().trim();
+    const panels = document.querySelectorAll('.config-panel');
+    const tabs = document.querySelectorAll('.config-tab');
+
+    if (!q) {
+        // Reset: show first tab, show all rows
+        panels.forEach((p, i) => {
+            p.classList.toggle('hidden', i !== 0);
+            p.querySelectorAll('tbody tr').forEach(r => r.style.display = '');
+        });
+        tabs.forEach((t, i) => {
+            t.style.display = '';
+            t.classList.toggle('active', i === 0);
+        });
+        return;
+    }
+
+    // Search mode: show all panels that have matching rows
+    let firstVisible = null;
+    panels.forEach(panel => {
+        let hasMatch = false;
+        panel.querySelectorAll('tbody tr').forEach(row => {
+            const key = row.querySelector('.mono')?.textContent?.toLowerCase() || '';
+            const val = row.querySelector('.config-input')?.value?.toLowerCase() || '';
+            const match = key.includes(q) || val.includes(q);
+            row.style.display = match ? '' : 'none';
+            if (match) hasMatch = true;
+        });
+        panel.classList.toggle('hidden', !hasMatch);
+        if (hasMatch && !firstVisible) firstVisible = panel;
+    });
+
+    // Update tab highlighting
+    tabs.forEach(tab => {
+        const tabId = 'tab-' + tab.textContent.trim().replace(/ /g, '-');
+        const panel = document.getElementById(tabId);
+        const visible = panel && !panel.classList.contains('hidden');
+        tab.style.display = visible ? '' : 'none';
+        tab.classList.toggle('active', panel === firstVisible);
+    });
 }
 </script>
 {% endblock %}

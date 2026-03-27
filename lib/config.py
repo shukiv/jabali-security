@@ -21,7 +21,7 @@ DEFAULTS: dict[str, str] = {
     "LOG_DIR": "/var/log/jabali-security",
     "DATA_DIR": "/var/lib/jabali-security",
     "QUARANTINE_DIR": "/var/security/quarantine",
-    "WORKERS": "2",
+    "WORKERS": "4",
     "API_BIND": "127.0.0.1",
     "API_PORT": "9876",
     "API_KEY": "",
@@ -197,7 +197,7 @@ class JabaliConfig:
     log_dir: str = "/var/log/jabali-security"
     data_dir: str = "/var/lib/jabali-security"
     quarantine_dir: str = "/var/security/quarantine"
-    workers: int = 2
+    workers: int = 4
     api_bind: str = "127.0.0.1"
     api_port: int = 9876
     api_key: str = ""
@@ -325,7 +325,7 @@ def load_config(filepath: Path | None = None) -> JabaliConfig:
         log_dir=merged["LOG_DIR"],
         data_dir=merged["DATA_DIR"],
         quarantine_dir=merged["QUARANTINE_DIR"],
-        workers=_safe_int(merged["WORKERS"], 2, min_val=1, max_val=32),
+        workers=_safe_int(merged["WORKERS"], 4, min_val=1, max_val=32),
         api_bind=api_bind,
         api_port=_safe_int(merged["API_PORT"], 9876, min_val=1024, max_val=65535),
         api_key=merged["API_KEY"],

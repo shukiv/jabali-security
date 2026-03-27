@@ -79,7 +79,7 @@ class TestLoadConfig:
         assert config.score_log == 40
         assert config.score_quarantine == 70
         assert config.score_suspend == 100
-        assert config.workers == 2
+        assert config.workers == 4
         assert config.log_level == "info"
 
     def test_overrides_from_file(self, tmp_path: Path) -> None:

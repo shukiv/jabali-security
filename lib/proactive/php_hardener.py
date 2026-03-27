@@ -80,7 +80,7 @@ class PHPHardener:
         listen = ""
         disable_functions = ""
         open_basedir = ""
-        has_jabali_block = _MARKER_START in content
+        _has_jabali_block = _MARKER_START in content  # noqa: F841
 
         for line in content.splitlines():
             line = line.strip()
@@ -137,7 +137,7 @@ class PHPHardener:
             user=user,
             group=group,
             listen=listen,
-            hardened=hardened and has_jabali_block,
+            hardened=hardened,
             disable_functions=disable_functions,
             open_basedir=open_basedir,
             issues=issues,

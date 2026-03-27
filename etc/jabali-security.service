@@ -31,7 +31,7 @@ PrivateTmp=yes
 CapabilityBoundingSet=CAP_DAC_READ_SEARCH CAP_DAC_OVERRIDE CAP_NET_ADMIN CAP_KILL CAP_FOWNER
 AmbientCapabilities=CAP_DAC_READ_SEARCH CAP_DAC_OVERRIDE CAP_NET_ADMIN CAP_KILL CAP_FOWNER
 LimitNOFILE=65536
-MemoryMax=100M
+MemoryMax=256M
 
 [Install]
 WantedBy=multi-user.target
