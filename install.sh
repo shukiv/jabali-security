@@ -479,6 +479,9 @@ MODSECEOF
     fi
 
     section "Hardening SSH (Jail Environment)"
+    (
+    # Run jail setup in subshell so failures don't kill the installer
+    set +e
 
     # Create groups for SFTP and shell users
     groupadd sftpusers 2>/dev/null || true
@@ -606,6 +609,7 @@ SSHJAIL
 
     # Restart SSH
     systemctl restart sshd 2>/dev/null || systemctl restart ssh 2>/dev/null || true
+    )
     done_ok "SSH hardened (SFTP jail + shell jail with wp-cli)"
 
     section "System Tuning"
