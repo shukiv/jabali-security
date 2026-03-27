@@ -36,14 +36,18 @@
     {% set threats = result.get('results', []) %}
     {% if threats %}
     <table>
-        <thead><tr><th>Path</th><th>Score</th><th>Action</th><th>Findings</th></tr></thead>
+        <thead><tr><th>Path</th><th>Score</th><th>Action</th><th>Details</th></tr></thead>
         <tbody>
             {% for t in threats %}
             <tr>
                 <td class="mono text-sm" title="{{ t.get('path', '') }}">{{ t.get('path', '').split('/')[-1] }}</td>
                 <td>{{ t.get('score', 0) }}</td>
                 <td>{{ t.get('action', '') }}</td>
-                <td>{{ t.get('findings_count', 0) }}</td>
+                <td class="text-sm">
+                    {% for f in t.get('findings', []) %}
+                    <span class="badge badge-{{ 'critical' if f.get('score', 0) >= 40 else 'medium' if f.get('score', 0) >= 20 else 'low' }}" title="{{ f.get('description', '') }}">{{ f.get('rule', '') }} ({{ f.get('score', 0) }})</span>
+                    {% endfor %}
+                </td>
             </tr>
             {% endfor %}
         </tbody>

@@ -87,6 +87,7 @@ class RapidScanEngine:
                                 "path": path,
                                 "score": score.total,
                                 "action": score.action,
+                                "findings": [{"scanner": f.scanner, "rule": f.rule, "score": f.score, "description": f.description} for f in findings],
                                 "findings_count": len(findings),
                             })
                 except (OSError, PermissionError):
