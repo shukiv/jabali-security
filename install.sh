@@ -136,15 +136,15 @@ do_install() {
     case "$pkg_mgr" in
         apt)
             pkg_install git python3 python3-venv python3-pip file coreutils \
-                nftables libnginx-mod-http-modsecurity modsecurity-crs
+                nftables ufw libnginx-mod-http-modsecurity modsecurity-crs
             ;;
         dnf)
             pkg_install git python3 python3-pip file coreutils \
-                nftables mod_security mod_security_crs
+                nftables ufw mod_security mod_security_crs
             ;;
         yum)
             pkg_install git python3 python3-pip file coreutils \
-                nftables mod_security mod_security_crs
+                nftables ufw mod_security mod_security_crs
             ;;
         *)
             red "Error: cannot detect package manager (apt/dnf/yum)."
