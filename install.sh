@@ -264,7 +264,12 @@ do_install() {
     # -- Copy config (only if not exists) --
     if [ ! -f "$CONFIG_DIR/jabali-security.conf" ]; then
         cp "$INSTALL_DIR/etc/jabali-security.conf.example" "$CONFIG_DIR/jabali-security.conf"
-        chmod 600 "$CONFIG_DIR/jabali-security.conf"
+        if id www-data &>/dev/null; then
+            chown root:www-data "$CONFIG_DIR/jabali-security.conf"
+            chmod 640 "$CONFIG_DIR/jabali-security.conf"
+        else
+            chmod 600 "$CONFIG_DIR/jabali-security.conf"
+        fi
         echo "Config created at $CONFIG_DIR/jabali-security.conf"
     else
         echo "Config already exists, keeping current."
@@ -279,7 +284,12 @@ do_install() {
         else
             echo "API_KEY=\"${api_key}\"" >> "$CONFIG_DIR/jabali-security.conf"
         fi
-        chmod 600 "$CONFIG_DIR/jabali-security.conf"
+        if id www-data &>/dev/null; then
+            chown root:www-data "$CONFIG_DIR/jabali-security.conf"
+            chmod 640 "$CONFIG_DIR/jabali-security.conf"
+        else
+            chmod 600 "$CONFIG_DIR/jabali-security.conf"
+        fi
         echo "API key generated."
     fi
 
