@@ -316,15 +316,18 @@ def update() -> None:
         if os.path.isfile(provider):
             with open(provider, "r") as fh:
                 content = fh.read()
-            if "JabaliSecurityPlugin" not in content:
-                content = content.replace(
-                    "->middleware([",
-                    "->plugins(array_filter([\n"
+            if "JabaliSecurityPlugin" not in content and "->middleware([" in content:
+                plugin_block = (
+                    "            ->plugins(array_filter([\n"
                     "                class_exists(\\App\\JabaliSecurity\\JabaliSecurityPlugin::class)\n"
                     "                    ? \\App\\JabaliSecurity\\JabaliSecurityPlugin::make()\n"
                     "                    : null,\n"
                     "            ]))\n"
+                )
+                content = content.replace(
                     "            ->middleware([",
+                    plugin_block + "            ->middleware([",
+                    1,  # only first occurrence
                 )
                 with open(provider, "w") as fh:
                     fh.write(content)

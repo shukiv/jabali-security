@@ -298,13 +298,20 @@ do_install() {
         # Register plugin in AdminPanelProvider if not already registered
         PROVIDER="$JABALI_PANEL_DIR/app/Providers/Filament/AdminPanelProvider.php"
         if [ -f "$PROVIDER" ] && ! grep -q "JabaliSecurityPlugin" "$PROVIDER" 2>/dev/null; then
-            # Add ->plugins() call before ->middleware()
-            sed -i '/->middleware(\[/i\            ->plugins(array_filter([\
-                class_exists(\\App\\JabaliSecurity\\JabaliSecurityPlugin::class)\
-                    ? \\App\\JabaliSecurity\\JabaliSecurityPlugin::make()\
-                    : null,\
-            ]))' "$PROVIDER"
-            echo "  Security plugin registered in AdminPanelProvider."
+            python3 -c "
+p='$PROVIDER'
+with open(p) as f: c=f.read()
+if 'JabaliSecurityPlugin' not in c and '->middleware([' in c:
+    b='''            ->plugins(array_filter([
+                class_exists(\\\App\\\JabaliSecurity\\\JabaliSecurityPlugin::class)
+                    ? \\\App\\\JabaliSecurity\\\JabaliSecurityPlugin::make()
+                    : null,
+            ]))
+'''
+    c=c.replace('            ->middleware([',b+'            ->middleware([',1)
+    with open(p,'w') as f: f.write(c)
+    print('  Security plugin registered in AdminPanelProvider.')
+"
         fi
 
         done_ok "Jabali Panel plugin installed"
