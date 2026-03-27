@@ -65,6 +65,7 @@ jabali-security/
 |   +-- notify.py           # Email + webhook notifications
 |   +-- hash_cache.py       # Persistent scan result cache
 |   +-- rapidscan.py        # Parallel directory scanner
+|   +-- log_tailer.py       # AsyncLogTailer (reusable async log file tailer)
 |   +-- system_tools.py     # System utilities (freshclam, etc.)
 |   +-- scanner/            # Detection engines
 |   |   +-- base.py         # ScannerBase abstract class
@@ -99,8 +100,24 @@ jabali-security/
 |       +-- inotify.py      # inotify wrapper
 +-- api/                    # REST API
 |   +-- app.py              # aiohttp application factory
-|   +-- routes.py           # 40+ route handlers
 |   +-- middleware.py       # API key auth, request logging
+|   +-- routes/             # Route handlers split by domain
+|       +-- __init__.py     # Route registration (imports all sub-routers)
+|       +-- core.py         # Health, status
+|       +-- incidents.py    # Incident CRUD
+|       +-- scanning.py     # On-demand, full, database, rapid scan
+|       +-- quarantine.py   # Quarantine list, restore, delete
+|       +-- users.py        # User risk scores
+|       +-- blocking.py     # IP block/unblock
+|       +-- config.py       # Config get/patch
+|       +-- rules.py        # Rule management
+|       +-- bruteforce.py   # Brute-force endpoints
+|       +-- waf.py          # WAF endpoints
+|       +-- proactive.py    # Proactive defense endpoints
+|       +-- cleanup.py      # Cleanup endpoints
+|       +-- threat_intel.py # Threat intel endpoints
+|       +-- webshield.py    # WebShield endpoints
+|       +-- helpers.py      # Shared response helpers
 +-- web/                    # Web dashboard
 |   +-- app.py              # Flask application factory
 |   +-- routes.py           # Dashboard route handlers
@@ -210,7 +227,7 @@ Edit `lib/registry.py`:
 
 ### 4. Add API endpoints
 
-Add route handlers in `api/routes.py` and register them in `setup_routes()`.
+Create a new route module `api/routes/my_feature.py` with a `setup_routes(app)` function. Add the import to `api/routes/__init__.py` in the `_MODULES` tuple.
 
 ### 5. Add CLI commands
 

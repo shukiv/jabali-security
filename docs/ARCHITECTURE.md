@@ -67,7 +67,9 @@ Optional components (brute-force, WAF, cleanup, threat intel, WebShield, PHP har
 
 - `inotify.py` -- `InotifyWatcher` wraps Linux inotify to watch configured directories recursively
 - Watches for CREATE, MODIFY, CLOSE_WRITE, MOVED_TO events
+- Handles IN_DELETE_SELF for watched directory deletion (graceful removal from watch list)
 - Passes matching file paths through `PreFilter` before queuing
+- Default `WATCH_DIRS`: `/home/*/public_html`, `/home/*/domains/*/public_html`, `/home/*/tmp`
 
 ### Pre-Filter (`lib/filter.py`)
 
@@ -80,7 +82,7 @@ Fast path-level filtering before scanning:
 
 | Scanner | File | Description |
 |---|---|---|
-| **Heuristic** | `heuristic.py` | Regex pattern matching for common attack patterns (eval, base64, shell commands, webshell signatures) |
+| **Heuristic** | `heuristic.py` | 17 regex patterns for high-confidence attack indicators (eval+base64, user input execution, obfuscation chains, reverse shells). WordPress/Joomla false-positive patterns removed; YARA rules cover those. |
 | **Entropy** | `entropy.py` | Shannon entropy analysis to detect obfuscated/encoded payloads |
 | **YARA-X** | `yara_engine.py` | YARA-X (Rust-based) signature matching using `.yar` rule files |
 | **ClamAV** | `clamav.py` | Optional clamd socket scanning, auto-detected |
@@ -103,6 +105,8 @@ Aggregates `Finding` scores into a `ThreatScore` with an action decision:
 
 Default thresholds: log=40, quarantine=70, suspend=100.
 
+**CMS-aware scoring:** Files in known CMS core directories (wp-admin, wp-includes, administrator, etc.) and known WordPress root files (wp-config.php, wp-login.php, etc.) are treated differently. In these paths, only YARA and ClamAV signature matches are considered real threats; heuristic and entropy findings are capped at the "log" action to avoid false positives from legitimate CMS code.
+
 ### Response Engine (`lib/response.py`)
 
 Executes the action determined by scoring:
@@ -114,13 +118,13 @@ Also triggers cleanup (if enabled and `CLEANUP_AUTO=yes`) before quarantine.
 
 ### Incident Store (`lib/incidents.py`)
 
-SQLite database via `aiosqlite` with tables for incidents, quarantine, blocked IPs, WAF events, and cleanup records. See [Database Schema](#database-schema).
+SQLite database via `aiosqlite` with tables for incidents, quarantine, blocked IPs, WAF events, and cleanup records. All database access is encapsulated behind public async methods (no direct `_db` access from outside the class). Key methods: `save()`, `get()`, `list_incidents()`, `count_recent()`, `resolve()`, `list_quarantine()`, `save_blocked_ip()`, `get_blocked_ips()`, `delete_blocked_ip()`, `save_waf_event()`, `get_waf_events()`, `get_waf_stats()`, `get_user_stats()`, `get_user_detail()`, `find_incident_by_path()`. See [Database Schema](#database-schema).
 
 ### Brute-Force Protection (`lib/bruteforce/`)
 
 | File | Purpose |
 |---|---|
-| `log_parser.py` | Tails auth logs (SSH, Dovecot, Postfix, Exim, Stalwart) for failed login events |
+| `log_parser.py` | Tails auth logs (SSH, Dovecot, Postfix, Exim, Stalwart) for failed login events. Uses `AsyncLogTailer` for rotation-safe tailing. |
 | `detector.py` | Sliding window counter per IP per service; triggers block on threshold |
 | `firewall.py` | `FirewallManager` -- auto-detects nftables/iptables; block/unblock IPs |
 | `models.py` | Data models for auth events and block records |
@@ -138,8 +142,8 @@ Progressive blocking: durations escalate per repeat offense (default: 10m, 1h, 1
 
 | File | Purpose |
 |---|---|
-| `php_hardener.py` | Scans PHP-FPM pool configs, adds `disable_functions` and `open_basedir` |
-| `process_killer.py` | Kills suspicious processes above score threshold (respects min UID + whitelist) |
+| `php_hardener.py` | Scans PHP-FPM pool configs, adds `disable_functions` and `open_basedir`. Disabled by default; skips pools that already have disable_functions and open_basedir set (e.g. by hosting panels) |
+| `process_killer.py` | Kills suspicious processes above score threshold (respects min UID + whitelist). Uses graceful shutdown: SIGTERM first, waits 5 seconds, then SIGKILL if still alive. |
 
 ### Malware Cleanup (`lib/cleanup/`)
 
@@ -160,12 +164,14 @@ Progressive blocking: durations escalate per repeat offense (default: 10m, 1h, 1
 ### WebShield (`lib/webshield/`)
 
 - `manager.py` -- generates nginx config snippets for rate limiting, JS challenges, and bot UA filtering
+- Install generates nginx config snippets that must be included in the nginx `http{}` and `server{}` blocks; nginx must be reloaded manually
 - Install/uninstall manages files in the nginx config directory
 
 ### Other Core Modules
 
 | Module | File | Purpose |
 |---|---|---|
+| AsyncLogTailer | `lib/log_tailer.py` | Reusable async log file tailer with rotation/truncation detection. Used by brute-force log parser. |
 | Behavior Tracker | `lib/behavior_tracker.py` | Tracks file lifecycle (CREATE -> MODIFY -> EXECUTE) |
 | Process Monitor | `lib/process_monitor.py` | Polls `/proc` for suspicious process trees |
 | Quarantine Manager | `lib/quarantine.py` | File move/restore/delete with metadata |
@@ -181,8 +187,23 @@ Progressive blocking: durations escalate per repeat offense (default: 10m, 1h, 1
 | File | Purpose |
 |---|---|
 | `app.py` | aiohttp application factory with middleware |
-| `routes.py` | 40+ route handlers grouped by domain |
 | `middleware.py` | API key authentication, request logging |
+| `routes/__init__.py` | Route registration -- imports and calls all domain sub-routers |
+| `routes/core.py` | Health check, status |
+| `routes/incidents.py` | Incident CRUD |
+| `routes/scanning.py` | On-demand, full, scheduled, database, and rapid scan |
+| `routes/quarantine.py` | Quarantine list, restore, delete |
+| `routes/users.py` | User risk scores and profiles |
+| `routes/blocking.py` | IP block/unblock/blocklist |
+| `routes/config.py` | Config get/patch |
+| `routes/rules.py` | YARA/ClamAV rule management |
+| `routes/bruteforce.py` | Brute-force stats, blocked, whitelist |
+| `routes/waf.py` | WAF events, rules, stats |
+| `routes/proactive.py` | PHP hardening, process kills |
+| `routes/cleanup.py` | Cleanup records and operations |
+| `routes/threat_intel.py` | Threat intel feeds, IP/hash checks |
+| `routes/webshield.py` | WebShield status, install, rules |
+| `routes/helpers.py` | Shared response helpers (`_ok`, `_err`) |
 
 ### Web Dashboard (`web/`)
 
@@ -340,6 +361,8 @@ The systemd service drops root privileges and uses targeted capabilities:
 | Capability | Purpose |
 |---|---|
 | `CAP_DAC_READ_SEARCH` | Read any file for scanning (without write) |
+| `CAP_DAC_OVERRIDE` | Delete/move files for quarantine |
+| `CAP_FOWNER` | Change permissions on quarantined files |
 | `CAP_NET_ADMIN` | Manage nftables/iptables rules for IP blocking |
 | `CAP_KILL` | Kill suspicious processes (proactive defense) |
 
@@ -348,13 +371,14 @@ The systemd service drops root privileges and uses targeted capabilities:
 ```ini
 NoNewPrivileges=yes
 ProtectSystem=strict
-ProtectHome=read-only
+ProtectHome=no
 PrivateTmp=yes
-MemoryMax=100M
+MemoryMax=256M
 LimitNOFILE=65536
+RuntimeDirectory=jabali-security
 ```
 
-Only `/var/security/quarantine`, `/var/lib/jabali-security`, `/var/log/jabali-security`, and `/etc/php` are writable.
+`ProtectHome=no` is required because the security scanner needs write access to quarantine files in `/home`. Writable paths: `/home`, `/var/security/quarantine`, `/var/lib/jabali-security`, `/var/log/jabali-security`, and `/etc/php`.
 
 ### API Authentication
 

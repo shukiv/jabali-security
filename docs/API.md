@@ -63,7 +63,7 @@ Daemon status and runtime statistics.
   "quarantined_count": 3,
   "watched_dirs": 48,
   "scan_queue_size": 0,
-  "workers": 2,
+  "workers": 4,
   "memory_mb": 42.5
 }
 ```
@@ -135,17 +135,16 @@ Mark an incident as resolved.
 
 ### POST /scan
 
-Scan a single file on demand.
+Scan a file or directory on demand. When a directory path is given, the scan automatically uses the RapidScan engine for parallel scanning.
 
-**Body:**
+**Body (single file):**
 ```json
 {
-  "path": "/home/user1/public_html/index.php",
-  "recursive": false
+  "path": "/home/user1/public_html/index.php"
 }
 ```
 
-**Response:**
+**Response (single file):**
 ```json
 {
   "path": "/home/user1/public_html/index.php",
@@ -155,6 +154,15 @@ Scan a single file on demand.
   "severity": "low"
 }
 ```
+
+**Body (directory):**
+```json
+{
+  "path": "/home/user1/public_html"
+}
+```
+
+**Response (directory):** Same format as `POST /scan/rapid`.
 
 ### POST /scan/full
 
@@ -384,7 +392,7 @@ Get current configuration. `API_KEY` is redacted to "set"/"unset".
 ```json
 {
   "LOG_LEVEL": "info",
-  "WORKERS": "2",
+  "WORKERS": "4",
   "API_KEY": "set",
   "YARA_ENABLED": "yes"
 }
@@ -725,12 +733,13 @@ Trigger immediate update of all enabled feeds.
 **Response:**
 ```json
 {
-  "success_count": 4,
-  "total_count": 4,
+  "success_count": 5,
+  "total_count": 5,
   "updated": {
     "spamhaus_drop": true,
     "spamhaus_edrop": true,
     "blocklist_de_all": true,
+    "tor_exit_nodes": true,
     "malwarebazaar_recent": true
   }
 }

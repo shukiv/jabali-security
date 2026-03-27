@@ -16,10 +16,10 @@ Standalone, event-driven security suite for Linux shared hosting.
 
 - `daemon/` — CLI entry point + async daemon server
 - `lib/` — Core library modules (scanners, watcher, scoring, etc.)
-- `api/` — REST API (aiohttp)
+- `api/` — REST API (aiohttp), routes split into `api/routes/` by domain
 - `rules/` — YARA-X rule files (.yar)
 - `etc/` — Config example + systemd service
-- `tests/` — pytest test suite
+- `tests/` — pytest test suite + external security test script (`test_security.sh`)
 - `debian/` — .deb packaging
 
 ## Conventions
@@ -34,6 +34,9 @@ Standalone, event-driven security suite for Linux shared hosting.
 - Use `import yara_x` not `import yara`
 - YARA-X API: `yara_x.Compiler()`, `yara_x.Scanner(rules)`, `results.matching_rules`
 - Use `trash` instead of `rm`/`rmdir`
+- PHP hardening disabled by default — hosting panels manage FPM pools
+- WebShield requires manual nginx include + reload after install
+- Default watch paths: `/home/*/public_html`, `/home/*/domains/*/public_html`, `/home/*/tmp`
 
 ## Running
 

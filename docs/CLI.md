@@ -57,12 +57,20 @@ jabali-security status
 # Jabali Security v0.1.0
 #   Status:     running (PID 12345)
 #   Uptime:     2h 15m 30s
-#   Workers:    2
+#   Workers:    4
 #   Queue:      0 pending
 #   Watched:    48 dirs
 #   Incidents:  3 (24h)
 #   Quarantine: 1 files
 #   Memory:     42.5 MB
+```
+
+### update
+
+Update jabali-security to the latest version. Pulls the latest code from the Git repository and restarts the daemon.
+
+```bash
+jabali-security update
 ```
 
 ---
@@ -247,7 +255,7 @@ jabali-security config test
 # Configuration file: /etc/jabali-security/jabali-security.conf
 #   Log level:     info
 #   API bind:      127.0.0.1:9876
-#   Workers:       2
+#   Workers:       4
 #   Watch dirs:    /home/*/public_html, /home/*/tmp
 #   Scan ext:      .php, .phtml, .js, .py, .sh, ...
 #   Max file size: 2097152 bytes
@@ -557,10 +565,11 @@ Trigger an immediate update of all enabled feeds.
 ```bash
 jabali-security threat-intel update
 # Updating threat intelligence feeds...
-# Feed update complete: 4/4 succeeded.
+# Feed update complete: 5/5 succeeded.
 #   spamhaus_drop: OK
 #   spamhaus_edrop: OK
 #   blocklist_de_all: OK
+#   tor_exit_nodes: OK
 #   malwarebazaar_recent: OK
 ```
 

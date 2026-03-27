@@ -47,7 +47,7 @@ See also: `etc/jabali-security.conf.example` for a fully commented template.
 | `LOG_DIR` | path | `/var/log/jabali-security` | Directory for log files (auto-created) |
 | `DATA_DIR` | path | `/var/lib/jabali-security` | Persistent data directory (SQLite DB, state files) |
 | `QUARANTINE_DIR` | path | `/var/security/quarantine` | Quarantine directory for malicious files |
-| `WORKERS` | int | `2` | Number of async scan workers (1-32) |
+| `WORKERS` | int | `4` | Number of async scan workers (1-32) |
 
 ## API
 
@@ -63,6 +63,8 @@ See also: `etc/jabali-security.conf.example` for a fully commented template.
 |---|---|---|---|
 | `WATCH_DIRS` | csv | `/home/*/public_html,/home/*/domains/*/public_html,/home/*/tmp` | Comma-separated directories/globs to watch recursively |
 | `WATCHER_BACKEND` | string | `inotify` | Watcher backend: `inotify` (default) |
+
+> **Note:** `/var/www` was removed from defaults to avoid watching hosting panel application directories.
 
 ## Pre-Filter
 
@@ -158,7 +160,7 @@ Scoring determines the action for each detected threat:
 | Key | Type | Default | Description |
 |---|---|---|---|
 | `WAF_ENABLED` | bool | `no` | Enable ModSecurity WAF audit log parsing and rule management |
-| `WAF_AUDIT_LOG` | path | `/var/log/modsec_audit.log` | ModSecurity audit log file path |
+| `WAF_AUDIT_LOG` | path | `/var/log/modsec_audit.log` | ModSecurity audit log file path. Path varies by installation: nginx default is `/var/log/nginx/modsec_audit.log`, Apache default is `/var/log/modsec_audit.log`. |
 | `WAF_AUDIT_LOG_TYPE` | string | `serial` | Audit log type: `serial` (single file) or `concurrent` (directory-based) |
 | `WAF_RULES_DIR` | path | `/etc/modsecurity/crs` | OWASP Core Rule Set directory |
 | `WAF_OVERRIDES_FILE` | path | `/etc/modsecurity/jabali-overrides.conf` | Jabali-managed overrides file for disabling rules |
@@ -170,8 +172,8 @@ Scoring determines the action for each detected threat:
 | Key | Type | Default | Description |
 |---|---|---|---|
 | `PROACTIVE_ENABLED` | bool | `no` | Enable proactive defense subsystem (master switch) |
-| `PHP_HARDENING_ENABLED` | bool | `no` | Enable PHP-FPM pool hardening |
-| `PHP_HARDENING_AUTO` | bool | `no` | Auto-harden new/unhardened pools at startup |
+| `PHP_HARDENING_ENABLED` | bool | `no` | Enable PHP-FPM pool hardening. Disabled by default. Hosting panels (Jabali Panel, cPanel) typically manage per-user FPM hardening. Enable only if your environment does not set `disable_functions` and `open_basedir` per pool. |
+| `PHP_HARDENING_AUTO` | bool | `no` | Auto-harden new/unhardened pools at startup. When enabled, the hardener skips pools that already have `disable_functions` and `open_basedir` configured. |
 | `PROCESS_KILL_ENABLED` | bool | `no` | Enable proactive killing of suspicious processes |
 | `PROCESS_KILL_THRESHOLD` | int | `70` | Minimum threat score to kill a process (1-100) |
 | `PROCESS_KILL_MIN_UID` | int | `1000` | Minimum UID for killable processes (protects system processes) |
@@ -200,7 +202,7 @@ Scoring determines the action for each detected threat:
 |---|---|---|---|
 | `THREAT_INTEL_ENABLED` | bool | `no` | Enable threat intelligence feeds |
 | `THREAT_INTEL_UPDATE_INTERVAL` | int | `6` | Feed update interval in hours (1-168) |
-| `THREAT_INTEL_FEEDS` | csv | `spamhaus_drop,spamhaus_edrop,blocklist_de_all,malwarebazaar_recent` | Enabled feeds |
+| `THREAT_INTEL_FEEDS` | csv | `spamhaus_drop,spamhaus_edrop,blocklist_de_all,tor_exit_nodes,malwarebazaar_recent` | Enabled feeds |
 | `THREAT_INTEL_AUTO_BLOCK` | bool | `no` | Auto-block IPs found in threat intel feeds |
 | `THREAT_INTEL_AUTO_BLOCK_THRESHOLD` | int | `3` | Feed matches required before auto-blocking (1-10) |
 
@@ -279,7 +281,7 @@ WEB_ENABLED="yes"
 ### High-traffic server (tuned thresholds)
 
 ```
-WORKERS="4"
+WORKERS="8"
 WEBSHIELD_RATE_LIMIT="50"
 WEBSHIELD_RATE_BURST="100"
 BRUTEFORCE_SSH_THRESHOLD="10"

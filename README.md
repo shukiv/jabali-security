@@ -21,7 +21,7 @@ A lightweight, panel-agnostic alternative to Imunify360.
 | **Automated response** | Quarantine, process kill, IP blocking via nftables/iptables |
 | **Brute-force protection** | SSH + mail (Dovecot/Postfix/Exim/Stalwart) with progressive blocking |
 | **WAF integration** | ModSecurity audit log parsing, OWASP CRS management, rule toggling |
-| **Proactive defense** | PHP-FPM pool hardening (disable_functions, open_basedir), process killer |
+| **Proactive defense** | PHP-FPM pool hardening (opt-in; disabled by default when hosting panel manages pools), suspicious process killer |
 | **Malware cleanup** | Injection removal, CMS integrity checks (WordPress/Joomla), backup-before-clean |
 | **Threat intelligence** | Spamhaus, blocklist.de, MalwareBazaar, Tor exit nodes; IP + hash lookups |
 | **WebShield** | Nginx rate limiting, JS challenge pages, bot UA filtering |
@@ -93,6 +93,7 @@ journalctl -u jabali-security -f    # watch live logs
 - Python 3.12+
 - systemd (for service management)
 - Optional: ClamAV, nftables/iptables, nginx, ModSecurity + OWASP CRS
+- Optional: SSH access to target (for proactive defense tests)
 
 ## CLI Reference
 
@@ -100,7 +101,7 @@ Full command reference: [docs/CLI.md](docs/CLI.md)
 
 | Group | Commands |
 |---|---|
-| **Daemon** | `start`, `stop`, `status` |
+| **Daemon** | `start`, `stop`, `status`, `update` |
 | **Scanning** | `scan`, `scan-full`, `scan-db`, `scan-rapid` |
 | **Incidents** | `incidents list` |
 | **Quarantine** | `quarantine list`, `quarantine restore`, `quarantine delete` |
@@ -128,7 +129,7 @@ Full reference: [docs/API.md](docs/API.md)
 | `/status` | GET | Daemon status and stats |
 | `/incidents` | GET | List incidents |
 | `/incidents/{id}` | GET | Get incident detail |
-| `/scan` | POST | On-demand file scan |
+| `/scan` | POST | On-demand file or directory scan |
 | `/quarantine` | GET | List quarantined files |
 | `/users` | GET | User risk scores |
 | `/blocklist` | GET | Blocked IPs |
@@ -148,7 +149,7 @@ Served by Waitress on port 8443 (configurable). Login uses the API key as the pa
 
 Pages: Dashboard overview, Incidents, Quarantine, Scan, Users, Blocklist, WAF, Brute-force, Proactive Defense, Cleanup, Threat Intel, WebShield, Config, Rules.
 
-Features: real-time stats, feature enable/disable toggles, incident drill-down, one-click quarantine restore, config editor.
+Features: real-time stats, feature enable/disable toggles, incident drill-down, one-click quarantine restore, config editor with tabs and reset button.
 
 ## Configuration
 
@@ -176,6 +177,15 @@ uv run pytest tests/ -v
 ```
 
 244 unit tests covering: config parsing, heuristic/entropy/YARA scanners, scoring engine, incident store, quarantine, response engine, behavior tracker, brute-force detection, IP reputation, log parsing, WebShield config, CMS detection, injection cleaning, and security hardening.
+
+### External Security Testing
+
+```bash
+./tests/test_security.sh jabali.site           # full test (with nmap)
+./tests/test_security.sh jabali.site --quick   # skip port scan
+```
+
+Tests WebShield bot filtering, rate limiting, WAF blocking (SQLi/XSS/path traversal/command injection), WordPress hardening (user enum, XML-RPC, sensitive files), proactive defense (PHP hardening, process killer), and dashboard/API exposure.
 
 ## Uninstall
 
