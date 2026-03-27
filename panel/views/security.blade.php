@@ -35,6 +35,14 @@
         </x-filament::tabs.item>
 
         <x-filament::tabs.item
+            :active="$activeTab === 'waf'"
+            wire:click="$set('activeTab', 'waf')"
+            icon="heroicon-o-shield-exclamation"
+        >
+            {{ __('WAF') }}
+        </x-filament::tabs.item>
+
+        <x-filament::tabs.item
             :active="$activeTab === 'firewall'"
             wire:click="$set('activeTab', 'firewall')"
             icon="heroicon-o-fire"
@@ -140,6 +148,57 @@
                     <p class="text-sm">{{ __('Check that jabali-security service is running') }}</p>
                 </div>
             </x-filament::section>
+        @endif
+
+    @elseif($activeTab === 'waf')
+        @php
+            $wafStats = $this->getWafStats();
+            $wafRules = $this->getWafRules();
+        @endphp
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <x-filament::section>
+                <div class="text-center">
+                    <div class="text-3xl font-bold">{{ $wafStats['total_events_24h'] ?? 0 }}</div>
+                    <div class="text-sm text-gray-500 dark:text-gray-400">{{ __('Events (24h)') }}</div>
+                </div>
+            </x-filament::section>
+            <x-filament::section>
+                <div class="text-center">
+                    <div class="text-3xl font-bold">{{ $wafStats['blocked_24h'] ?? 0 }}</div>
+                    <div class="text-sm text-gray-500 dark:text-gray-400">{{ __('Blocked (24h)') }}</div>
+                </div>
+            </x-filament::section>
+        </div>
+
+        {{ $this->table }}
+
+        @if(!empty($wafRules['rule_files']))
+        <x-filament::section>
+            <x-slot name="heading">{{ __('Rule Files') }}</x-slot>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="text-left text-gray-500 dark:text-gray-400 border-b dark:border-white/10">
+                            <th class="py-2 px-3 font-medium">{{ __('File') }}</th>
+                            <th class="py-2 px-3 font-medium text-right">{{ __('Size') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($wafRules['rule_files'] as $rf)
+                        <tr class="border-b dark:border-white/10">
+                            <td class="py-2 px-3 font-mono text-xs">{{ $rf['file'] ?? '' }}</td>
+                            <td class="py-2 px-3 text-right text-gray-500">{{ number_format($rf['size'] ?? 0) }} bytes</td>
+                        </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+            @if(!empty($wafRules['disabled_rules']))
+                <div class="mt-3 text-sm text-gray-500">
+                    {{ __('Disabled rules') }}: {{ implode(', ', $wafRules['disabled_rules']) }}
+                </div>
+            @endif
+        </x-filament::section>
         @endif
 
     @elseif($activeTab === 'firewall')

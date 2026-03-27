@@ -69,7 +69,7 @@ class Security extends Page implements HasActions, HasForms, HasTable
             $tab = explode('::', $tab)[0];
         }
 
-        $valid = ['overview', 'incidents', 'quarantine', 'blocklist', 'firewall', 'config'];
+        $valid = ['overview', 'incidents', 'quarantine', 'blocklist', 'firewall', 'waf', 'config'];
 
         return in_array($tab, $valid) ? $tab : 'overview';
     }
@@ -141,6 +141,7 @@ class Security extends Page implements HasActions, HasForms, HasTable
             'quarantine' => $this->quarantineTable($table),
             'blocklist' => $this->blocklistTable($table),
             'firewall' => $this->firewallTable($table),
+            'waf' => $this->wafTable($table),
             'config' => $this->configTable($table),
             default => $table->columns([])->records(fn () => []),
         };
@@ -418,6 +419,86 @@ class Security extends Page implements HasActions, HasForms, HasTable
             ->emptyStateHeading(__('No firewall rules'))
             ->emptyStateIcon('heroicon-o-fire')
             ->striped();
+    }
+
+    // ── WAF Tab ──────────────────────────────────────────────────────
+
+    protected function wafTable(Table $table): Table
+    {
+        return $table
+            ->records(fn () => $this->client()->get('/waf/events', ['limit' => 100]) ?? [])
+            ->headerActions([
+                Action::make('updateCrs')
+                    ->label(__('Update CRS'))
+                    ->icon('heroicon-o-arrow-path')
+                    ->requiresConfirmation()
+                    ->action(function (): void {
+                        $result = $this->client()->post('/waf/crs/update');
+                        Notification::make()
+                            ->title($result && ($result['success'] ?? false) ? __('CRS updated') : __('CRS update failed'))
+                            ->color($result && ($result['success'] ?? false) ? 'success' : 'danger')
+                            ->send();
+                    }),
+            ])
+            ->columns([
+                TextColumn::make('client_ip')
+                    ->label(__('Client IP'))
+                    ->copyable()
+                    ->searchable(isIndividual: false),
+                TextColumn::make('method')
+                    ->label(__('Method'))
+                    ->badge()
+                    ->color('gray'),
+                TextColumn::make('uri')
+                    ->label(__('URI'))
+                    ->limit(40),
+                TextColumn::make('rule_id')
+                    ->label(__('Rule ID')),
+                TextColumn::make('rule_msg')
+                    ->label(__('Message'))
+                    ->limit(30),
+                TextColumn::make('severity')
+                    ->label(__('Severity'))
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        '2', 'CRITICAL' => 'danger',
+                        '3', 'ERROR' => 'danger',
+                        '4', 'WARNING' => 'warning',
+                        default => 'gray',
+                    }),
+                TextColumn::make('created_at')
+                    ->label(__('Time'))
+                    ->since(),
+            ])
+            ->recordActions([
+                Action::make('disableRule')
+                    ->label(__('Disable Rule'))
+                    ->icon('heroicon-o-x-mark')
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->visible(fn (array $record): bool => ! empty($record['rule_id']))
+                    ->action(function (array $record): void {
+                        $result = $this->client()->post('/waf/rules/'.$record['rule_id'].'/disable');
+                        Notification::make()
+                            ->title($result ? __('Rule :id disabled', ['id' => $record['rule_id']]) : __('Failed'))
+                            ->color($result ? 'success' : 'danger')
+                            ->send();
+                    }),
+            ])
+            ->emptyStateHeading(__('No WAF events'))
+            ->emptyStateIcon('heroicon-o-shield-check')
+            ->striped()
+            ->defaultPaginationPageOption(25);
+    }
+
+    public function getWafStats(): array
+    {
+        return $this->client()->get('/waf/stats') ?? [];
+    }
+
+    public function getWafRules(): array
+    {
+        return $this->client()->get('/waf/rules') ?? [];
     }
 
     // ── Config Tab ───────────────────────────────────────────────────
