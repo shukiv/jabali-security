@@ -143,7 +143,7 @@ class Security extends Page implements HasActions, HasForms, HasTable
             'blocklist' => $this->blocklistTable($table),
             'firewall' => $this->firewallTable($table),
             'config' => $this->configTable($table),
-            default => $table->columns([])->records([]),
+            default => $table->columns([])->records(fn () => []),
         };
     }
 
@@ -151,10 +151,8 @@ class Security extends Page implements HasActions, HasForms, HasTable
 
     protected function incidentsTable(Table $table): Table
     {
-        $records = $this->client()->get('/incidents', ['limit' => 100]) ?? [];
-
         return $table
-            ->records($records)
+            ->records(fn () => $this->client()->get('/incidents', ['limit' => 100]) ?? [])
             ->columns([
                 TextColumn::make('path')
                     ->label(__('File'))
@@ -214,10 +212,8 @@ class Security extends Page implements HasActions, HasForms, HasTable
 
     protected function quarantineTable(Table $table): Table
     {
-        $records = $this->client()->get('/quarantine') ?? [];
-
         return $table
-            ->records($records)
+            ->records(fn () => $this->client()->get('/quarantine') ?? [])
             ->columns([
                 TextColumn::make('original_path')
                     ->label(__('Original Path'))
@@ -263,10 +259,8 @@ class Security extends Page implements HasActions, HasForms, HasTable
 
     protected function blocklistTable(Table $table): Table
     {
-        $records = $this->client()->get('/blocklist') ?? [];
-
         return $table
-            ->records($records)
+            ->records(fn () => $this->client()->get('/blocklist') ?? [])
             ->headerActions([
                 TableAction::make('blockIp')
                     ->label(__('Block IP'))
@@ -334,11 +328,8 @@ class Security extends Page implements HasActions, HasForms, HasTable
 
     protected function firewallTable(Table $table): Table
     {
-        $status = $this->client()->get('/firewall/ufw/status');
-        $records = $status['rules'] ?? [];
-
         return $table
-            ->records($records)
+            ->records(fn () => ($this->client()->get('/firewall/ufw/status'))['rules'] ?? [])
             ->headerActions([
                 TableAction::make('addRule')
                     ->label(__('Add Rule'))
@@ -434,14 +425,16 @@ class Security extends Page implements HasActions, HasForms, HasTable
 
     protected function configTable(Table $table): Table
     {
-        $config = $this->client()->get('/config') ?? [];
-        $records = [];
-        foreach ($config as $key => $value) {
-            $records[] = ['key' => $key, 'value' => $value];
-        }
-
         return $table
-            ->records($records)
+            ->records(function () {
+                $config = $this->client()->get('/config') ?? [];
+                $records = [];
+                foreach ($config as $key => $value) {
+                    $records[] = ['key' => $key, 'value' => $value];
+                }
+
+                return $records;
+            })
             ->columns([
                 TextColumn::make('key')
                     ->label(__('Key'))
