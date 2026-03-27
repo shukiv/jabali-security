@@ -295,6 +295,24 @@ def update() -> None:
     if os.path.exists(bin_src):
         shutil.copy2(bin_src, os.path.join(INSTALL_DIR, "bin", "jabali-security"))
 
+    # Update Jabali Panel plugin if panel exists
+    panel_dir = "/var/www/jabali/app/JabaliSecurity"
+    panel_src = os.path.join(tmp_dir, "panel")
+    if os.path.isdir("/var/www/jabali/app/Filament") and os.path.isdir(panel_src):
+        os.makedirs(os.path.join(panel_dir, "Pages"), exist_ok=True)
+        os.makedirs(os.path.join(panel_dir, "Widgets"), exist_ok=True)
+        os.makedirs(os.path.join(panel_dir, "views"), exist_ok=True)
+        for f in ["JabaliSecurityPlugin.php", "JabaliSecurityClient.php"]:
+            src = os.path.join(panel_src, f)
+            if os.path.exists(src):
+                shutil.copy2(src, os.path.join(panel_dir, f))
+        for subdir in ["Pages", "Widgets", "views"]:
+            src_dir = os.path.join(panel_src, subdir)
+            if os.path.isdir(src_dir):
+                for f in os.listdir(src_dir):
+                    shutil.copy2(os.path.join(src_dir, f), os.path.join(panel_dir, subdir, f))
+        click.echo("Jabali Panel plugin updated.")
+
     # Cleanup
     shutil.rmtree(tmp_dir, ignore_errors=True)
 
