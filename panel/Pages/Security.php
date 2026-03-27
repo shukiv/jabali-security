@@ -857,6 +857,28 @@ class Security extends Page implements HasActions, HasForms, HasTable
 
     // ── Config Tab ───────────────────────────────────────────────────
 
+    protected static array $booleanKeys = [
+        'HEURISTIC_ENABLED', 'ENTROPY_ENABLED', 'YARA_ENABLED', 'PROCESS_MONITOR_ENABLED',
+        'BEHAVIOR_TRACKING_ENABLED', 'AUTO_QUARANTINE', 'AUTO_SUSPEND', 'AUTO_BLOCK_IP',
+        'WAF_ENABLED', 'WAF_CRS_AUTO_UPDATE', 'BRUTEFORCE_ENABLED', 'PROACTIVE_ENABLED',
+        'PHP_HARDENING_ENABLED', 'PHP_HARDENING_AUTO', 'PROCESS_KILL_ENABLED',
+        'CLEANUP_ENABLED', 'CLEANUP_AUTO', 'CLEANUP_CMS_CHECKSUMS',
+        'SCHEDULED_SCAN_ENABLED', 'THREAT_INTEL_ENABLED', 'THREAT_INTEL_AUTO_BLOCK',
+        'WEBSHIELD_ENABLED', 'WEBSHIELD_CHALLENGE_ENABLED', 'WEBSHIELD_BOT_FILTERING',
+        'WEB_ENABLED', 'DB_SCANNER_ENABLED', 'RAPIDSCAN_MTIME_CACHE', 'FRESHCLAM_ON_UPDATE',
+        'UFW_ENABLED',
+    ];
+
+    protected static array $selectKeys = [
+        'LOG_LEVEL' => ['debug', 'info', 'warning', 'error', 'critical'],
+        'CLAMAV_ENABLED' => ['auto', 'yes', 'no'],
+        'FIREWALL_BACKEND' => ['auto', 'nftables', 'iptables', 'none'],
+        'WAF_AUDIT_LOG_TYPE' => ['serial', 'concurrent'],
+        'WAF_WEB_SERVER' => ['auto', 'nginx', 'apache'],
+        'WATCHER_BACKEND' => ['inotify', 'fanotify'],
+        'NOTIFY_MIN_SEVERITY' => ['low', 'medium', 'high', 'critical'],
+    ];
+
     protected function configTable(Table $table): Table
     {
         return $table
@@ -877,17 +899,51 @@ class Security extends Page implements HasActions, HasForms, HasTable
                     ->size('sm'),
                 TextColumn::make('value')
                     ->label(__('Value'))
-                    ->size('sm'),
+                    ->size('sm')
+                    ->badge()
+                    ->color(function (string $state, array $record): ?string {
+                        $key = $record['key'] ?? '';
+                        if (in_array($key, static::$booleanKeys)) {
+                            return in_array($state, ['yes', 'true', '1']) ? 'success' : 'gray';
+                        }
+
+                        return null;
+                    }),
             ])
             ->recordActions([
                 Action::make('edit')
                     ->label(__('Edit'))
                     ->icon('heroicon-o-pencil')
-                    ->form([
-                        TextInput::make('value')
-                            ->label(fn (array $record): string => $record['key'])
-                            ->default(fn (array $record): string => $record['value']),
-                    ])
+                    ->form(function (array $record): array {
+                        $key = $record['key'];
+                        $val = $record['value'];
+
+                        if (in_array($key, static::$booleanKeys)) {
+                            return [
+                                Select::make('value')
+                                    ->label($key)
+                                    ->options(['yes' => 'yes', 'no' => 'no'])
+                                    ->default(in_array($val, ['yes', 'true', '1']) ? 'yes' : 'no'),
+                            ];
+                        }
+
+                        if (isset(static::$selectKeys[$key])) {
+                            $opts = array_combine(static::$selectKeys[$key], static::$selectKeys[$key]);
+
+                            return [
+                                Select::make('value')
+                                    ->label($key)
+                                    ->options($opts)
+                                    ->default($val),
+                            ];
+                        }
+
+                        return [
+                            TextInput::make('value')
+                                ->label($key)
+                                ->default($val),
+                        ];
+                    })
                     ->action(function (array $data, array $record): void {
                         $result = $this->client()->patch('/config', [
                             $record['key'] => $data['value'],

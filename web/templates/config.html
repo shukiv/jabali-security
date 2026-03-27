@@ -18,6 +18,16 @@
 
 {% set secret_keys = ["API_KEY"] %}
 
+{% set select_keys = {
+    "LOG_LEVEL": ["debug", "info", "warning", "error", "critical"],
+    "CLAMAV_ENABLED": ["auto", "yes", "no"],
+    "FIREWALL_BACKEND": ["auto", "nftables", "iptables", "none"],
+    "WAF_AUDIT_LOG_TYPE": ["serial", "concurrent"],
+    "WAF_WEB_SERVER": ["auto", "nginx", "apache"],
+    "WATCHER_BACKEND": ["inotify", "fanotify"],
+    "NOTIFY_MIN_SEVERITY": ["low", "medium", "high", "critical"]
+} %}
+
 {% set categories = {
     "Daemon": ["LOG_LEVEL", "LOG_DIR", "DATA_DIR", "QUARANTINE_DIR", "WORKERS"],
     "API": ["API_BIND", "API_PORT", "API_KEY"],
@@ -71,6 +81,12 @@
                             <select name="value" class="config-input" onchange="this.form.submit()">
                                 <option value="yes" {{ 'selected' if value in ('yes', 'true', '1') }}>yes</option>
                                 <option value="no" {{ 'selected' if value not in ('yes', 'true', '1') }}>no</option>
+                            </select>
+                        {% elif key in select_keys %}
+                            <select name="value" class="config-input" onchange="this.form.submit()">
+                                {% for opt in select_keys[key] %}
+                                <option value="{{ opt }}" {{ 'selected' if value == opt }}>{{ opt }}</option>
+                                {% endfor %}
                             </select>
                         {% elif key in secret_keys %}
                             <input type="password" name="value" value="{{ value }}" class="config-input mono">
