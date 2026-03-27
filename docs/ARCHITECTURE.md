@@ -230,6 +230,18 @@ Disabled by default (`UFW_ENABLED="no"`). Requires `ufw` to be installed on the 
 
 The web dashboard is a separate process (systemd service `jabali-security-web`). It communicates with the daemon exclusively through the REST API.
 
+### Jabali Panel Plugin (`panel/`)
+
+| File | Purpose |
+|---|---|
+| `JabaliSecurityPlugin.php` | Filament v5 plugin class |
+| `JabaliSecurityClient.php` | HTTP client for daemon API |
+| `Pages/Security.php` | Single page with tabs (Overview, Incidents, Quarantine, Blocklist, Firewall, Config) |
+| `Widgets/SecurityStatsWidget.php` | Stats overview widget |
+| `views/security.blade.php` | Blade view template |
+
+The panel plugin is deployed to `/var/www/jabali/app/JabaliSecurity/` on servers with Jabali Panel. It communicates with the daemon through the same REST API. See [PARITY.md](PARITY.md) for feature comparison between the two interfaces.
+
 ## Data Flow
 
 ### File Event Pipeline
