@@ -311,6 +311,24 @@ def update() -> None:
             if os.path.isdir(src_dir):
                 for f in os.listdir(src_dir):
                     shutil.copy2(os.path.join(src_dir, f), os.path.join(panel_dir, subdir, f))
+        # Register plugin in AdminPanelProvider if not already registered
+        provider = "/var/www/jabali/app/Providers/Filament/AdminPanelProvider.php"
+        if os.path.isfile(provider):
+            with open(provider, "r") as fh:
+                content = fh.read()
+            if "JabaliSecurityPlugin" not in content:
+                content = content.replace(
+                    "->middleware([",
+                    "->plugins(array_filter([\n"
+                    "                class_exists(\\App\\JabaliSecurity\\JabaliSecurityPlugin::class)\n"
+                    "                    ? \\App\\JabaliSecurity\\JabaliSecurityPlugin::make()\n"
+                    "                    : null,\n"
+                    "            ]))\n"
+                    "            ->middleware([",
+                )
+                with open(provider, "w") as fh:
+                    fh.write(content)
+                click.echo("Security plugin registered in AdminPanelProvider.")
         click.echo("Jabali Panel plugin updated.")
 
     # Cleanup
