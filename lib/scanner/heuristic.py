@@ -27,10 +27,10 @@ _RAW_PATTERNS: list[tuple[str, bytes, int, str, int]] = [
     ),
     (
         "preg_replace_e",
-        rb"preg_replace\s*\(\s*[\"'].*?/e",
+        rb"preg_replace\s*\(\s*[\"']/[^/]+/e",
         35,
         "preg_replace with /e modifier",
-        re.IGNORECASE | re.DOTALL,
+        re.IGNORECASE,
     ),
     (
         "assert_string",
