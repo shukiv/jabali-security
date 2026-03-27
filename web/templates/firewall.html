@@ -1,16 +1,24 @@
 {% extends "base.html" %}
 {% block title %}Firewall{% endblock %}
 {% block content %}
-<div class="page-header">
-    <h1>UFW Firewall</h1>
-    <p>Manage system firewall rules</p>
+{% from "macros.html" import protection_toggle %}
+<div class="page-header flex items-center" style="justify-content:space-between">
+    <div><h1>UFW Firewall</h1><p>Manage system firewall rules</p></div>
+    <div class="flex gap-2">
+        <form method="post" action="{{ url_for('firewall_toggle') }}" {% if ufw_enabled %}onsubmit="return confirm('Disable the firewall?')"{% endif %}>
+            <button type="submit" class="toggle-btn {{ 'toggle-btn-on' if ufw_enabled else 'toggle-btn-off' }}">
+                {{ "Enabled" if ufw_enabled else "Disabled" }}
+            </button>
+        </form>
+        {% if ufw_enabled %}
+        <form method="post" action="{{ url_for('firewall_reload') }}">
+            <button type="submit" class="btn btn-sm">Reload</button>
+        </form>
+        {% endif %}
+    </div>
 </div>
 
-{% if not ufw_enabled %}
-<div class="card">
-    <p class="text-muted">UFW management is disabled. Enable <code>UFW_ENABLED</code> in <a href="{{ url_for('config_page') }}">Config</a> and restart the daemon.</p>
-</div>
-{% else %}
+{% if ufw_enabled %}
 
 <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));">
     <div class="stat-card">
@@ -28,26 +36,6 @@
     <div class="stat-card">
         <div class="stat-value">{{ status.get('default_outgoing', '?') }}</div>
         <div class="stat-label">Default Outgoing</div>
-    </div>
-</div>
-
-<div class="card">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-        <h3 style="margin:0">Controls</h3>
-        <div class="flex gap-2">
-            {% if status.get('active') %}
-            <form method="post" action="{{ url_for('firewall_action', action='disable') }}" onsubmit="return confirm('Disable the firewall?')">
-                <button type="submit" class="btn btn-danger btn-sm">Disable UFW</button>
-            </form>
-            {% else %}
-            <form method="post" action="{{ url_for('firewall_action', action='enable') }}">
-                <button type="submit" class="btn btn-primary btn-sm">Enable UFW</button>
-            </form>
-            {% endif %}
-            <form method="post" action="{{ url_for('firewall_action', action='reload') }}">
-                <button type="submit" class="btn btn-sm">Reload</button>
-            </form>
-        </div>
     </div>
 </div>
 

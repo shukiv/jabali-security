@@ -424,17 +424,38 @@ def register_routes(app):
         return render_template("firewall.html",
             ufw_enabled=ufw_enabled, status=status, rules=rules, apps=apps, config=config)
 
-    @app.route("/firewall/action/<action>", methods=["POST"])
+    @app.route("/firewall/toggle", methods=["POST"])
     @login_required
-    def firewall_action(action):
-        if action not in ("enable", "disable", "reload"):
-            flash("Unknown action.", "error")
-            return redirect(url_for("firewall"))
-        result = api_call("POST", "/api/v1/firewall/ufw/%s" % action)
-        if result:
-            flash("UFW %sd." % action, "success")
+    def firewall_toggle():
+        """Single toggle: enables/disables both UFW_ENABLED config and ufw itself."""
+        config = _config()
+        is_enabled = config.get("UFW_ENABLED", "no") in ("yes", "true", "1")
+
+        if is_enabled:
+            # Disable: turn off ufw, then disable module
+            api_call("POST", "/api/v1/firewall/ufw/disable")
+            update_conf_key(CONFIG_FILE, "UFW_ENABLED", "no")
+            api_call("PATCH", "/api/v1/config", {"UFW_ENABLED": "no"})
+            flash("UFW firewall disabled.", "success")
         else:
-            flash("UFW %s failed." % action, "error")
+            # Enable: enable module first, then turn on ufw
+            update_conf_key(CONFIG_FILE, "UFW_ENABLED", "yes")
+            api_call("PATCH", "/api/v1/config", {"UFW_ENABLED": "yes"})
+            result = api_call("POST", "/api/v1/firewall/ufw/enable")
+            if result and result.get("enabled"):
+                flash("UFW firewall enabled.", "success")
+            else:
+                flash("UFW module enabled, but ufw activation failed. Restart daemon and try again.", "warning")
+        return redirect(url_for("firewall"))
+
+    @app.route("/firewall/reload", methods=["POST"])
+    @login_required
+    def firewall_reload():
+        result = api_call("POST", "/api/v1/firewall/ufw/reload")
+        if result:
+            flash("UFW reloaded.", "success")
+        else:
+            flash("UFW reload failed.", "error")
         return redirect(url_for("firewall"))
 
     @app.route("/firewall/rules/add", methods=["POST"])
