@@ -319,6 +319,9 @@ def update() -> None:
     # Restart services
     subprocess.run(["/usr/bin/systemctl", "restart", "jabali-security"], capture_output=True)  # noqa: S603
     subprocess.run(["/usr/bin/systemctl", "restart", "jabali-security-web"], capture_output=True)  # noqa: S603
+    # Restart Jabali Panel if plugin was updated (FrankenPHP caches PHP in memory)
+    if os.path.isdir("/var/www/jabali/app/JabaliSecurity"):
+        subprocess.run(["/usr/bin/systemctl", "restart", "jabali-panel"], capture_output=True)  # noqa: S603
 
     click.echo("Updated successfully. Services restarted.")
 
