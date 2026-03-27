@@ -396,16 +396,99 @@ do_install() {
     echo "  Logs:      journalctl -u $SERVICE_NAME -f"
 }
 
+# ── Update ────────────────────────────────────────────────────────────────
+
+do_update() {
+    require_root
+    bold "Updating Jabali Security..."
+
+    if [ ! -d "$INSTALL_DIR" ]; then
+        red "Error: Jabali Security is not installed at $INSTALL_DIR"
+        red "Run the installer without --update to install first."
+        exit 1
+    fi
+
+    # Clone latest code
+    local tmp_dir
+    tmp_dir="$(mktemp -d)"
+    echo "Pulling latest code..."
+    git clone --depth 1 --quiet "$REPO_URL" "$tmp_dir"
+
+    # Stop services before updating files
+    systemctl stop "$SERVICE_NAME" 2>/dev/null || true
+    systemctl stop jabali-security-web 2>/dev/null || true
+
+    # -- Update application files (preserve config/data/venv) --
+    cp "$tmp_dir"/daemon/*.py "$INSTALL_DIR/daemon/"
+    cp "$tmp_dir"/lib/*.py "$INSTALL_DIR/lib/"
+    for subdir in watcher scanner bruteforce waf proactive cleanup threat_intel webshield ufw; do
+        mkdir -p "$INSTALL_DIR/lib/$subdir"
+        cp "$tmp_dir"/lib/$subdir/*.py "$INSTALL_DIR/lib/$subdir/" 2>/dev/null || true
+    done
+    mkdir -p "$INSTALL_DIR/api/routes"
+    cp "$tmp_dir"/api/*.py "$INSTALL_DIR/api/"
+    cp "$tmp_dir"/api/routes/*.py "$INSTALL_DIR/api/routes/"
+    if [ "$INSTALL_WEB" = "yes" ]; then
+        mkdir -p "$INSTALL_DIR"/web/{templates,static/css,static/js}
+        cp "$tmp_dir"/web/*.py "$INSTALL_DIR/web/"
+        cp "$tmp_dir"/web/templates/*.html "$INSTALL_DIR/web/templates/"
+        cp -r "$tmp_dir"/web/static/* "$INSTALL_DIR/web/static/"
+    fi
+    cp "$tmp_dir"/rules/*.yar "$INSTALL_DIR/rules/" 2>/dev/null || true
+    cp "$tmp_dir"/etc/jabali-security.service "$INSTALL_DIR/etc/"
+    cp "$tmp_dir"/etc/jabali-security-web.service "$INSTALL_DIR/etc/"
+    cp -r "$tmp_dir"/etc/webshield "$INSTALL_DIR/etc/" 2>/dev/null || true
+    cp "$tmp_dir"/bin/jabali-security "$INSTALL_DIR/bin/"
+    chmod +x "$INSTALL_DIR/bin/jabali-security"
+
+    # -- Update Jabali Panel plugin if panel exists --
+    JABALI_PANEL_DIR="/var/www/jabali"
+    if [ -d "$JABALI_PANEL_DIR/app/Filament" ] && [ -d "$tmp_dir/panel" ]; then
+        echo "Updating Jabali Panel security plugin..."
+        mkdir -p "$JABALI_PANEL_DIR/app/JabaliSecurity/Pages"
+        mkdir -p "$JABALI_PANEL_DIR/app/JabaliSecurity/Widgets"
+        mkdir -p "$JABALI_PANEL_DIR/app/JabaliSecurity/views"
+        cp "$tmp_dir"/panel/JabaliSecurityPlugin.php "$JABALI_PANEL_DIR/app/JabaliSecurity/"
+        cp "$tmp_dir"/panel/JabaliSecurityClient.php "$JABALI_PANEL_DIR/app/JabaliSecurity/"
+        cp "$tmp_dir"/panel/Pages/*.php "$JABALI_PANEL_DIR/app/JabaliSecurity/Pages/"
+        cp "$tmp_dir"/panel/Widgets/*.php "$JABALI_PANEL_DIR/app/JabaliSecurity/Widgets/"
+        cp "$tmp_dir"/panel/views/*.blade.php "$JABALI_PANEL_DIR/app/JabaliSecurity/views/"
+        echo "Panel plugin updated."
+    fi
+
+    # Clean up
+    rm -rf "$tmp_dir"
+
+    # -- Update systemd service files --
+    cp "$INSTALL_DIR/etc/jabali-security.service" /etc/systemd/system/
+    cp "$INSTALL_DIR/etc/jabali-security-web.service" /etc/systemd/system/
+    systemctl daemon-reload 2>/dev/null || true
+
+    # -- Restart services --
+    systemctl start "$SERVICE_NAME" 2>/dev/null || true
+    if [ "$INSTALL_WEB" = "yes" ]; then
+        systemctl start jabali-security-web 2>/dev/null || true
+    fi
+
+    echo ""
+    green "Jabali Security updated successfully!"
+    echo "  Version: $(grep 'VERSION = ' "$INSTALL_DIR/lib/constants.py" 2>/dev/null | cut -d'"' -f2 || echo '?')"
+}
+
 # ── Main ───────────────────────────────────────────────────────────────────
 
 case "${1:-}" in
     --uninstall)
         do_uninstall
         ;;
+    --update)
+        do_update
+        ;;
     --help|-h)
-        echo "Usage: $0 [--uninstall]"
+        echo "Usage: $0 [--uninstall|--update]"
         echo ""
         echo "  (no args)     Install Jabali Security"
+        echo "  --update      Update to latest version (preserves config/data)"
         echo "  --uninstall   Completely remove Jabali Security (config, data, logs)"
         echo ""
         echo "Environment variables:"
@@ -416,7 +499,7 @@ case "${1:-}" in
         ;;
     *)
         red "Unknown option: $1"
-        echo "Usage: $0 [--uninstall]"
+        echo "Usage: $0 [--uninstall|--update]"
         exit 1
         ;;
 esac
