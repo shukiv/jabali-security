@@ -39,8 +39,16 @@ async def post_scan(request: web.Request) -> web.Response:
     if p.is_symlink():
         return _err("Symlinks not allowed")
 
+    # Directory scan — use rapid scan engine
+    if p.is_dir():
+        from lib.rapidscan import RapidScanEngine
+        config = request.app["config"]
+        engine = RapidScanEngine(config, workers=config.rapidscan_workers)
+        result = await engine.scan_directory(path, request.app["scanner"], request.app["scoring"])
+        return _ok(result)
+
     if not p.is_file():
-        return _err("File not found: %s" % path, 404)
+        return _err("File or directory not found: %s" % path, 404)
 
     content = p.read_bytes()
 
