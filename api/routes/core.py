@@ -37,7 +37,7 @@ async def get_status(request: web.Request) -> web.Response:
         "uptime_seconds": round(uptime, 1),
         "incidents_24h": await incidents.count_recent(24),
         "quarantined_count": await quarantine.count(),
-        "watched_dirs": daemon._watcher.watch_count if daemon and daemon._watcher else 0,
+        "watched_dirs": daemon._registry.watcher.watch_count if daemon and daemon._registry else 0,
         "scan_queue_size": 0,
         "workers": request.app["config"].workers,
         "memory_mb": round(mem_mb, 1),
