@@ -19,7 +19,7 @@ class IncidentsTable extends Widget implements HasTable
 {
     use InteractsWithTable;
 
-    protected static string $view = 'filament-widgets::table-widget';
+    protected string $view = 'filament-widgets::table-widget';
 
     protected function client(): JabaliSecurityClient
     {
