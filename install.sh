@@ -346,7 +346,7 @@ do_install() {
             # shellcheck disable=SC2086
             uv pip install --python "$_venv_dir/bin/python" $pip_pkgs 2>&1 | tail -1
         # shellcheck disable=SC2086
-        elif "$_venv_dir/bin/pip" install --quiet $pip_pkgs; then
+        elif "$_venv_dir/bin/pip" install --quiet --no-cache-dir $pip_pkgs; then
             echo "Dependencies installed."
         else
             red "WARNING: failed to install dependencies. Check network and re-run."
