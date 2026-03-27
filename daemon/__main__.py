@@ -260,6 +260,52 @@ def start(foreground: bool, config_path: str | None) -> None:
 
 
 @cli.command()
+def update() -> None:
+    """Update jabali-security to the latest version."""
+    import subprocess
+
+    REPO_URL = "https://git.linux-hosting.co.il/shukivaknin/jabali-security.git"
+    INSTALL_DIR = "/usr/local/jabali-security"
+
+    click.echo("Updating Jabali Security...")
+
+    # Clone latest to temp dir
+    import tempfile
+    tmp_dir = tempfile.mkdtemp()
+    result = subprocess.run(  # noqa: S603
+        ["/usr/bin/git", "clone", "--depth", "1", "--quiet", REPO_URL, tmp_dir],
+        capture_output=True, timeout=60,
+    )
+    if result.returncode != 0:
+        click.echo("Failed to clone repository.", err=True)
+        sys.exit(1)
+
+    # Copy updated files
+    import shutil
+    for subdir in ["daemon", "lib", "api", "web", "rules", "etc"]:
+        src = os.path.join(tmp_dir, subdir)
+        dst = os.path.join(INSTALL_DIR, subdir)
+        if os.path.isdir(src):
+            if os.path.exists(dst):
+                shutil.rmtree(dst)
+            shutil.copytree(src, dst)
+
+    # Copy bin wrapper
+    bin_src = os.path.join(tmp_dir, "bin", "jabali-security")
+    if os.path.exists(bin_src):
+        shutil.copy2(bin_src, os.path.join(INSTALL_DIR, "bin", "jabali-security"))
+
+    # Cleanup
+    shutil.rmtree(tmp_dir, ignore_errors=True)
+
+    # Restart services
+    subprocess.run(["/usr/bin/systemctl", "restart", "jabali-security"], capture_output=True)  # noqa: S603
+    subprocess.run(["/usr/bin/systemctl", "restart", "jabali-security-web"], capture_output=True)  # noqa: S603
+
+    click.echo("Updated successfully. Services restarted.")
+
+
+@cli.command()
 def stop() -> None:
     """Stop the running daemon."""
     pid = _read_pid()
