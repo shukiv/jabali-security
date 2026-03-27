@@ -3,11 +3,24 @@
 from __future__ import annotations
 
 import logging
+from pathlib import PurePosixPath
 
 from lib.config import JabaliConfig
 from lib.models import FileEvent, Finding, ThreatScore
 
 logger = logging.getLogger(__name__)
+
+# Known CMS core directories — files here are likely legitimate
+_CMS_CORE_DIRS = frozenset({
+    "wp-admin", "wp-includes",  # WordPress
+    "administrator", "libraries", "components",  # Joomla
+    "core", "modules", "profiles",  # Drupal
+})
+
+# Behavioral findings that should be suppressed during bulk installs/updates
+_INSTALL_BEHAVIOR_RULES = frozenset({
+    "burst_file_creation", "rapid_create_modify", "random_filename",
+})
 
 
 class ScoringEngine:
@@ -21,11 +34,35 @@ class ScoringEngine:
         if not findings:
             return ThreatScore(total=0, findings=[], action="ignore")
 
+        # Check if file is in a known CMS core directory
+        is_cms_core = self._is_cms_core_path(event.path)
+
+        if is_cms_core:
+            # In CMS core dirs: only count findings from scanners that
+            # detect actual malware signatures (yara, clamav), not
+            # heuristic patterns that match legitimate CMS code
+            findings = [
+                f for f in findings
+                if f.scanner in ("yara", "clamav")
+                or f.rule not in _INSTALL_BEHAVIOR_RULES
+                and f.scanner != "behavior"
+            ]
+            # Suppress behavior-only findings entirely in CMS core
+            findings = [
+                f for f in findings
+                if not (f.scanner == "behavior" and f.rule in _INSTALL_BEHAVIOR_RULES)
+            ]
+
         total = sum(f.score for f in findings)
 
         # Context multipliers
         if event.in_uploads_dir:
             total = int(total * 1.5)
+
+        # CMS core files get score reduction — legitimate code triggers
+        # heuristic patterns (eval, exec, backticks) that aren't malicious
+        if is_cms_core and total > 0:
+            total = int(total * 0.3)  # 70% reduction
 
         # Rapid file creation (age < 10 seconds from event timestamp)
         # Future: integrate with behavior tracker
@@ -43,6 +80,12 @@ class ScoringEngine:
         if score >= self._score_log:
             return "log"
         return "ignore"
+
+    @staticmethod
+    def _is_cms_core_path(path: str) -> bool:
+        """Check if a file path is inside a known CMS core directory."""
+        parts = PurePosixPath(path).parts
+        return any(part in _CMS_CORE_DIRS for part in parts)
 
     @staticmethod
     def severity_from_score(score: int) -> str:
