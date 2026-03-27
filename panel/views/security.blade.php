@@ -135,7 +135,7 @@
             </div>
             <div style="flex:1;" class="rounded-lg border border-gray-200 dark:border-white/10 px-3 py-2">
                 <div class="font-bold text-lg">{{ $status['watched_dirs'] ?? 0 }}</div>
-                <div class="text-gray-500 dark:text-gray-400">{{ __('Dirs') }}</div>
+                <div class="text-gray-500 dark:text-gray-400">{{ __('Watching') }}</div>
             </div>
             <div style="flex:1;" class="rounded-lg border border-gray-200 dark:border-white/10 px-3 py-2">
                 <div class="font-bold text-lg">{{ round($status['memory_mb'] ?? 0) }} MB</div>
