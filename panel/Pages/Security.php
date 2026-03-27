@@ -17,6 +17,12 @@ use App\JabaliSecurity\Widgets\UsersTable;
 use App\JabaliSecurity\Widgets\WafEventsTable;
 use App\JabaliSecurity\Widgets\WebshieldRulesTable;
 use App\JabaliSecurity\Widgets\YaraRulesTable;
+use App\JabaliSecurity\Widgets\BruteforceStatsWidget;
+use App\JabaliSecurity\Widgets\ProactiveStatsWidget;
+use App\JabaliSecurity\Widgets\RulesStatsWidget;
+use App\JabaliSecurity\Widgets\SecurityStatsWidget;
+use App\JabaliSecurity\Widgets\WafStatsWidget;
+use App\JabaliSecurity\Widgets\WebshieldStatsWidget;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\Concerns\InteractsWithActions;
@@ -30,6 +36,7 @@ use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Actions as SchemaActions;
 use Filament\Schemas\Components\EmbeddedTable;
+use Filament\Schemas\Components\Livewire;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Tabs\Tab;
@@ -128,7 +135,10 @@ class Security extends Page implements HasActions, HasForms
                 ->tabs([
                     'overview' => Tab::make(__('Overview'))
                         ->icon('heroicon-o-home')
-                        ->schema($this->overviewTab()),
+                        ->schema(array_merge(
+                            [Livewire::make(SecurityStatsWidget::class)],
+                            $this->overviewTab(),
+                        )),
                     'incidents' => Tab::make(__('Incidents'))
                         ->icon('heroicon-o-exclamation-triangle')
                         ->schema([EmbeddedTable::make(IncidentsTable::class)]),
@@ -140,19 +150,19 @@ class Security extends Page implements HasActions, HasForms
                         ->schema([EmbeddedTable::make(BlocklistTable::class)]),
                     'waf' => Tab::make(__('WAF'))
                         ->icon('heroicon-o-shield-exclamation')
-                        ->schema([EmbeddedTable::make(WafEventsTable::class)]),
+                        ->schema([Livewire::make(WafStatsWidget::class), EmbeddedTable::make(WafEventsTable::class)]),
                     'firewall' => Tab::make(__('Firewall'))
                         ->icon('heroicon-o-fire')
                         ->schema($this->firewallTab()),
                     'bruteforce' => Tab::make(__('Brute-Force'))
                         ->icon('heroicon-o-key')
-                        ->schema([EmbeddedTable::make(BruteforceBlockedTable::class)]),
+                        ->schema([Livewire::make(BruteforceStatsWidget::class), EmbeddedTable::make(BruteforceBlockedTable::class)]),
                     'proactive' => Tab::make(__('Proactive'))
                         ->icon('heroicon-o-bolt')
-                        ->schema([EmbeddedTable::make(PhpPoolsTable::class)]),
+                        ->schema([Livewire::make(ProactiveStatsWidget::class), EmbeddedTable::make(PhpPoolsTable::class)]),
                     'webshield' => Tab::make(__('WebShield'))
                         ->icon('heroicon-o-globe-alt')
-                        ->schema([EmbeddedTable::make(WebshieldRulesTable::class)]),
+                        ->schema([Livewire::make(WebshieldStatsWidget::class), EmbeddedTable::make(WebshieldRulesTable::class)]),
                     'threatintel' => Tab::make(__('Threat Intel'))
                         ->icon('heroicon-o-globe-americas')
                         ->schema([EmbeddedTable::make(ThreatFeedsTable::class)]),
@@ -164,7 +174,7 @@ class Security extends Page implements HasActions, HasForms
                         ->schema([EmbeddedTable::make(CleanupRecordsTable::class)]),
                     'rules' => Tab::make(__('Rules'))
                         ->icon('heroicon-o-document-text')
-                        ->schema([EmbeddedTable::make(YaraRulesTable::class)]),
+                        ->schema([Livewire::make(RulesStatsWidget::class), EmbeddedTable::make(YaraRulesTable::class)]),
                     'config' => Tab::make(__('Configuration'))
                         ->icon('heroicon-o-cog-6-tooth')
                         ->schema($this->configTab()),
