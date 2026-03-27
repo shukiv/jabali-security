@@ -120,38 +120,7 @@
             $modules = \App\JabaliSecurity\Pages\Security::getModuleToggles();
         @endphp
         @if(!empty($status))
-        @php
-            $u = (int)($status['uptime_seconds'] ?? 0);
-            $uptime = sprintf('%dh %dm', intdiv($u, 3600), intdiv($u % 3600, 60));
-        @endphp
-        <div style="display:flex;gap:8px;flex-wrap:nowrap;" class="text-center text-xs">
-            <div style="flex:1;" class="rounded-lg border border-gray-200 dark:border-white/10 px-3 py-2">
-                <div class="font-bold text-lg {{ ($status['incidents_24h'] ?? 0) > 0 ? 'text-danger-500' : '' }}">{{ $status['incidents_24h'] ?? 0 }}</div>
-                <div class="text-gray-500 dark:text-gray-400">{{ __('Incidents') }}</div>
-            </div>
-            <div style="flex:1;" class="rounded-lg border border-gray-200 dark:border-white/10 px-3 py-2">
-                <div class="font-bold text-lg {{ ($status['quarantined_count'] ?? 0) > 0 ? 'text-warning-500' : '' }}">{{ $status['quarantined_count'] ?? 0 }}</div>
-                <div class="text-gray-500 dark:text-gray-400">{{ __('Quarantine') }}</div>
-            </div>
-            <div style="flex:1;" class="rounded-lg border border-gray-200 dark:border-white/10 px-3 py-2">
-                <div class="font-bold text-lg">{{ $status['watched_dirs'] ?? 0 }}</div>
-                <div class="text-gray-500 dark:text-gray-400">{{ __('Watching') }}</div>
-            </div>
-            <div style="flex:1;" class="rounded-lg border border-gray-200 dark:border-white/10 px-3 py-2">
-                <div class="font-bold text-lg">{{ round($status['memory_mb'] ?? 0) }} MB</div>
-                <div class="text-gray-500 dark:text-gray-400">{{ __('Memory') }}</div>
-            </div>
-            <div style="flex:1;" class="rounded-lg border border-gray-200 dark:border-white/10 px-3 py-2">
-                <div class="font-bold text-lg">{{ $uptime }}</div>
-                <div class="text-gray-500 dark:text-gray-400">{{ __('Uptime') }}</div>
-            </div>
-            <div style="flex:1;" class="rounded-lg border border-gray-200 dark:border-white/10 px-3 py-2">
-                <div class="font-bold text-lg {{ ($status['running'] ?? false) ? 'text-success-500' : 'text-danger-500' }}">
-                    {{ ($status['running'] ?? false) ? __('Online') : __('Offline') }}
-                </div>
-                <div class="text-gray-500 dark:text-gray-400">v{{ $status['version'] ?? '?' }}</div>
-            </div>
-        </div>
+        @livewire(\App\JabaliSecurity\Widgets\SecurityStatsWidget::class)
 
         <x-filament::section>
             <x-slot name="heading">{{ __('Protection Modules') }}</x-slot>

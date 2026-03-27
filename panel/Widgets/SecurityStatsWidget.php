@@ -21,41 +21,44 @@ class SecurityStatsWidget extends BaseWidget
 
         if (! $status) {
             return [
-                Stat::make('Daemon', 'Offline')
-                    ->description('Security daemon is not responding')
+                Stat::make(__('Daemon'), __('Offline'))
+                    ->description(__('Security daemon is not responding'))
                     ->icon('heroicon-o-exclamation-circle')
                     ->color('danger'),
             ];
         }
 
+        $u = (int) ($status['uptime_seconds'] ?? 0);
+        $uptime = sprintf('%dh %dm', intdiv($u, 3600), intdiv($u % 3600, 60));
+
         return [
-            Stat::make('Incidents (24h)', (string) ($status['incidents_24h'] ?? 0))
-                ->description('Security events detected')
+            Stat::make(__('Incidents'), (string) ($status['incidents_24h'] ?? 0))
+                ->description(__('Last 24 hours'))
                 ->icon('heroicon-o-exclamation-triangle')
                 ->color(($status['incidents_24h'] ?? 0) > 0 ? 'danger' : 'success'),
 
-            Stat::make('Quarantined', (string) ($status['quarantined_count'] ?? 0))
-                ->description('Files in quarantine')
+            Stat::make(__('Quarantine'), (string) ($status['quarantined_count'] ?? 0))
+                ->description(__('Files isolated'))
                 ->icon('heroicon-o-lock-closed')
                 ->color(($status['quarantined_count'] ?? 0) > 0 ? 'warning' : 'success'),
 
-            Stat::make('Watched Dirs', (string) ($status['watched_dirs'] ?? 0))
-                ->description('Directories monitored')
+            Stat::make(__('Watching'), (string) ($status['watched_dirs'] ?? 0))
+                ->description(__('Folders monitored'))
                 ->icon('heroicon-o-eye')
                 ->color('info'),
 
-            Stat::make('Queue', (string) ($status['scan_queue_size'] ?? 0))
-                ->description('Pending scans')
-                ->icon('heroicon-o-queue-list')
-                ->color(($status['scan_queue_size'] ?? 0) > 0 ? 'warning' : 'success'),
+            Stat::make(__('Memory'), round($status['memory_mb'] ?? 0, 1).' MB')
+                ->description($status['workers'] ?? 0 .' '.__('workers'))
+                ->icon('heroicon-o-cpu-chip')
+                ->color('gray'),
 
-            Stat::make('Daemon', ($status['running'] ?? false) ? 'Running' : 'Stopped')
-                ->description(sprintf(
-                    'v%s | %s MB | %d workers',
-                    $status['version'] ?? '?',
-                    round($status['memory_mb'] ?? 0, 1),
-                    $status['workers'] ?? 0,
-                ))
+            Stat::make(__('Uptime'), $uptime)
+                ->description('v'.($status['version'] ?? '?'))
+                ->icon('heroicon-o-clock')
+                ->color('gray'),
+
+            Stat::make(__('Daemon'), ($status['running'] ?? false) ? __('Online') : __('Offline'))
+                ->description(($status['running'] ?? false) ? __('All systems operational') : __('Service down'))
                 ->icon(($status['running'] ?? false) ? 'heroicon-o-check-circle' : 'heroicon-o-x-circle')
                 ->color(($status['running'] ?? false) ? 'success' : 'danger'),
         ];

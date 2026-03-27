@@ -97,6 +97,7 @@ All features have reached parity as of 2026-03-28.
 - After updating panel plugin code, **restart `jabali-panel` service** (FrankenPHP caches PHP in worker mode)
 - Module toggles require writing to `/etc/jabali-security/jabali-security.conf` and restarting the daemon
 - The web dashboard serves as the **reference implementation** — when adding a feature to the panel, match the web dashboard's behavior
+- **Filament components only** — the panel plugin must NEVER use custom HTML, CSS, or inline styles. Only use Filament's built-in components (StatsOverviewWidget, Section, Table, Action, Tabs, Button, etc.). Consult Filament v5 docs when unsure.
 
 ---
 
