@@ -40,7 +40,7 @@
         <tbody>
             {% for t in threats %}
             <tr>
-                <td class="mono text-sm" title="{{ t.get('path', '') }}">{{ t.get('path', '').split('/')[-1] }}</td>
+                <td class="mono text-sm">{{ t.get('path', '') }}</td>
                 <td>{{ t.get('score', 0) }}</td>
                 <td>{{ t.get('action', '') }}</td>
                 <td class="text-sm">
