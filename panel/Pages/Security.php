@@ -32,7 +32,7 @@ class Security extends Page implements HasActions, HasForms, HasTable
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-shield-check';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 5;
 
     protected static ?string $slug = 'security';
 
