@@ -254,7 +254,12 @@ do_install() {
 
     # -- Create directories --
     mkdir -p "$CONFIG_DIR"
-    chmod 700 "$CONFIG_DIR"
+    if id www-data &>/dev/null; then
+        chown root:www-data "$CONFIG_DIR"
+        chmod 750 "$CONFIG_DIR"
+    else
+        chmod 700 "$CONFIG_DIR"
+    fi
     mkdir -p "$LOG_DIR"
     mkdir -p "$DATA_DIR"
     chmod 700 "$DATA_DIR"
