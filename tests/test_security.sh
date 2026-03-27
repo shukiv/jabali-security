@@ -667,6 +667,131 @@ if [ -n "$SSH_HOST" ]; then
         info "Process kill test inconclusive: ${kill_test}"
     fi
 
+    # -- 4b.4 UFW Firewall --
+    log ""
+    log "4b.4 UFW Firewall Status"
+
+    ufw_status=$(ssh -o ConnectTimeout=10 "$SSH_HOST" 'ufw status verbose 2>/dev/null || echo "not_installed"' 2>/dev/null)
+
+    if echo "$ufw_status" | grep -q "not_installed"; then
+        info "UFW is not installed"
+    elif echo "$ufw_status" | grep -q "Status: active"; then
+        pass "UFW firewall is active"
+
+        # Check default incoming is deny
+        if echo "$ufw_status" | grep -q "deny (incoming)"; then
+            pass "UFW default incoming policy: deny"
+        else
+            warn "UFW default incoming policy is not deny"
+        fi
+
+        # Check SSH is allowed (don't want lockouts)
+        ufw_rules=$(ssh -o ConnectTimeout=10 "$SSH_HOST" 'ufw status numbered 2>/dev/null' 2>/dev/null)
+        if echo "$ufw_rules" | grep -qE "22(/tcp)?\s+ALLOW"; then
+            pass "UFW allows SSH (port 22)"
+        else
+            warn "UFW does not have an explicit SSH allow rule"
+        fi
+
+        # Check no database ports are open
+        if echo "$ufw_rules" | grep -qE "(3306|5432|6379|27017|11211).*(ALLOW)"; then
+            fail "UFW allows database/cache port access"
+        else
+            pass "UFW does not allow database/cache ports"
+        fi
+
+        # Count total rules
+        rule_count=$(echo "$ufw_rules" | grep -c '^\[' || echo 0)
+        info "UFW has ${rule_count} rules"
+    else
+        warn "UFW is installed but inactive"
+    fi
+
+    # -- 4b.5 UFW API Management --
+    log ""
+    log "4b.5 UFW API Management"
+
+    api_key=$(ssh -o ConnectTimeout=10 "$SSH_HOST" \
+        'grep "^API_KEY" /etc/jabali-security/jabali-security.conf 2>/dev/null | sed "s/API_KEY=\"//;s/\"//"' 2>/dev/null)
+
+    if [ -n "$api_key" ]; then
+        # Test UFW status endpoint
+        ufw_api=$(ssh -o ConnectTimeout=10 "$SSH_HOST" \
+            "curl -s -H 'X-API-Key: ${api_key}' http://127.0.0.1:9876/api/v1/firewall/ufw/status 2>/dev/null" 2>/dev/null)
+
+        if echo "$ufw_api" | grep -q '"success": true'; then
+            pass "UFW API status endpoint responds"
+
+            if echo "$ufw_api" | grep -q '"available": true'; then
+                pass "UFW available on system"
+            else
+                info "UFW binary not found on system"
+            fi
+
+            if echo "$ufw_api" | grep -q '"active": true'; then
+                pass "UFW reports active via API"
+            fi
+        elif echo "$ufw_api" | grep -q '"UFW management not enabled"'; then
+            info "UFW management module is disabled (UFW_ENABLED=no)"
+        else
+            warn "UFW API status endpoint did not respond as expected"
+        fi
+
+        # Test that UFW API rejects unauthenticated requests
+        ufw_noauth=$(ssh -o ConnectTimeout=10 "$SSH_HOST" \
+            "curl -s http://127.0.0.1:9876/api/v1/firewall/ufw/status 2>/dev/null" 2>/dev/null)
+        if echo "$ufw_noauth" | grep -qi "invalid.*api.*key\|unauthorized"; then
+            pass "UFW API rejects unauthenticated requests"
+        elif echo "$ufw_noauth" | grep -q '"success": true'; then
+            fail "UFW API accessible WITHOUT authentication"
+        else
+            info "UFW API auth test inconclusive"
+        fi
+
+        # Test that UFW API validates input (try injection in port)
+        inject_test=$(ssh -o ConnectTimeout=10 "$SSH_HOST" \
+            "curl -s -X POST -H 'X-API-Key: ${api_key}' -H 'Content-Type: application/json' \
+            -d '{\"action\":\"allow\",\"port\":\"; rm -rf /\"}' \
+            http://127.0.0.1:9876/api/v1/firewall/ufw/rules 2>/dev/null" 2>/dev/null)
+        if echo "$inject_test" | grep -q '"success": false'; then
+            pass "UFW API rejects command injection in port field"
+        elif echo "$inject_test" | grep -q '"success": true'; then
+            fail "UFW API accepted malicious port value!"
+        else
+            info "UFW API injection test inconclusive"
+        fi
+
+        # Test adding and deleting a rule via API
+        add_result=$(ssh -o ConnectTimeout=10 "$SSH_HOST" \
+            "curl -s -X POST -H 'X-API-Key: ${api_key}' -H 'Content-Type: application/json' \
+            -d '{\"action\":\"deny\",\"port\":\"19999\",\"protocol\":\"tcp\",\"comment\":\"jabali-test\"}' \
+            http://127.0.0.1:9876/api/v1/firewall/ufw/rules 2>/dev/null" 2>/dev/null)
+        if echo "$add_result" | grep -q '"added": true'; then
+            pass "UFW API: added test rule (deny 19999/tcp)"
+
+            # Find and delete the test rule
+            rules_json=$(ssh -o ConnectTimeout=10 "$SSH_HOST" \
+                "curl -s -H 'X-API-Key: ${api_key}' http://127.0.0.1:9876/api/v1/firewall/ufw/rules 2>/dev/null" 2>/dev/null)
+            test_rule_num=$(echo "$rules_json" | grep -oP '"number":\s*\K\d+(?=.*19999)' | tail -1)
+            if [ -n "$test_rule_num" ]; then
+                del_result=$(ssh -o ConnectTimeout=10 "$SSH_HOST" \
+                    "curl -s -X DELETE -H 'X-API-Key: ${api_key}' \
+                    http://127.0.0.1:9876/api/v1/firewall/ufw/rules/${test_rule_num} 2>/dev/null" 2>/dev/null)
+                if echo "$del_result" | grep -q '"deleted": true'; then
+                    pass "UFW API: deleted test rule #${test_rule_num}"
+                else
+                    warn "UFW API: could not delete test rule #${test_rule_num}"
+                fi
+            else
+                warn "Could not find test rule number to clean up"
+            fi
+        else
+            warn "UFW API: could not add test rule"
+        fi
+    else
+        info "Could not read API key for UFW API tests"
+    fi
+
 else
     log ""
     log "4b. Proactive Defense — SKIPPED (no SSH access to target)"
