@@ -40,6 +40,7 @@ _TOGGLE_KEYS = {
     "scheduled_scan": "SCHEDULED_SCAN_ENABLED",
     "threat_intel": "THREAT_INTEL_ENABLED",
     "webshield": "WEBSHIELD_ENABLED",
+    "ufw": "UFW_ENABLED",
     "auto_quarantine": "AUTO_QUARANTINE",
     "auto_suspend": "AUTO_SUSPEND",
     "heuristic": "HEURISTIC_ENABLED",
@@ -405,6 +406,85 @@ def register_routes(app):
         api_call("PATCH", "/api/v1/config", {key: value})
         flash("%s updated." % key, "success")
         return redirect(url_for("config_page"))
+
+    @app.route("/firewall")
+    @login_required
+    def firewall():
+        config = _config()
+        ufw_enabled = config.get("UFW_ENABLED", "no") in ("yes", "true", "1")
+        status = {}
+        rules = []
+        apps = []
+        if ufw_enabled:
+            status = api_call("GET", "/api/v1/firewall/ufw/status") or {}
+            rules = api_call("GET", "/api/v1/firewall/ufw/rules")
+            rules = rules if isinstance(rules, list) else []
+            apps = api_call("GET", "/api/v1/firewall/ufw/apps")
+            apps = apps if isinstance(apps, list) else []
+        return render_template("firewall.html",
+            ufw_enabled=ufw_enabled, status=status, rules=rules, apps=apps, config=config)
+
+    @app.route("/firewall/action/<action>", methods=["POST"])
+    @login_required
+    def firewall_action(action):
+        if action not in ("enable", "disable", "reload"):
+            flash("Unknown action.", "error")
+            return redirect(url_for("firewall"))
+        result = api_call("POST", "/api/v1/firewall/ufw/%s" % action)
+        if result:
+            flash("UFW %sd." % action, "success")
+        else:
+            flash("UFW %s failed." % action, "error")
+        return redirect(url_for("firewall"))
+
+    @app.route("/firewall/rules/add", methods=["POST"])
+    @login_required
+    def firewall_add_rule():
+        body = {"action": request.form.get("action", "allow")}
+        port = request.form.get("port", "").strip()
+        protocol = request.form.get("protocol", "").strip()
+        from_ip = request.form.get("from_ip", "").strip()
+        direction = request.form.get("direction", "").strip()
+        comment = request.form.get("comment", "").strip()
+        if port:
+            body["port"] = port
+        if protocol:
+            body["protocol"] = protocol
+        if from_ip:
+            body["from_ip"] = from_ip
+        if direction:
+            body["direction"] = direction
+        if comment:
+            body["comment"] = comment
+        result = api_call("POST", "/api/v1/firewall/ufw/rules", body)
+        if result and result.get("added"):
+            flash("Rule added.", "success")
+        else:
+            flash("Failed to add rule.", "error")
+        return redirect(url_for("firewall"))
+
+    @app.route("/firewall/rules/<int:number>/delete", methods=["POST"])
+    @login_required
+    def firewall_delete_rule(number):
+        result = api_call("DELETE", "/api/v1/firewall/ufw/rules/%d" % number)
+        if result and result.get("deleted"):
+            flash("Rule #%d deleted." % number, "success")
+        else:
+            flash("Failed to delete rule.", "error")
+        return redirect(url_for("firewall"))
+
+    @app.route("/firewall/apps/<name>/<action>", methods=["POST"])
+    @login_required
+    def firewall_app_action(name, action):
+        if action not in ("allow", "deny"):
+            flash("Unknown action.", "error")
+            return redirect(url_for("firewall"))
+        result = api_call("POST", "/api/v1/firewall/ufw/apps/%s/%s" % (name, action))
+        if result:
+            flash("%s %sed." % (name, action), "success")
+        else:
+            flash("Failed to %s %s." % (action, name), "error")
+        return redirect(url_for("firewall"))
 
     @app.route("/rules")
     @login_required

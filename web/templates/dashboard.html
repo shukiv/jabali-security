@@ -70,6 +70,7 @@
         {{ toggle("webshield", "WebShield", config.get("WEBSHIELD_ENABLED", "no") in ("yes", "true", "1")) }}
         {{ toggle("threat_intel", "Threat Intelligence", config.get("THREAT_INTEL_ENABLED", "no") in ("yes", "true", "1")) }}
         {{ toggle("cleanup", "Auto Cleanup", config.get("CLEANUP_ENABLED", "no") in ("yes", "true", "1")) }}
+        {{ toggle("ufw", "UFW Firewall", config.get("UFW_ENABLED", "no") in ("yes", "true", "1")) }}
         {{ toggle("scheduled_scan", "Scheduled Scans", config.get("SCHEDULED_SCAN_ENABLED", "no") in ("yes", "true", "1")) }}
         {{ toggle("auto_suspend", "Auto Suspend", config.get("AUTO_SUSPEND", "no") in ("yes", "true", "1")) }}
     </div>

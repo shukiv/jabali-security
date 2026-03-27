@@ -20,6 +20,7 @@
             <li><a href="{{ url_for('scan') }}" class="{% if request.endpoint == 'scan' %}active{% endif %}">Scan</a></li>
             <li><a href="{{ url_for('users') }}" class="{% if request.endpoint == 'users' %}active{% endif %}">Users</a></li>
             <li><a href="{{ url_for('blocklist') }}" class="{% if request.endpoint == 'blocklist' %}active{% endif %}">Blocklist</a></li>
+            <li><a href="{{ url_for('firewall') }}" class="{% if request.endpoint == 'firewall' %}active{% endif %}">Firewall</a></li>
             <li class="nav-separator">Protection</li>
             <li><a href="{{ url_for('waf') }}" class="{% if request.endpoint == 'waf' %}active{% endif %}">WAF</a></li>
             <li><a href="{{ url_for('bruteforce') }}" class="{% if request.endpoint == 'bruteforce' %}active{% endif %}">Brute-Force</a></li>

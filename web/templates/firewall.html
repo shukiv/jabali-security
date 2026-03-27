@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% block title %}Firewall{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>UFW Firewall</h1>
+    <p>Manage system firewall rules</p>
+</div>
+
+{% if not ufw_enabled %}
+<div class="card">
+    <p class="text-muted">UFW management is disabled. Enable <code>UFW_ENABLED</code> in <a href="{{ url_for('config_page') }}">Config</a> and restart the daemon.</p>
+</div>
+{% else %}
+
+<div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));">
+    <div class="stat-card">
+        <div class="stat-value">{% if status.get('active') %}<span style="color:var(--success)">Active</span>{% else %}<span style="color:var(--danger, #e74c3c)">Inactive</span>{% endif %}</div>
+        <div class="stat-label">Firewall Status</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ status.get('rules_count', 0) }}</div>
+        <div class="stat-label">Rules</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ status.get('default_incoming', '?') }}</div>
+        <div class="stat-label">Default Incoming</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ status.get('default_outgoing', '?') }}</div>
+        <div class="stat-label">Default Outgoing</div>
+    </div>
+</div>
+
+<div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <h3 style="margin:0">Controls</h3>
+        <div class="flex gap-2">
+            {% if status.get('active') %}
+            <form method="post" action="{{ url_for('firewall_action', action='disable') }}" onsubmit="return confirm('Disable the firewall?')">
+                <button type="submit" class="btn btn-danger btn-sm">Disable UFW</button>
+            </form>
+            {% else %}
+            <form method="post" action="{{ url_for('firewall_action', action='enable') }}">
+                <button type="submit" class="btn btn-primary btn-sm">Enable UFW</button>
+            </form>
+            {% endif %}
+            <form method="post" action="{{ url_for('firewall_action', action='reload') }}">
+                <button type="submit" class="btn btn-sm">Reload</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h3>Add Rule</h3>
+    <form method="post" action="{{ url_for('firewall_add_rule') }}" class="flex gap-2 items-center" style="flex-wrap:wrap">
+        <select name="action" style="width:100px">
+            <option value="allow">Allow</option>
+            <option value="deny">Deny</option>
+            <option value="reject">Reject</option>
+            <option value="limit">Limit</option>
+        </select>
+        <input type="text" name="port" placeholder="Port (e.g. 443)" style="width:130px">
+        <select name="protocol" style="width:80px">
+            <option value="">Any</option>
+            <option value="tcp">TCP</option>
+            <option value="udp">UDP</option>
+        </select>
+        <input type="text" name="from_ip" placeholder="From IP (optional)" style="width:180px">
+        <select name="direction" style="width:80px">
+            <option value="in">In</option>
+            <option value="out">Out</option>
+        </select>
+        <input type="text" name="comment" placeholder="Comment (optional)" style="width:180px">
+        <button type="submit" class="btn btn-primary">Add Rule</button>
+    </form>
+</div>
+
+<div class="card">
+    <h3>Firewall Rules</h3>
+    <table>
+        <thead>
+            <tr>
+                <th style="width:40px">#</th>
+                <th>To</th>
+                <th>Action</th>
+                <th>From</th>
+                <th>Dir</th>
+                <th style="width:40px">IPv6</th>
+                <th style="width:80px"></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for rule in rules %}
+            <tr>
+                <td class="mono">{{ rule.get('number', '') }}</td>
+                <td class="mono">{{ rule.get('to', '') }}</td>
+                <td><span class="badge {% if rule.get('action') == 'ALLOW' %}badge-low{% elif rule.get('action') == 'DENY' %}badge-critical{% elif rule.get('action') == 'REJECT' %}badge-high{% else %}badge-medium{% endif %}">{{ rule.get('action', '') }}</span></td>
+                <td class="mono">{{ rule.get('from_ip', '') }}</td>
+                <td>{{ rule.get('direction', '') }}</td>
+                <td>{{ "v6" if rule.get('v6') else "" }}</td>
+                <td>
+                    <form method="post" action="{{ url_for('firewall_delete_rule', number=rule.get('number', 0)) }}" onsubmit="return confirm('Delete rule #{{ rule.get('number', '') }}?')">
+                        <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                    </form>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="7" class="text-muted">No rules configured.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if apps %}
+<div class="card">
+    <h3>Application Profiles</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Profile</th>
+                <th style="width:80px"></th>
+                <th style="width:80px"></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for app_name in apps %}
+            <tr>
+                <td>{{ app_name }}</td>
+                <td>
+                    <form method="post" action="{{ url_for('firewall_app_action', name=app_name, action='allow') }}">
+                        <button type="submit" class="btn btn-primary btn-sm">Allow</button>
+                    </form>
+                </td>
+                <td>
+                    <form method="post" action="{{ url_for('firewall_app_action', name=app_name, action='deny') }}">
+                        <button type="submit" class="btn btn-danger btn-sm">Deny</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{% endif %}
+{% endblock %}
