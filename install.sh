@@ -120,16 +120,24 @@ do_uninstall() {
 
 # ── Install ────────────────────────────────────────────────────────────────
 
+section() { echo ""; bold "=== $* ==="; }
+done_ok() { green "[✓] $*"; }
+
 do_install() {
     require_root
-    bold "Installing Jabali Security..."
+    echo ""
+    bold "╔════════════════════════════════════════════════════════════╗"
+    bold "║          Jabali Security — Installer                      ║"
+    bold "╚════════════════════════════════════════════════════════════╝"
+    echo ""
 
     # -- Detect OS --
+    section "Detecting System"
     detect_os
-    echo "Detected OS: $OS_NAME (id=$OS_ID, version=${OS_VERSION:-n/a})"
+    echo "  OS: $OS_NAME (id=$OS_ID, version=${OS_VERSION:-n/a})"
 
     # -- Install system dependencies --
-    echo "Installing system dependencies..."
+    section "Installing System Dependencies"
     local pkg_mgr
     pkg_mgr="$(detect_pkg_manager)"
 
@@ -162,28 +170,28 @@ do_install() {
         red "Please install Python 3.12 or later manually."
         exit 1
     fi
-    echo "Python $(python3 --version 2>&1) — OK"
+    done_ok "Python $(python3 --version 2>&1)"
 
-    # -- Install ClamAV if not present --
+    section "Installing ClamAV"
     if ! command -v clamd &>/dev/null && ! command -v clamdscan &>/dev/null; then
-        echo "Installing ClamAV (optional scanning backend)..."
+        echo "  Installing ClamAV (optional scanning backend)..."
         case "$pkg_mgr" in
             apt) pkg_install clamav-daemon clamav-freshclam ;;
             dnf) pkg_install clamav clamd clamav-update ;;
             yum) pkg_install clamav clamd clamav-update ;;
         esac
-        echo "ClamAV installed."
+        done_ok "ClamAV installed"
     else
-        echo "ClamAV detected — OK"
+        done_ok "ClamAV detected"
     fi
 
-    # -- Clone repo to temp dir --
+    section "Downloading Jabali Security"
     local tmp_dir
     tmp_dir="$(mktemp -d)"
-    echo "Cloning repository..."
     git clone --depth 1 --quiet "$REPO_URL" "$tmp_dir"
+    done_ok "Repository cloned"
 
-    # -- Copy application files --
+    section "Installing Application Files"
     mkdir -p "$INSTALL_DIR"/{daemon,api,rules,etc,bin}
     mkdir -p "$INSTALL_DIR"/lib/{watcher,scanner,bruteforce,waf,proactive,cleanup,threat_intel,webshield,ufw}
     if [ "$INSTALL_WEB" = "yes" ]; then
@@ -218,10 +226,12 @@ do_install() {
     cp "$tmp_dir"/bin/jabali-security "$INSTALL_DIR/bin/"
     chmod +x "$INSTALL_DIR/bin/jabali-security"
 
+    done_ok "Application files installed"
+
     # -- Jabali Panel integration (Filament plugin) --
     JABALI_PANEL_DIR="/var/www/jabali"
     if [ -d "$JABALI_PANEL_DIR/app/Filament" ]; then
-        echo "Jabali Panel detected, installing security plugin..."
+        section "Installing Jabali Panel Plugin"
         mkdir -p "$JABALI_PANEL_DIR/app/JabaliSecurity/Pages"
         mkdir -p "$JABALI_PANEL_DIR/app/JabaliSecurity/Widgets"
         mkdir -p "$JABALI_PANEL_DIR/app/JabaliSecurity/views"
@@ -240,10 +250,10 @@ do_install() {
                     ? \\App\\JabaliSecurity\\JabaliSecurityPlugin::make()\
                     : null,\
             ]))' "$PROVIDER"
-            echo "Security plugin registered in AdminPanelProvider."
+            echo "  Security plugin registered in AdminPanelProvider."
         fi
 
-        echo "Jabali Panel security plugin installed."
+        done_ok "Jabali Panel plugin installed"
     fi
 
     # Clean up temp clone
@@ -252,7 +262,7 @@ do_install() {
     # -- CLI symlink --
     ln -sf "$INSTALL_DIR/bin/jabali-security" /usr/local/bin/jabali-security
 
-    # -- Create directories --
+    section "Configuring Directories & Permissions"
     mkdir -p "$CONFIG_DIR"
     if id www-data &>/dev/null; then
         chown root:www-data "$CONFIG_DIR"
@@ -266,7 +276,9 @@ do_install() {
     mkdir -p "$QUARANTINE_DIR"
     chmod 700 "$QUARANTINE_DIR"
 
-    # -- Copy config (only if not exists) --
+    done_ok "Directories created"
+
+    section "Configuring Security Daemon"
     if [ ! -f "$CONFIG_DIR/jabali-security.conf" ]; then
         cp "$INSTALL_DIR/etc/jabali-security.conf.example" "$CONFIG_DIR/jabali-security.conf"
         if id www-data &>/dev/null; then
@@ -275,9 +287,9 @@ do_install() {
         else
             chmod 600 "$CONFIG_DIR/jabali-security.conf"
         fi
-        echo "Config created at $CONFIG_DIR/jabali-security.conf"
+        echo "  Config: $CONFIG_DIR/jabali-security.conf"
     else
-        echo "Config already exists, keeping current."
+        echo "  Config already exists, keeping current."
     fi
 
     # -- Generate API_KEY if not set --
@@ -295,10 +307,11 @@ do_install() {
         else
             chmod 600 "$CONFIG_DIR/jabali-security.conf"
         fi
-        echo "API key generated."
+        echo "  API key generated."
     fi
+    done_ok "Daemon configured"
 
-    # -- Auto-detect and configure WAF/CRS paths --
+    section "Configuring WAF (ModSecurity)"
     CRS_DIR=""
     for d in /usr/share/modsecurity-crs/rules /etc/modsecurity/crs /usr/share/modsecurity-crs; do
         if [ -d "$d" ] && ls "$d"/*.conf &>/dev/null; then
@@ -307,7 +320,7 @@ do_install() {
         fi
     done
     if [ -n "$CRS_DIR" ]; then
-        echo "OWASP CRS found at $CRS_DIR"
+        echo "  OWASP CRS found at $CRS_DIR"
         if ! grep -q "^WAF_RULES_DIR=" "$CONFIG_DIR/jabali-security.conf" 2>/dev/null; then
             echo "WAF_RULES_DIR=\"$CRS_DIR\"" >> "$CONFIG_DIR/jabali-security.conf"
         else
@@ -315,16 +328,12 @@ do_install() {
         fi
     fi
 
-    # -- Configure ModSecurity for nginx --
     if [ -f /etc/nginx/modsecurity.conf ]; then
-        # Set to blocking mode (not DetectionOnly)
         sed -i 's/SecRuleEngine DetectionOnly/SecRuleEngine On/' /etc/nginx/modsecurity.conf
-        echo "ModSecurity set to blocking mode."
+        echo "  ModSecurity set to blocking mode."
 
-        # Fix audit log path
         sed -i 's|^WAF_AUDIT_LOG=.*|WAF_AUDIT_LOG="/var/log/nginx/modsec_audit.log"|' "$CONFIG_DIR/jabali-security.conf"
 
-        # Create nginx-compatible CRS includes (IncludeOptional not supported)
         if [ -n "$CRS_DIR" ] && [ -f /etc/nginx/modsecurity_includes.conf ]; then
             CRS_SETUP=""
             for f in /etc/modsecurity/crs/crs-setup.conf /usr/share/modsecurity-crs/crs-setup.conf; do
@@ -336,78 +345,90 @@ include modsecurity.conf
 include $CRS_SETUP
 include $CRS_DIR/*.conf
 MODSECEOF
-                echo "CRS rules configured for nginx."
+                echo "  CRS rules configured for nginx."
             fi
         fi
 
-        # Enable modsecurity in nginx http block if not already
         if ! grep -q "modsecurity on" /etc/nginx/nginx.conf 2>/dev/null; then
             sed -i '/http {/a\\tmodsecurity on;\n\tmodsecurity_rules_file /etc/nginx/modsecurity_includes.conf;' /etc/nginx/nginx.conf
-            echo "ModSecurity enabled in nginx."
+            echo "  ModSecurity enabled in nginx."
         fi
 
-        # Test and reload nginx
         if nginx -t 2>/dev/null; then
             systemctl reload nginx 2>/dev/null || true
-            echo "nginx reloaded with ModSecurity."
+            done_ok "WAF configured (ModSecurity + OWASP CRS)"
         else
-            echo "WARNING: nginx config test failed after ModSecurity setup."
+            red "  WARNING: nginx config test failed after ModSecurity setup."
         fi
+    else
+        echo "  ModSecurity not found, skipping WAF setup."
     fi
 
-    # -- Enable features with detected dependencies (on fresh install) --
+    section "Enabling Protection Modules"
     if command -v nft &>/dev/null || command -v iptables &>/dev/null; then
         sed -i 's|^BRUTEFORCE_ENABLED="no"|BRUTEFORCE_ENABLED="yes"|' "$CONFIG_DIR/jabali-security.conf"
-        echo "Brute-force protection enabled."
+        echo "  Brute-force protection .... enabled"
     fi
     if [ -n "$CRS_DIR" ]; then
         sed -i 's|^WAF_ENABLED="no"|WAF_ENABLED="yes"|' "$CONFIG_DIR/jabali-security.conf"
-        echo "WAF enabled."
+        echo "  WAF (ModSecurity) ........ enabled"
     fi
-    # Enable proactive defense + process monitor by default
-    # PHP hardening left disabled — hosting panels (Jabali Panel, cPanel) manage this
     sed -i 's|^PROACTIVE_ENABLED="no"|PROACTIVE_ENABLED="yes"|' "$CONFIG_DIR/jabali-security.conf" 2>/dev/null
+    echo "  Proactive Defense ........ enabled"
     sed -i 's|^PROCESS_KILL_ENABLED="no"|PROCESS_KILL_ENABLED="yes"|' "$CONFIG_DIR/jabali-security.conf" 2>/dev/null
+    echo "  Process Killer ........... enabled"
     sed -i 's|^THREAT_INTEL_ENABLED="no"|THREAT_INTEL_ENABLED="yes"|' "$CONFIG_DIR/jabali-security.conf" 2>/dev/null
+    echo "  Threat Intelligence ...... enabled"
     sed -i 's|^WEBSHIELD_ENABLED="no"|WEBSHIELD_ENABLED="yes"|' "$CONFIG_DIR/jabali-security.conf" 2>/dev/null
+    echo "  WebShield ................ enabled"
     sed -i 's|^CLEANUP_ENABLED="no"|CLEANUP_ENABLED="yes"|' "$CONFIG_DIR/jabali-security.conf" 2>/dev/null
+    echo "  Auto Cleanup ............. enabled"
+    # PHP hardening left disabled — hosting panels manage this
+    echo "  PHP Hardening ............ skipped (panel-managed)"
+    done_ok "Protection modules configured"
 
-    # Enable UFW management and set up default hosting rules
+    section "Configuring Firewall (UFW)"
     if command -v ufw &>/dev/null; then
         sed -i 's|^UFW_ENABLED="no"|UFW_ENABLED="yes"|' "$CONFIG_DIR/jabali-security.conf" 2>/dev/null
-        # Default hosting ports: SSH, HTTP, HTTPS, mail, DNS
-        ufw allow 22/tcp comment "SSH" 2>/dev/null || true
-        ufw allow 80/tcp comment "HTTP" 2>/dev/null || true
-        ufw allow 443/tcp comment "HTTPS" 2>/dev/null || true
-        ufw allow 25/tcp comment "SMTP" 2>/dev/null || true
-        ufw allow 465/tcp comment "SMTPS" 2>/dev/null || true
-        ufw allow 587/tcp comment "Submission" 2>/dev/null || true
-        ufw allow 110/tcp comment "POP3" 2>/dev/null || true
-        ufw allow 143/tcp comment "IMAP" 2>/dev/null || true
-        ufw allow 993/tcp comment "IMAPS" 2>/dev/null || true
-        ufw allow 995/tcp comment "POP3S" 2>/dev/null || true
-        ufw allow 53/tcp comment "DNS" 2>/dev/null || true
-        ufw allow 53/udp comment "DNS" 2>/dev/null || true
-        # Jabali Panel port
+        ufw default deny incoming 2>/dev/null || true
+        ufw default allow outgoing 2>/dev/null || true
+        echo "  Opening ports:"
+        ufw allow 22/tcp comment "SSH" 2>&1 | grep -v "^$" | sed 's/^/    /'
+        ufw allow 80/tcp comment "HTTP" 2>&1 | grep -v "^$" | sed 's/^/    /'
+        ufw allow 443/tcp comment "HTTPS" 2>&1 | grep -v "^$" | sed 's/^/    /'
+        ufw allow 25/tcp comment "SMTP" 2>&1 | grep -v "^$" | sed 's/^/    /'
+        ufw allow 465/tcp comment "SMTPS" 2>&1 | grep -v "^$" | sed 's/^/    /'
+        ufw allow 587/tcp comment "Submission" 2>&1 | grep -v "^$" | sed 's/^/    /'
+        ufw allow 110/tcp comment "POP3" 2>&1 | grep -v "^$" | sed 's/^/    /'
+        ufw allow 143/tcp comment "IMAP" 2>&1 | grep -v "^$" | sed 's/^/    /'
+        ufw allow 993/tcp comment "IMAPS" 2>&1 | grep -v "^$" | sed 's/^/    /'
+        ufw allow 995/tcp comment "POP3S" 2>&1 | grep -v "^$" | sed 's/^/    /'
+        ufw allow 53/tcp comment "DNS" 2>&1 | grep -v "^$" | sed 's/^/    /'
+        ufw allow 53/udp comment "DNS" 2>&1 | grep -v "^$" | sed 's/^/    /'
         if [ -d "/var/www/jabali" ]; then
-            ufw allow 2223/tcp comment "Jabali Panel (FrankenPHP)" 2>/dev/null || true
+            ufw allow 2223/tcp comment "Jabali Panel (FrankenPHP)" 2>&1 | grep -v "^$" | sed 's/^/    /'
         fi
-        ufw --force enable 2>/dev/null || true
-        echo "UFW enabled with default hosting rules."
+        ufw --force enable 2>&1 | grep -v "^$" | sed 's/^/  /'
+        done_ok "Firewall configured"
+    else
+        echo "  UFW not available, skipping firewall setup."
     fi
 
-    # -- Set inotify watch limit --
+    section "System Tuning"
     current_watches=$(cat /proc/sys/fs/inotify/max_user_watches 2>/dev/null || echo 0)
     if [ "$current_watches" -lt 524288 ]; then
         echo "fs.inotify.max_user_watches=524288" > "$SYSCTL_CONF"
         sysctl -p "$SYSCTL_CONF" 2>/dev/null || true
-        echo "inotify watch limit raised to 524288."
+        echo "  inotify watch limit raised to 524288"
+    else
+        echo "  inotify watch limit OK ($current_watches)"
     fi
+    done_ok "System tuning applied"
 
-    # -- Create Python venv and install dependencies --
+    section "Installing Python Dependencies"
     _venv_dir="$INSTALL_DIR/venv"
     if [ ! -d "$_venv_dir" ] || [ ! -f "$_venv_dir/bin/python" ]; then
-        echo "Creating Python venv..."
+        echo "  Creating Python venv..."
         if ! python3 -m venv "$_venv_dir" 2>/dev/null; then
             echo "Installing python3-venv..."
             pkg_install python3-venv
@@ -416,7 +437,7 @@ MODSECEOF
     fi
 
     if [ -f "$_venv_dir/bin/pip" ]; then
-        echo "Installing Python dependencies..."
+        echo "  Installing packages..."
         local pip_pkgs="pydantic>=2.0 yara-x>=0.11 click>=8.0 aiohttp>=3.9 pyyaml>=6.0 aiosqlite>=0.20"
         if [ "$INSTALL_WEB" = "yes" ]; then
             pip_pkgs="$pip_pkgs flask>=3.0 waitress>=3.0"
@@ -426,44 +447,51 @@ MODSECEOF
             uv pip install --python "$_venv_dir/bin/python" $pip_pkgs 2>&1 | tail -1
         # shellcheck disable=SC2086
         elif "$_venv_dir/bin/pip" install --quiet --no-cache-dir $pip_pkgs; then
-            echo "Dependencies installed."
+            :
         else
-            red "WARNING: failed to install dependencies. Check network and re-run."
+            red "  WARNING: failed to install dependencies. Check network and re-run."
         fi
     fi
+    done_ok "Python dependencies installed"
 
-    # -- Install systemd services --
+    section "Starting Services"
     cp "$INSTALL_DIR/etc/jabali-security.service" /etc/systemd/system/
     systemctl daemon-reload 2>/dev/null || true
     systemctl enable "$SERVICE_NAME" 2>/dev/null || true
     systemctl restart "$SERVICE_NAME" 2>/dev/null || true
+    echo "  jabali-security daemon .... started"
 
     if [ "$INSTALL_WEB" = "yes" ]; then
         cp "$INSTALL_DIR/etc/jabali-security-web.service" /etc/systemd/system/
         systemctl daemon-reload 2>/dev/null || true
         systemctl enable jabali-security-web 2>/dev/null || true
         systemctl restart jabali-security-web 2>/dev/null || true
+        echo "  jabali-security-web ...... started"
         # Open web dashboard port in UFW if active
         if command -v ufw &>/dev/null && ufw status | grep -q "^Status: active"; then
             local web_port
             web_port=$(grep "^WEB_PORT=" "$CONFIG_DIR/jabali-security.conf" 2>/dev/null | cut -d'"' -f2)
             web_port="${web_port:-8443}"
             ufw allow "$web_port/tcp" comment "Jabali Security Dashboard" 2>/dev/null || true
-            echo "UFW: opened port $web_port/tcp for web dashboard."
+            echo "  UFW: port $web_port/tcp opened for dashboard"
         fi
     else
-        # Stop web service if previously installed
         systemctl stop jabali-security-web 2>/dev/null || true
         systemctl disable jabali-security-web 2>/dev/null || true
-        echo "Web dashboard skipped (JABALI_WEB=no)."
+        echo "  Web dashboard ............ skipped (JABALI_WEB=no)"
     fi
+    done_ok "Services started"
 
-    # Read the API key for display
+    # ── Summary ───────────────────────────────────────────────────────
     local api_key
     api_key=$(grep "^API_KEY=" "$CONFIG_DIR/jabali-security.conf" 2>/dev/null | cut -d'"' -f2)
 
     echo ""
-    green "Jabali Security installed successfully!"
+    bold "╔════════════════════════════════════════════════════════════╗"
+    bold "║          Installation Complete                             ║"
+    bold "╚════════════════════════════════════════════════════════════╝"
+    echo ""
+    green "  Jabali Security installed successfully!"
     echo ""
     echo "  Daemon:    systemctl status $SERVICE_NAME"
     if [ "$INSTALL_WEB" = "yes" ]; then
@@ -473,6 +501,7 @@ MODSECEOF
     echo "  Config:    $CONFIG_DIR/jabali-security.conf"
     echo "  CLI:       jabali-security --help"
     echo "  Logs:      journalctl -u $SERVICE_NAME -f"
+    echo ""
 }
 
 # ── Update ────────────────────────────────────────────────────────────────
