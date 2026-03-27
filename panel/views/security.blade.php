@@ -52,7 +52,11 @@
     </x-filament::tabs>
 
     @if($activeTab === 'overview')
-        @php $status = $this->getStatusData(); @endphp
+        @php
+            $status = $this->getStatusData();
+            $config = $this->getConfigData();
+            $modules = \App\JabaliSecurity\Pages\Security::getModuleToggles();
+        @endphp
         @if(!empty($status))
         <x-filament::section>
             <x-slot name="heading">{{ __('Daemon Status') }}</x-slot>
@@ -79,6 +83,55 @@
                 </div>
             </div>
         </x-filament::section>
+
+        <x-filament::section>
+            <x-slot name="heading">{{ __('Protection Modules') }}</x-slot>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                @foreach($modules['core'] as $key => $mod)
+                    @php $enabled = in_array($config[$key] ?? 'no', ['yes', 'true', '1']); @endphp
+                    <div class="flex items-center justify-between rounded-lg border border-gray-200 dark:border-white/10 px-4 py-3">
+                        <div class="flex items-center gap-3">
+                            <div class="w-2.5 h-2.5 rounded-full {{ $enabled ? 'bg-success-500' : 'bg-gray-400' }}"></div>
+                            <div>
+                                <div class="text-sm font-medium">{{ __($mod['label']) }}</div>
+                                <div class="text-xs text-gray-500 dark:text-gray-400">{{ __($mod['desc']) }}</div>
+                            </div>
+                        </div>
+                        <button
+                            wire:click="toggleModule('{{ $key }}')"
+                            class="px-3 py-1 text-xs font-medium rounded-md {{ $enabled ? 'bg-success-500/10 text-success-600 dark:text-success-400' : 'bg-gray-100 text-gray-500 dark:bg-white/5 dark:text-gray-400' }}"
+                        >
+                            {{ $enabled ? __('Enabled') : __('Disabled') }}
+                        </button>
+                    </div>
+                @endforeach
+            </div>
+        </x-filament::section>
+
+        <x-filament::section>
+            <x-slot name="heading">{{ __('Advanced Protection') }}</x-slot>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                @foreach($modules['advanced'] as $key => $mod)
+                    @php $enabled = in_array($config[$key] ?? 'no', ['yes', 'true', '1']); @endphp
+                    <div class="flex items-center justify-between rounded-lg border border-gray-200 dark:border-white/10 px-4 py-3">
+                        <div class="flex items-center gap-3">
+                            <div class="w-2.5 h-2.5 rounded-full {{ $enabled ? 'bg-success-500' : 'bg-gray-400' }}"></div>
+                            <div>
+                                <div class="text-sm font-medium">{{ __($mod['label']) }}</div>
+                                <div class="text-xs text-gray-500 dark:text-gray-400">{{ __($mod['desc']) }}</div>
+                            </div>
+                        </div>
+                        <button
+                            wire:click="toggleModule('{{ $key }}')"
+                            class="px-3 py-1 text-xs font-medium rounded-md {{ $enabled ? 'bg-success-500/10 text-success-600 dark:text-success-400' : 'bg-gray-100 text-gray-500 dark:bg-white/5 dark:text-gray-400' }}"
+                        >
+                            {{ $enabled ? __('Enabled') : __('Disabled') }}
+                        </button>
+                    </div>
+                @endforeach
+            </div>
+        </x-filament::section>
+
         @else
             <x-filament::section>
                 <div class="text-center text-gray-500 py-8">

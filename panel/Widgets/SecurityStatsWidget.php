@@ -44,6 +44,11 @@ class SecurityStatsWidget extends BaseWidget
                 ->icon('heroicon-o-eye')
                 ->color('info'),
 
+            Stat::make('Queue', (string) ($status['scan_queue_size'] ?? 0))
+                ->description('Pending scans')
+                ->icon('heroicon-o-queue-list')
+                ->color(($status['scan_queue_size'] ?? 0) > 0 ? 'warning' : 'success'),
+
             Stat::make('Daemon', ($status['running'] ?? false) ? 'Running' : 'Stopped')
                 ->description(sprintf(
                     'v%s | %s MB | %d workers',

@@ -489,6 +489,60 @@ class Security extends Page implements HasActions, HasForms, HasTable
             ->send();
     }
 
+    // ── Module Toggles ───────────────────────────────────────────────
+
+    public function getConfigData(): array
+    {
+        return $this->client()->get('/config') ?? [];
+    }
+
+    public function toggleModule(string $key): void
+    {
+        $config = $this->getConfigData();
+        $current = $config[$key] ?? 'no';
+        $newValue = in_array($current, ['yes', 'true', '1']) ? 'no' : 'yes';
+
+        $result = $this->client()->patch('/config', [$key => $newValue]);
+        if ($result) {
+            Notification::make()
+                ->title(__(':feature :action', [
+                    'feature' => str_replace('_', ' ', str_replace('_ENABLED', '', $key)),
+                    'action' => $newValue === 'yes' ? __('enabled') : __('disabled'),
+                ]))
+                ->color($newValue === 'yes' ? 'success' : 'warning')
+                ->send();
+        } else {
+            Notification::make()->title(__('Failed to update config'))->danger()->send();
+        }
+    }
+
+    public static function getModuleToggles(): array
+    {
+        return [
+            'core' => [
+                'HEURISTIC_ENABLED' => ['label' => 'Heuristic Scanner', 'desc' => 'Regex pattern matching for malicious code'],
+                'ENTROPY_ENABLED' => ['label' => 'Entropy Scanner', 'desc' => 'Detects encoded/obfuscated payloads'],
+                'YARA_ENABLED' => ['label' => 'YARA-X Rules', 'desc' => 'Signature-based scanning'],
+                'PROCESS_MONITOR_ENABLED' => ['label' => 'Process Monitor', 'desc' => 'Monitors suspicious processes'],
+                'BEHAVIOR_TRACKING_ENABLED' => ['label' => 'Behavior Tracking', 'desc' => 'Tracks file lifecycle patterns'],
+                'AUTO_QUARANTINE' => ['label' => 'Auto Quarantine', 'desc' => 'Quarantine files above score threshold'],
+            ],
+            'advanced' => [
+                'WAF_ENABLED' => ['label' => 'WAF (ModSecurity)', 'desc' => 'Web application firewall with OWASP CRS'],
+                'BRUTEFORCE_ENABLED' => ['label' => 'Brute-Force Protection', 'desc' => 'Blocks IPs after failed logins'],
+                'PROACTIVE_ENABLED' => ['label' => 'Proactive Defense', 'desc' => 'Master switch for PHP hardening and process killer'],
+                'PROCESS_KILL_ENABLED' => ['label' => 'Process Killer', 'desc' => 'Kills reverse shells and miners'],
+                'PHP_HARDENING_ENABLED' => ['label' => 'PHP Hardening', 'desc' => 'disable_functions and open_basedir per pool'],
+                'WEBSHIELD_ENABLED' => ['label' => 'WebShield', 'desc' => 'Nginx bot filtering and rate limiting'],
+                'THREAT_INTEL_ENABLED' => ['label' => 'Threat Intelligence', 'desc' => 'IP reputation and malware hash feeds'],
+                'CLEANUP_ENABLED' => ['label' => 'Auto Cleanup', 'desc' => 'Removes injected code from files'],
+                'UFW_ENABLED' => ['label' => 'UFW Firewall', 'desc' => 'Manage system firewall rules'],
+                'SCHEDULED_SCAN_ENABLED' => ['label' => 'Scheduled Scans', 'desc' => 'Periodic full-path scanning'],
+                'AUTO_SUSPEND' => ['label' => 'Auto Suspend', 'desc' => 'Suspends accounts above score threshold'],
+            ],
+        ];
+    }
+
     // ── Helper for view ──────────────────────────────────────────────
 
     public function getFirewallStatus(): array
