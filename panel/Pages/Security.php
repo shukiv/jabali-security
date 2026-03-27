@@ -933,59 +933,21 @@ class Security extends Page implements HasActions, HasForms, HasTable
                 TextColumn::make('value')
                     ->label(__('Value'))
                     ->size('sm')
-                    ->badge()
-                    ->color(function (string $state, array $record): ?string {
-                        $key = $record['key'] ?? '';
-                        if (in_array($key, static::$booleanKeys)) {
-                            return in_array($state, ['yes', 'true', '1']) ? 'success' : 'gray';
-                        }
-
-                        return null;
-                    }),
+                    ->state(fn () => '')
+                    ->formatStateUsing(fn ($record) => ''),
             ])
             ->recordActions([
                 Action::make('edit')
                     ->label(__('Edit'))
                     ->icon('heroicon-o-pencil')
-                    ->form(function (array $record): array {
-                        $key = $record['key'];
-                        $val = $record['value'];
-
-                        if (in_array($key, static::$booleanKeys)) {
-                            return [
-                                Select::make('value')
-                                    ->label($key)
-                                    ->options(['yes' => 'yes', 'no' => 'no'])
-                                    ->default(in_array($val, ['yes', 'true', '1']) ? 'yes' : 'no'),
-                            ];
-                        }
-
-                        if (isset(static::$selectKeys[$key])) {
-                            $opts = array_combine(static::$selectKeys[$key], static::$selectKeys[$key]);
-
-                            return [
-                                Select::make('value')
-                                    ->label($key)
-                                    ->options($opts)
-                                    ->default($val),
-                            ];
-                        }
-
-                        return [
-                            TextInput::make('value')
-                                ->label($key)
-                                ->default($val),
-                        ];
-                    })
+                    ->visible(fn (array $record): bool => ! in_array($record['key'], static::$booleanKeys) && ! isset(static::$selectKeys[$record['key']]))
+                    ->form(fn (array $record): array => [
+                        TextInput::make('value')
+                            ->label($record['key'])
+                            ->default($record['value']),
+                    ])
                     ->action(function (array $data, array $record): void {
-                        $result = $this->client()->patch('/config', [
-                            $record['key'] => $data['value'],
-                        ]);
-                        Notification::make()
-                            ->title($result ? __('Config updated') : __('Update failed'))
-                            ->body($result ? __('Restart daemon to apply changes') : '')
-                            ->color($result ? 'success' : 'danger')
-                            ->send();
+                        $this->saveConfigKey($record['key'], $data['value']);
                     }),
             ])
             ->emptyStateHeading(__('Cannot load configuration'))
@@ -1009,6 +971,21 @@ class Security extends Page implements HasActions, HasForms, HasTable
         $result = $this->client()->post('/firewall/ufw/disable');
         Notification::make()
             ->title($result ? __('Firewall disabled') : __('Failed'))
+            ->color($result ? 'success' : 'danger')
+            ->send();
+    }
+
+    public function updateConfigValue(string $key, string $value): void
+    {
+        $this->saveConfigKey($key, $value);
+    }
+
+    protected function saveConfigKey(string $key, string $value): void
+    {
+        $result = $this->client()->patch('/config', [$key => $value]);
+        Notification::make()
+            ->title($result ? __('Config updated') : __('Update failed'))
+            ->body($result ? __('Restart daemon to apply changes') : '')
             ->color($result ? 'success' : 'danger')
             ->send();
     }

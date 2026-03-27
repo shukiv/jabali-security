@@ -458,7 +458,12 @@
         {{ $this->table }}
 
     @elseif($activeTab === 'config')
-        @php $categories = \App\JabaliSecurity\Pages\Security::$configCategories; @endphp
+        @php
+            $categories = \App\JabaliSecurity\Pages\Security::$configCategories;
+            $boolKeys = \App\JabaliSecurity\Pages\Security::$booleanKeys;
+            $selectKeys = \App\JabaliSecurity\Pages\Security::$selectKeys;
+            $configData = $this->getConfigData();
+        @endphp
         <div class="flex flex-wrap gap-2 mb-4">
             @foreach(array_keys($categories) as $cat)
                 <button
@@ -473,7 +478,55 @@
             @endforeach
         </div>
 
-        {{ $this->table }}
+        <x-filament::section>
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="text-left text-gray-500 dark:text-gray-400 border-b dark:border-white/10">
+                        <th class="py-2 px-3 font-medium" style="width:40%">{{ __('Key') }}</th>
+                        <th class="py-2 px-3 font-medium">{{ __('Value') }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($categories[$configCategory] ?? [] as $key)
+                        @php $val = $configData[$key] ?? ''; @endphp
+                        <tr class="border-b dark:border-white/10">
+                            <td class="py-2.5 px-3 font-mono text-xs font-semibold">{{ $key }}</td>
+                            <td class="py-2.5 px-3">
+                                @if(in_array($key, $boolKeys))
+                                    <select
+                                        wire:change="updateConfigValue('{{ $key }}', $event.target.value)"
+                                        class="rounded-lg border-gray-300 dark:border-white/10 dark:bg-white/5 text-sm py-1 px-2"
+                                    >
+                                        <option value="yes" {{ in_array($val, ['yes', 'true', '1']) ? 'selected' : '' }}>yes</option>
+                                        <option value="no" {{ !in_array($val, ['yes', 'true', '1']) ? 'selected' : '' }}>no</option>
+                                    </select>
+                                @elseif(isset($selectKeys[$key]))
+                                    <select
+                                        wire:change="updateConfigValue('{{ $key }}', $event.target.value)"
+                                        class="rounded-lg border-gray-300 dark:border-white/10 dark:bg-white/5 text-sm py-1 px-2"
+                                    >
+                                        @foreach($selectKeys[$key] as $opt)
+                                            <option value="{{ $opt }}" {{ $val === $opt ? 'selected' : '' }}>{{ $opt }}</option>
+                                        @endforeach
+                                    </select>
+                                @else
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-mono text-xs">{{ $val }}</span>
+                                        <button
+                                            wire:click="$dispatch('open-modal', { id: 'edit-{{ $key }}' })"
+                                            x-on:click="$wire.mountAction('edit', { record: { key: '{{ $key }}', value: '{{ addslashes($val) }}' } })"
+                                            class="text-primary-500 hover:text-primary-600 text-xs"
+                                        >
+                                            <x-heroicon-o-pencil class="w-4 h-4 inline" />
+                                        </button>
+                                    </div>
+                                @endif
+                            </td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </x-filament::section>
     @else
         {{ $this->table }}
     @endif
