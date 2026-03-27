@@ -323,11 +323,16 @@ do_install() {
     systemctl restart "$SERVICE_NAME" 2>/dev/null || true
     systemctl restart jabali-security-web 2>/dev/null || true
 
+    # Read the API key for display
+    local api_key
+    api_key=$(grep "^API_KEY=" "$CONFIG_DIR/jabali-security.conf" 2>/dev/null | cut -d'"' -f2)
+
     echo ""
     green "Jabali Security installed successfully!"
     echo ""
     echo "  Daemon:    systemctl status $SERVICE_NAME"
     echo "  Dashboard: http://0.0.0.0:8443"
+    echo "  API Key:   $api_key"
     echo "  Config:    $CONFIG_DIR/jabali-security.conf"
     echo "  CLI:       jabali-security --help"
     echo "  Logs:      journalctl -u $SERVICE_NAME -f"
