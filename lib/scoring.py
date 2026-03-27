@@ -68,17 +68,15 @@ class ScoringEngine:
     @staticmethod
     def _is_cms_core_path(path: str) -> bool:
         """Check if a file path is a known CMS core file or directory."""
-        from pathlib import Path as RealPath
-
-        parts = PurePosixPath(path).parts
+        p = PurePosixPath(path)
+        parts = p.parts
 
         # Check if inside a known CMS core directory
         if any(part in _CMS_CORE_DIRS for part in parts):
             return True
 
-        # Check if file is a WordPress root file (same dir as wp-config.php)
-        rp = RealPath(path)
-        if rp.name.startswith("wp-") and rp.parent.joinpath("wp-config.php").exists():
+        # Any wp-*.php file is a WordPress core file
+        if p.name.startswith("wp-") and p.suffix == ".php":
             return True
 
         return False
