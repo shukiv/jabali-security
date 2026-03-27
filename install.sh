@@ -198,6 +198,8 @@ do_install() {
     cp "$tmp_dir"/lib/threat_intel/*.py "$INSTALL_DIR/lib/threat_intel/"
     cp "$tmp_dir"/lib/webshield/*.py "$INSTALL_DIR/lib/webshield/"
     cp "$tmp_dir"/api/*.py "$INSTALL_DIR/api/"
+    mkdir -p "$INSTALL_DIR/api/routes"
+    cp "$tmp_dir"/api/routes/*.py "$INSTALL_DIR/api/routes/"
     cp "$tmp_dir"/web/*.py "$INSTALL_DIR/web/"
     cp "$tmp_dir"/web/templates/*.html "$INSTALL_DIR/web/templates/"
     cp -r "$tmp_dir"/web/static/* "$INSTALL_DIR/web/static/"
