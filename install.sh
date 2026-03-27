@@ -609,7 +609,7 @@ SSHJAIL
 
     # Restart SSH
     systemctl restart sshd 2>/dev/null || systemctl restart ssh 2>/dev/null || true
-    )
+    ) || true
     done_ok "SSH hardened (SFTP jail + shell jail with wp-cli)"
 
     section "System Tuning"
