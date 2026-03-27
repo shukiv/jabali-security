@@ -69,7 +69,7 @@ class Security extends Page implements HasActions, HasForms, HasTable
             $tab = explode('::', $tab)[0];
         }
 
-        $valid = ['overview', 'incidents', 'quarantine', 'blocklist', 'firewall', 'waf', 'config'];
+        $valid = ['overview', 'incidents', 'quarantine', 'blocklist', 'firewall', 'waf', 'bruteforce', 'proactive', 'webshield', 'threatintel', 'users', 'cleanup', 'rules', 'config'];
 
         return in_array($tab, $valid) ? $tab : 'overview';
     }
@@ -142,6 +142,13 @@ class Security extends Page implements HasActions, HasForms, HasTable
             'blocklist' => $this->blocklistTable($table),
             'firewall' => $this->firewallTable($table),
             'waf' => $this->wafTable($table),
+            'bruteforce' => $this->bruteforceTable($table),
+            'proactive' => $this->proactiveTable($table),
+            'webshield' => $this->webshieldTable($table),
+            'threatintel' => $this->threatIntelTable($table),
+            'users' => $this->usersTable($table),
+            'cleanup' => $this->cleanupTable($table),
+            'rules' => $this->rulesTable($table),
             'config' => $this->configTable($table),
             default => $table->columns([])->records(fn () => []),
         };
@@ -499,6 +506,353 @@ class Security extends Page implements HasActions, HasForms, HasTable
     public function getWafRules(): array
     {
         return $this->client()->get('/waf/rules') ?? [];
+    }
+
+    // ── Brute-Force Tab ─────────────────────────────────────────────
+
+    protected function bruteforceTable(Table $table): Table
+    {
+        return $table
+            ->records(fn () => ($this->client()->get('/bruteforce/blocked'))['blocked_ips'] ?? [])
+            ->headerActions([
+                Action::make('whitelistIp')
+                    ->label(__('Whitelist IP'))
+                    ->icon('heroicon-o-check-circle')
+                    ->form([
+                        TextInput::make('ip')
+                            ->label(__('IP Address'))
+                            ->required()
+                            ->ipv4(),
+                    ])
+                    ->action(function (array $data): void {
+                        $result = $this->client()->post('/bruteforce/whitelist', ['ip' => $data['ip']]);
+                        Notification::make()
+                            ->title($result ? __('IP whitelisted') : __('Failed'))
+                            ->color($result ? 'success' : 'danger')
+                            ->send();
+                    }),
+            ])
+            ->columns([
+                TextColumn::make('ip')
+                    ->label(__('IP Address'))
+                    ->copyable()
+                    ->state(fn ($record): string => is_string($record) ? $record : ($record['ip'] ?? '')),
+            ])
+            ->emptyStateHeading(__('No blocked IPs'))
+            ->emptyStateIcon('heroicon-o-shield-check')
+            ->striped();
+    }
+
+    public function getBruteforceStats(): array
+    {
+        return $this->client()->get('/bruteforce/stats') ?? [];
+    }
+
+    // ── Proactive Tab ───────────────────────────────────────────────
+
+    protected function proactiveTable(Table $table): Table
+    {
+        return $table
+            ->records(fn () => $this->client()->get('/proactive/php/pools') ?? [])
+            ->columns([
+                TextColumn::make('pool_name')
+                    ->label(__('Pool')),
+                TextColumn::make('php_version')
+                    ->label(__('PHP')),
+                TextColumn::make('user')
+                    ->label(__('User')),
+                IconColumn::make('hardened')
+                    ->label(__('Hardened'))
+                    ->boolean(),
+                TextColumn::make('issues')
+                    ->label(__('Issues'))
+                    ->state(fn (array $record): string => implode(', ', $record['issues'] ?? []) ?: '-')
+                    ->limit(40),
+            ])
+            ->recordActions([
+                Action::make('harden')
+                    ->label(__('Harden'))
+                    ->icon('heroicon-o-shield-check')
+                    ->color('success')
+                    ->visible(fn (array $record): bool => ! ($record['hardened'] ?? true))
+                    ->requiresConfirmation()
+                    ->action(function (array $record): void {
+                        $result = $this->client()->post('/proactive/php/harden', [
+                            'conf_path' => $record['socket_path'] ?? '',
+                        ]);
+                        Notification::make()
+                            ->title($result ? __('Pool hardened') : __('Failed'))
+                            ->color($result ? 'success' : 'danger')
+                            ->send();
+                    }),
+                Action::make('unharden')
+                    ->label(__('Unharden'))
+                    ->icon('heroicon-o-shield-exclamation')
+                    ->color('warning')
+                    ->visible(fn (array $record): bool => $record['hardened'] ?? false)
+                    ->requiresConfirmation()
+                    ->action(function (array $record): void {
+                        $result = $this->client()->post('/proactive/php/unharden', [
+                            'conf_path' => $record['socket_path'] ?? '',
+                        ]);
+                        Notification::make()
+                            ->title($result ? __('Hardening removed') : __('Failed'))
+                            ->color($result ? 'success' : 'danger')
+                            ->send();
+                    }),
+            ])
+            ->emptyStateHeading(__('No PHP-FPM pools found'))
+            ->emptyStateIcon('heroicon-o-code-bracket')
+            ->striped();
+    }
+
+    public function getProactiveStatus(): array
+    {
+        return $this->client()->get('/proactive/status') ?? [];
+    }
+
+    public function getProactiveKills(): array
+    {
+        return $this->client()->get('/proactive/kills') ?? [];
+    }
+
+    // ── WebShield Tab ───────────────────────────────────────────────
+
+    protected function webshieldTable(Table $table): Table
+    {
+        return $table
+            ->records(fn () => $this->client()->get('/webshield/rules') ?? [])
+            ->headerActions([
+                Action::make('installWebshield')
+                    ->label(__('Install'))
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('success')
+                    ->requiresConfirmation()
+                    ->action(function (): void {
+                        $result = $this->client()->post('/webshield/install');
+                        Notification::make()
+                            ->title($result && ($result['success'] ?? false) ? __('WebShield installed') : __('Install failed'))
+                            ->color($result && ($result['success'] ?? false) ? 'success' : 'danger')
+                            ->send();
+                    }),
+                Action::make('uninstallWebshield')
+                    ->label(__('Uninstall'))
+                    ->icon('heroicon-o-trash')
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->action(function (): void {
+                        $this->client()->post('/webshield/uninstall');
+                        Notification::make()->title(__('WebShield uninstalled'))->success()->send();
+                    }),
+            ])
+            ->columns([
+                TextColumn::make('name')
+                    ->label(__('Rule')),
+                TextColumn::make('pattern')
+                    ->label(__('Pattern'))
+                    ->limit(40),
+                TextColumn::make('action')
+                    ->label(__('Action'))
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'block' => 'danger',
+                        'challenge' => 'warning',
+                        'allow' => 'success',
+                        default => 'gray',
+                    }),
+                TextColumn::make('category')
+                    ->label(__('Category'))
+                    ->badge()
+                    ->color('gray'),
+                IconColumn::make('enabled')
+                    ->label(__('Active'))
+                    ->boolean(),
+            ])
+            ->emptyStateHeading(__('No WebShield rules'))
+            ->emptyStateIcon('heroicon-o-globe-alt')
+            ->striped();
+    }
+
+    public function getWebshieldStatus(): array
+    {
+        return $this->client()->get('/webshield/status') ?? [];
+    }
+
+    // ── Threat Intel Tab ────────────────────────────────────────────
+
+    protected function threatIntelTable(Table $table): Table
+    {
+        return $table
+            ->records(fn () => $this->client()->get('/threat-intel/feeds') ?? [])
+            ->headerActions([
+                Action::make('updateFeeds')
+                    ->label(__('Update Feeds'))
+                    ->icon('heroicon-o-arrow-path')
+                    ->action(function (): void {
+                        $result = $this->client()->post('/threat-intel/update');
+                        $success = $result['success_count'] ?? 0;
+                        $total = $result['total_count'] ?? 0;
+                        Notification::make()
+                            ->title(__(':s/:t feeds updated', ['s' => $success, 't' => $total]))
+                            ->color($success > 0 ? 'success' : 'danger')
+                            ->send();
+                    }),
+                Action::make('checkIp')
+                    ->label(__('Check IP'))
+                    ->icon('heroicon-o-magnifying-glass')
+                    ->form([
+                        TextInput::make('ip')->label(__('IP Address'))->required()->ipv4(),
+                    ])
+                    ->action(function (array $data): void {
+                        $result = $this->client()->get('/threat-intel/check/ip/'.$data['ip']);
+                        if ($result) {
+                            $malicious = $result['is_malicious'] ?? false;
+                            $feeds = implode(', ', $result['feeds'] ?? []);
+                            Notification::make()
+                                ->title($malicious ? __('Malicious: :feeds', ['feeds' => $feeds]) : __('Clean'))
+                                ->color($malicious ? 'danger' : 'success')
+                                ->persistent()
+                                ->send();
+                        } else {
+                            Notification::make()->title(__('Check failed'))->danger()->send();
+                        }
+                    }),
+            ])
+            ->columns([
+                TextColumn::make('name')
+                    ->label(__('Feed')),
+                TextColumn::make('feed_type')
+                    ->label(__('Type'))
+                    ->badge()
+                    ->color('gray'),
+                TextColumn::make('entry_count')
+                    ->label(__('Entries'))
+                    ->alignCenter(),
+                TextColumn::make('last_update')
+                    ->label(__('Last Update'))
+                    ->since(),
+                IconColumn::make('enabled')
+                    ->label(__('Active'))
+                    ->boolean(),
+            ])
+            ->emptyStateHeading(__('No threat intel feeds'))
+            ->emptyStateIcon('heroicon-o-globe-alt')
+            ->striped();
+    }
+
+    // ── Users Tab ───────────────────────────────────────────────────
+
+    protected function usersTable(Table $table): Table
+    {
+        return $table
+            ->records(fn () => $this->client()->get('/users') ?? [])
+            ->columns([
+                TextColumn::make('username')
+                    ->label(__('Username'))
+                    ->searchable(isIndividual: false),
+                TextColumn::make('incident_count')
+                    ->label(__('Incidents'))
+                    ->alignCenter(),
+                TextColumn::make('max_score')
+                    ->label(__('Max Score'))
+                    ->alignCenter()
+                    ->color(fn ($state): string => ($state ?? 0) >= 70 ? 'danger' : (($state ?? 0) >= 40 ? 'warning' : 'success')),
+            ])
+            ->recordActions([
+                Action::make('viewUser')
+                    ->label(__('Details'))
+                    ->icon('heroicon-o-eye')
+                    ->modalHeading(fn (array $record): string => __('User: :name', ['name' => $record['username'] ?? '']))
+                    ->modalContent(function (array $record): \Illuminate\Contracts\View\View {
+                        $details = $this->client()->get('/users/'.($record['username'] ?? ''));
+
+                        return view('jabali-security::user-detail', ['user' => $details ?? []]);
+                    })
+                    ->modalSubmitAction(false),
+            ])
+            ->emptyStateHeading(__('No users with incidents'))
+            ->emptyStateIcon('heroicon-o-users')
+            ->striped();
+    }
+
+    // ── Cleanup Tab ─────────────────────────────────────────────────
+
+    protected function cleanupTable(Table $table): Table
+    {
+        return $table
+            ->records(fn () => $this->client()->get('/cleanup/records') ?? [])
+            ->headerActions([
+                Action::make('cleanFile')
+                    ->label(__('Clean File'))
+                    ->icon('heroicon-o-sparkles')
+                    ->form([
+                        TextInput::make('path')
+                            ->label(__('File Path'))
+                            ->placeholder('/home/user/public_html/infected.php')
+                            ->required(),
+                    ])
+                    ->action(function (array $data): void {
+                        $result = $this->client()->post('/cleanup/file', ['path' => $data['path']]);
+                        Notification::make()
+                            ->title($result && ($result['success'] ?? false) ? __('File cleaned') : __('Cleanup failed'))
+                            ->color($result && ($result['success'] ?? false) ? 'success' : 'danger')
+                            ->send();
+                    }),
+            ])
+            ->columns([
+                TextColumn::make('path')
+                    ->label(__('File'))
+                    ->limit(40),
+                TextColumn::make('strategy')
+                    ->label(__('Strategy'))
+                    ->badge()
+                    ->color('gray'),
+                IconColumn::make('success')
+                    ->label(__('Result'))
+                    ->boolean(),
+                TextColumn::make('username')
+                    ->label(__('User')),
+                TextColumn::make('created_at')
+                    ->label(__('Time'))
+                    ->since(),
+            ])
+            ->emptyStateHeading(__('No cleanup records'))
+            ->emptyStateIcon('heroicon-o-sparkles')
+            ->striped();
+    }
+
+    // ── Rules Tab ───────────────────────────────────────────────────
+
+    protected function rulesTable(Table $table): Table
+    {
+        return $table
+            ->records(function () {
+                $rules = $this->client()->get('/rules') ?? [];
+                $records = [];
+                foreach ($rules['yara_rules'] ?? [] as $r) {
+                    $r['type'] = 'yara';
+                    $records[] = $r;
+                }
+
+                return $records;
+            })
+            ->columns([
+                TextColumn::make('name')
+                    ->label(__('Rule File'))
+                    ->searchable(isIndividual: false),
+                TextColumn::make('size')
+                    ->label(__('Size'))
+                    ->formatStateUsing(fn ($state): string => number_format($state ?? 0).' bytes')
+                    ->alignEnd(),
+            ])
+            ->emptyStateHeading(__('No YARA rules'))
+            ->emptyStateIcon('heroicon-o-document-text')
+            ->striped();
+    }
+
+    public function getRulesInfo(): array
+    {
+        return $this->client()->get('/rules') ?? [];
     }
 
     // ── Config Tab ───────────────────────────────────────────────────

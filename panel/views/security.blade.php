@@ -51,6 +51,62 @@
         </x-filament::tabs.item>
 
         <x-filament::tabs.item
+            :active="$activeTab === 'bruteforce'"
+            wire:click="$set('activeTab', 'bruteforce')"
+            icon="heroicon-o-key"
+        >
+            {{ __('Brute-Force') }}
+        </x-filament::tabs.item>
+
+        <x-filament::tabs.item
+            :active="$activeTab === 'proactive'"
+            wire:click="$set('activeTab', 'proactive')"
+            icon="heroicon-o-bolt"
+        >
+            {{ __('Proactive') }}
+        </x-filament::tabs.item>
+
+        <x-filament::tabs.item
+            :active="$activeTab === 'webshield'"
+            wire:click="$set('activeTab', 'webshield')"
+            icon="heroicon-o-globe-alt"
+        >
+            {{ __('WebShield') }}
+        </x-filament::tabs.item>
+
+        <x-filament::tabs.item
+            :active="$activeTab === 'threatintel'"
+            wire:click="$set('activeTab', 'threatintel')"
+            icon="heroicon-o-globe-americas"
+        >
+            {{ __('Threat Intel') }}
+        </x-filament::tabs.item>
+
+        <x-filament::tabs.item
+            :active="$activeTab === 'users'"
+            wire:click="$set('activeTab', 'users')"
+            icon="heroicon-o-users"
+        >
+            {{ __('Users') }}
+        </x-filament::tabs.item>
+
+        <x-filament::tabs.item
+            :active="$activeTab === 'cleanup'"
+            wire:click="$set('activeTab', 'cleanup')"
+            icon="heroicon-o-sparkles"
+        >
+            {{ __('Cleanup') }}
+        </x-filament::tabs.item>
+
+        <x-filament::tabs.item
+            :active="$activeTab === 'rules'"
+            wire:click="$set('activeTab', 'rules')"
+            icon="heroicon-o-document-text"
+        >
+            {{ __('Rules') }}
+        </x-filament::tabs.item>
+
+        <x-filament::tabs.item
             :active="$activeTab === 'config'"
             wire:click="$set('activeTab', 'config')"
             icon="heroicon-o-cog-6-tooth"
@@ -201,6 +257,142 @@
         </x-filament::section>
         @endif
 
+    @elseif($activeTab === 'bruteforce')
+        @php $bfStats = $this->getBruteforceStats(); @endphp
+        @if(!empty($bfStats))
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <x-filament::section>
+                <div class="text-center">
+                    <div class="text-3xl font-bold">{{ $bfStats['tracked_ips'] ?? 0 }}</div>
+                    <div class="text-sm text-gray-500 dark:text-gray-400">{{ __('Tracked IPs') }}</div>
+                </div>
+            </x-filament::section>
+            <x-filament::section>
+                <div class="text-center">
+                    <div class="text-3xl font-bold">{{ $bfStats['blocked_count'] ?? 0 }}</div>
+                    <div class="text-sm text-gray-500 dark:text-gray-400">{{ __('Blocked Count') }}</div>
+                </div>
+            </x-filament::section>
+        </div>
+        @else
+        <x-filament::section>
+            <div class="text-center text-gray-500 py-4">
+                <p class="font-semibold">{{ __('Brute-force protection not enabled') }}</p>
+                <p class="text-sm">{{ __('Enable it in the Overview tab') }}</p>
+            </div>
+        </x-filament::section>
+        @endif
+
+        {{ $this->table }}
+
+    @elseif($activeTab === 'proactive')
+        @php
+            $proStatus = $this->getProactiveStatus();
+            $kills = $this->getProactiveKills();
+        @endphp
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <x-filament::section>
+                <div class="text-center">
+                    <div class="text-sm text-gray-500 dark:text-gray-400">{{ __('Process Killer') }}</div>
+                    <div class="text-lg font-bold {{ ($proStatus['process_kill_enabled'] ?? false) ? 'text-success-600' : 'text-gray-400' }}">
+                        {{ ($proStatus['process_kill_enabled'] ?? false) ? __('Active') : __('Disabled') }}
+                    </div>
+                </div>
+            </x-filament::section>
+            <x-filament::section>
+                <div class="text-center">
+                    <div class="text-sm text-gray-500 dark:text-gray-400">{{ __('Processes Killed') }}</div>
+                    <div class="text-3xl font-bold">{{ $proStatus['process_kill_count'] ?? 0 }}</div>
+                </div>
+            </x-filament::section>
+            <x-filament::section>
+                <div class="text-center">
+                    <div class="text-sm text-gray-500 dark:text-gray-400">{{ __('PHP Hardening') }}</div>
+                    <div class="text-lg font-bold {{ ($proStatus['php_hardening_enabled'] ?? false) ? 'text-success-600' : 'text-gray-400' }}">
+                        {{ ($proStatus['php_hardening_enabled'] ?? false) ? __('Active') : __('Disabled') }}
+                    </div>
+                </div>
+            </x-filament::section>
+        </div>
+
+        <x-filament::section>
+            <x-slot name="heading">{{ __('PHP-FPM Pools') }}</x-slot>
+            {{ $this->table }}
+        </x-filament::section>
+
+        @if(!empty($kills))
+        <x-filament::section>
+            <x-slot name="heading">{{ __('Recent Process Kills') }}</x-slot>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="text-left text-gray-500 dark:text-gray-400 border-b dark:border-white/10">
+                            <th class="py-2 px-3">{{ __('PID') }}</th>
+                            <th class="py-2 px-3">{{ __('User') }}</th>
+                            <th class="py-2 px-3">{{ __('Score') }}</th>
+                            <th class="py-2 px-3">{{ __('Reason') }}</th>
+                            <th class="py-2 px-3">{{ __('Result') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($kills as $kill)
+                        <tr class="border-b dark:border-white/10">
+                            <td class="py-2 px-3 font-mono">{{ $kill['pid'] ?? '' }}</td>
+                            <td class="py-2 px-3">{{ $kill['username'] ?? '' }}</td>
+                            <td class="py-2 px-3 font-bold">{{ $kill['score'] ?? '' }}</td>
+                            <td class="py-2 px-3 text-xs">{{ $kill['reason'] ?? '' }}</td>
+                            <td class="py-2 px-3">
+                                @if($kill['success'] ?? false)
+                                    <span class="text-success-600">{{ __('Killed') }}</span>
+                                @else
+                                    <span class="text-danger-600">{{ __('Failed') }}</span>
+                                @endif
+                            </td>
+                        </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </x-filament::section>
+        @endif
+
+    @elseif($activeTab === 'webshield')
+        @php $wsStatus = $this->getWebshieldStatus(); @endphp
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <x-filament::section>
+                <div class="text-center">
+                    <div class="text-sm text-gray-500 dark:text-gray-400">{{ __('Installed') }}</div>
+                    <div class="text-lg font-bold {{ ($wsStatus['installed'] ?? false) ? 'text-success-600' : 'text-gray-400' }}">
+                        {{ ($wsStatus['installed'] ?? false) ? __('Yes') : __('No') }}
+                    </div>
+                </div>
+            </x-filament::section>
+            <x-filament::section>
+                <div class="text-center">
+                    <div class="text-sm text-gray-500 dark:text-gray-400">{{ __('Rate Limiting') }}</div>
+                    <div class="text-lg font-bold {{ ($wsStatus['rate_limiting'] ?? false) ? 'text-success-600' : 'text-gray-400' }}">
+                        {{ ($wsStatus['rate_limiting'] ?? false) ? __('On') : __('Off') }}
+                    </div>
+                </div>
+            </x-filament::section>
+            <x-filament::section>
+                <div class="text-center">
+                    <div class="text-sm text-gray-500 dark:text-gray-400">{{ __('Bot Filtering') }}</div>
+                    <div class="text-lg font-bold {{ ($wsStatus['bot_filtering'] ?? false) ? 'text-success-600' : 'text-gray-400' }}">
+                        {{ ($wsStatus['bot_filtering'] ?? false) ? __('On') : __('Off') }}
+                    </div>
+                </div>
+            </x-filament::section>
+            <x-filament::section>
+                <div class="text-center">
+                    <div class="text-sm text-gray-500 dark:text-gray-400">{{ __('Blocked IPs') }}</div>
+                    <div class="text-3xl font-bold">{{ $wsStatus['blocked_ips_count'] ?? 0 }}</div>
+                </div>
+            </x-filament::section>
+        </div>
+
+        {{ $this->table }}
+
     @elseif($activeTab === 'firewall')
         @php $fw = $this->getFirewallStatus(); @endphp
         <x-filament::section>
@@ -235,6 +427,36 @@
         </x-filament::section>
 
         {{ $this->table }}
+    @elseif($activeTab === 'rules')
+        @php $rulesInfo = $this->getRulesInfo(); @endphp
+        <x-filament::section>
+            <x-slot name="heading">{{ __('Scanner Status') }}</x-slot>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div>
+                    <span class="text-gray-500 dark:text-gray-400">{{ __('YARA') }}</span>
+                    <div class="font-semibold {{ ($rulesInfo['yara_enabled'] ?? false) ? 'text-success-600' : 'text-gray-400' }}">
+                        {{ ($rulesInfo['yara_enabled'] ?? false) ? __('Enabled') : __('Disabled') }}
+                    </div>
+                </div>
+                <div>
+                    <span class="text-gray-500 dark:text-gray-400">{{ __('ClamAV') }}</span>
+                    <div class="font-semibold {{ ($rulesInfo['clamav_enabled'] ?? false) ? 'text-success-600' : 'text-gray-400' }}">
+                        {{ ($rulesInfo['clamav_enabled'] ?? false) ? __('Enabled') : __('Disabled') }}
+                    </div>
+                </div>
+                <div>
+                    <span class="text-gray-500 dark:text-gray-400">{{ __('Active Scanners') }}</span>
+                    <div class="font-semibold">{{ implode(', ', $rulesInfo['scanners'] ?? []) }}</div>
+                </div>
+                <div>
+                    <span class="text-gray-500 dark:text-gray-400">{{ __('Rules Dir') }}</span>
+                    <div class="font-mono text-xs">{{ $rulesInfo['yara_rules_dir'] ?? '?' }}</div>
+                </div>
+            </div>
+        </x-filament::section>
+
+        {{ $this->table }}
+
     @else
         {{ $this->table }}
     @endif
