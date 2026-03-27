@@ -249,10 +249,12 @@ class Security extends Page implements HasActions, HasForms
                             ->color($active ? 'danger' : 'success')
                             ->size('sm')
                             ->requiresConfirmation()
-                            ->action(fn () => $active
-                                ? $this->client()->post('/firewall/ufw/disable')
-                                : $this->client()->post('/firewall/ufw/enable')
-                            ),
+                            ->action(function () use ($active) {
+                                $active
+                                    ? $this->client()->post('/firewall/ufw/disable')
+                                    : $this->client()->post('/firewall/ufw/enable');
+                                $this->redirect(static::getUrl(['tab' => 'firewall']));
+                            }),
                     ]),
                 ]),
             EmbeddedTable::make(FirewallRulesTable::class),
@@ -323,6 +325,8 @@ class Security extends Page implements HasActions, HasForms
         } else {
             Notification::make()->title(__('Failed to update config'))->danger()->send();
         }
+
+        $this->redirect(static::getUrl(['tab' => 'overview']));
     }
 
     public function updateConfigValue(string $key, string $value): void
