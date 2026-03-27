@@ -176,8 +176,14 @@ class FeedManager:
         return local
 
     async def run_periodic_updates(self, interval_hours: int = 6) -> None:
-        """Background task: update feeds every N hours."""
+        """Background task: update feeds on startup, then every N hours."""
         logger.info("Threat intel feed updater started (interval=%dh)", interval_hours)
+        # Initial update on startup if no cached data
+        if not any(fs.entry_count > 0 for fs in self._feed_status.values()):
+            logger.info("No cached feeds found, pulling initial data...")
+            results = await self.update_all()
+            success = sum(1 for v in results.values() if v)
+            logger.info("Initial feed update: %d/%d succeeded", success, len(results))
         while True:
             await asyncio.sleep(interval_hours * 3600)
             logger.info("Updating threat intelligence feeds...")
