@@ -17,9 +17,66 @@ INSTALL_WEB="${JABALI_WEB:-yes}"   # set JABALI_WEB=no to skip web dashboard
 
 # ── Helpers ────────────────────────────────────────────────────────────────
 
-red()   { echo -e "\033[0;31m$*\033[0m"; }
-green() { echo -e "\033[0;32m$*\033[0m"; }
-bold()  { echo -e "\033[1m$*\033[0m"; }
+red()    { echo -e "\033[0;31m$*\033[0m"; }
+green()  { echo -e "\033[0;32m$*\033[0m"; }
+yellow() { echo -e "\033[0;33m$*\033[0m"; }
+cyan()   { echo -e "\033[0;36m$*\033[0m"; }
+bold()   { echo -e "\033[1m$*\033[0m"; }
+
+# Spinner — runs in background, killed by stop_spinner
+_spinner_pid=""
+_spinner_flag=""
+
+start_spinner() {
+    local label="$1"
+    _spinner_flag=$(mktemp /tmp/.jabali-sec-spinner-XXXXXX)
+    (
+        local frames=(⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏)
+        local n=${#frames[@]} i=0
+        tput civis 2>/dev/null || true
+        while [ -f "$_spinner_flag" ]; do
+            printf "\r\033[0;36m[%s]\033[0m %s " "${frames[i % n]}" "$label" >&2
+            i=$((i + 1))
+            sleep 0.08
+        done
+    ) &
+    _spinner_pid=$!
+}
+
+stop_spinner() {
+    local success="${1:-true}"
+    local label="$2"
+    rm -f "$_spinner_flag" 2>/dev/null
+    if [ -n "$_spinner_pid" ]; then
+        wait "$_spinner_pid" 2>/dev/null || true
+        _spinner_pid=""
+    fi
+    tput cnorm 2>/dev/null || true
+    if [ "$success" = "true" ]; then
+        printf "\r\033[0;32m[✓]\033[0m %s\n" "$label" >&2
+    else
+        printf "\r\033[0;31m[✗]\033[0m %s\n" "$label" >&2
+    fi
+}
+
+# Run a command with spinner
+run_with_spinner() {
+    local label="$1"; shift
+    start_spinner "$label"
+    local log_file
+    log_file=$(mktemp /tmp/jabali-sec-XXXXXX.log)
+    local rc=0
+    "$@" > "$log_file" 2>&1 || rc=$?
+    if [ $rc -eq 0 ]; then
+        stop_spinner true "$label"
+    else
+        stop_spinner false "$label"
+        yellow "    Last output:"
+        tail -5 "$log_file" | sed 's/^/    /'
+    fi
+    rm -f "$log_file"
+    return $rc
+}
 
 require_root() {
     if [ "$(id -u)" -ne 0 ]; then
@@ -136,22 +193,24 @@ do_install() {
     detect_os
     echo "  OS: $OS_NAME (id=$OS_ID, version=${OS_VERSION:-n/a})"
 
-    # -- Install system dependencies --
     section "Installing System Dependencies"
     local pkg_mgr
     pkg_mgr="$(detect_pkg_manager)"
 
     case "$pkg_mgr" in
         apt)
-            pkg_install git python3 python3-venv python3-pip file coreutils \
+            run_with_spinner "Installing system packages (apt)" \
+                pkg_install git python3 python3-venv python3-pip file coreutils \
                 nftables ufw libnginx-mod-http-modsecurity modsecurity-crs
             ;;
         dnf)
-            pkg_install git python3 python3-pip file coreutils \
+            run_with_spinner "Installing system packages (dnf)" \
+                pkg_install git python3 python3-pip file coreutils \
                 nftables ufw mod_security mod_security_crs
             ;;
         yum)
-            pkg_install git python3 python3-pip file coreutils \
+            run_with_spinner "Installing system packages (yum)" \
+                pkg_install git python3 python3-pip file coreutils \
                 nftables ufw mod_security mod_security_crs
             ;;
         *)
@@ -172,24 +231,19 @@ do_install() {
     fi
     done_ok "Python $(python3 --version 2>&1)"
 
-    section "Installing ClamAV"
     if ! command -v clamd &>/dev/null && ! command -v clamdscan &>/dev/null; then
-        echo "  Installing ClamAV (optional scanning backend)..."
         case "$pkg_mgr" in
-            apt) pkg_install clamav-daemon clamav-freshclam ;;
-            dnf) pkg_install clamav clamd clamav-update ;;
-            yum) pkg_install clamav clamd clamav-update ;;
+            apt) run_with_spinner "Installing ClamAV" pkg_install clamav-daemon clamav-freshclam ;;
+            dnf) run_with_spinner "Installing ClamAV" pkg_install clamav clamd clamav-update ;;
+            yum) run_with_spinner "Installing ClamAV" pkg_install clamav clamd clamav-update ;;
         esac
-        done_ok "ClamAV installed"
     else
-        done_ok "ClamAV detected"
+        green "[✓] ClamAV already installed"
     fi
 
-    section "Downloading Jabali Security"
     local tmp_dir
     tmp_dir="$(mktemp -d)"
-    git clone --depth 1 --quiet "$REPO_URL" "$tmp_dir"
-    done_ok "Repository cloned"
+    run_with_spinner "Downloading Jabali Security" git clone --depth 1 --quiet "$REPO_URL" "$tmp_dir"
 
     section "Installing Application Files"
     mkdir -p "$INSTALL_DIR"/{daemon,api,rules,etc,bin}
@@ -390,25 +444,35 @@ MODSECEOF
     section "Configuring Firewall (UFW)"
     if command -v ufw &>/dev/null; then
         sed -i 's|^UFW_ENABLED="no"|UFW_ENABLED="yes"|' "$CONFIG_DIR/jabali-security.conf" 2>/dev/null
-        ufw default deny incoming 2>/dev/null || true
-        ufw default allow outgoing 2>/dev/null || true
-        echo "  Opening ports:"
-        ufw allow 22/tcp comment "SSH" 2>&1 | grep -v "^$" | sed 's/^/    /'
-        ufw allow 80/tcp comment "HTTP" 2>&1 | grep -v "^$" | sed 's/^/    /'
-        ufw allow 443/tcp comment "HTTPS" 2>&1 | grep -v "^$" | sed 's/^/    /'
-        ufw allow 25/tcp comment "SMTP" 2>&1 | grep -v "^$" | sed 's/^/    /'
-        ufw allow 465/tcp comment "SMTPS" 2>&1 | grep -v "^$" | sed 's/^/    /'
-        ufw allow 587/tcp comment "Submission" 2>&1 | grep -v "^$" | sed 's/^/    /'
-        ufw allow 110/tcp comment "POP3" 2>&1 | grep -v "^$" | sed 's/^/    /'
-        ufw allow 143/tcp comment "IMAP" 2>&1 | grep -v "^$" | sed 's/^/    /'
-        ufw allow 993/tcp comment "IMAPS" 2>&1 | grep -v "^$" | sed 's/^/    /'
-        ufw allow 995/tcp comment "POP3S" 2>&1 | grep -v "^$" | sed 's/^/    /'
-        ufw allow 53/tcp comment "DNS" 2>&1 | grep -v "^$" | sed 's/^/    /'
-        ufw allow 53/udp comment "DNS" 2>&1 | grep -v "^$" | sed 's/^/    /'
-        if [ -d "/var/www/jabali" ]; then
-            ufw allow 2223/tcp comment "Jabali Panel (FrankenPHP)" 2>&1 | grep -v "^$" | sed 's/^/    /'
+        ufw default deny incoming >/dev/null 2>&1 || true
+        ufw default allow outgoing >/dev/null 2>&1 || true
+
+        # Open standard hosting ports
+        _open_port() { ufw allow "$1" comment "$2" >/dev/null 2>&1 || true; printf "  %-8s %-18s %s\n" "$1" "$2" "$3"; }
+
+        echo ""
+        printf "  %-8s %-18s %s\n" "PORT" "SERVICE" "NOTES"
+        printf "  %-8s %-18s %s\n" "────" "──────────────────" "────────────────────────────"
+        _open_port "22/tcp"   "SSH"                  ""
+        _open_port "80/tcp"   "HTTP"                 "ACME, autoconfig, redirects"
+        _open_port "443/tcp"  "HTTPS"                "Sites, webmail, phpMyAdmin"
+        _open_port "25/tcp"   "SMTP"                 "Other mail servers connect here"
+        _open_port "465/tcp"  "SMTPS"                "Mail clients"
+        _open_port "587/tcp"  "Submission"            "Mail clients"
+        _open_port "110/tcp"  "POP3"                 "Mail clients"
+        _open_port "143/tcp"  "IMAP"                 "Mail clients"
+        _open_port "993/tcp"  "IMAPS"                "Mail clients"
+        _open_port "995/tcp"  "POP3S"                "Mail clients"
+        if command -v named &>/dev/null || command -v bind9 &>/dev/null || [ -d "/etc/bind" ]; then
+            _open_port "53/tcp" "DNS"                "BIND9 detected"
+            _open_port "53/udp" "DNS"                "BIND9 detected"
         fi
-        ufw --force enable 2>&1 | grep -v "^$" | sed 's/^/  /'
+        if [ -d "/var/www/jabali" ]; then
+            _open_port "2223/tcp" "Jabali Panel"     "Admin + user panel"
+        fi
+        echo ""
+
+        ufw --force enable 2>&1 | sed 's/^/  /'
         done_ok "Firewall configured"
     else
         echo "  UFW not available, skipping firewall setup."
@@ -428,31 +492,27 @@ MODSECEOF
     section "Installing Python Dependencies"
     _venv_dir="$INSTALL_DIR/venv"
     if [ ! -d "$_venv_dir" ] || [ ! -f "$_venv_dir/bin/python" ]; then
-        echo "  Creating Python venv..."
         if ! python3 -m venv "$_venv_dir" 2>/dev/null; then
-            echo "Installing python3-venv..."
-            pkg_install python3-venv
+            run_with_spinner "Installing python3-venv" pkg_install python3-venv
             python3 -m venv "$_venv_dir"
         fi
     fi
 
     if [ -f "$_venv_dir/bin/pip" ]; then
-        echo "  Installing packages..."
         local pip_pkgs="pydantic>=2.0 yara-x>=0.11 click>=8.0 aiohttp>=3.9 pyyaml>=6.0 aiosqlite>=0.20"
         if [ "$INSTALL_WEB" = "yes" ]; then
             pip_pkgs="$pip_pkgs flask>=3.0 waitress>=3.0"
         fi
         if command -v uv &>/dev/null; then
             # shellcheck disable=SC2086
-            uv pip install --python "$_venv_dir/bin/python" $pip_pkgs 2>&1 | tail -1
-        # shellcheck disable=SC2086
-        elif "$_venv_dir/bin/pip" install --quiet --no-cache-dir $pip_pkgs; then
-            :
+            run_with_spinner "Installing Python packages (uv)" \
+                uv pip install --python "$_venv_dir/bin/python" $pip_pkgs
         else
-            red "  WARNING: failed to install dependencies. Check network and re-run."
+            # shellcheck disable=SC2086
+            run_with_spinner "Installing Python packages (pip)" \
+                "$_venv_dir/bin/pip" install --quiet --no-cache-dir $pip_pkgs
         fi
     fi
-    done_ok "Python dependencies installed"
 
     section "Starting Services"
     cp "$INSTALL_DIR/etc/jabali-security.service" /etc/systemd/system/
