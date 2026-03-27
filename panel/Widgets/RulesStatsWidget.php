@@ -31,9 +31,11 @@ class RulesStatsWidget extends BaseWidget
                 ->color(($rules['clamav_enabled'] ?? false) ? 'success' : 'gray'),
             Stat::make(__('Scanners'), implode(', ', $rules['scanners'] ?? []))
                 ->icon('heroicon-o-magnifying-glass')
+                ->extraAttributes(['class' => '!p-3'])
                 ->color('info'),
             Stat::make(__('Rules Dir'), $rules['yara_rules_dir'] ?? '?')
                 ->icon('heroicon-o-folder')
+                ->extraAttributes(['class' => '!p-3'])
                 ->color('gray'),
         ];
     }
