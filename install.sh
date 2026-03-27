@@ -218,6 +218,34 @@ do_install() {
     cp "$tmp_dir"/bin/jabali-security "$INSTALL_DIR/bin/"
     chmod +x "$INSTALL_DIR/bin/jabali-security"
 
+    # -- Jabali Panel integration (Filament plugin) --
+    JABALI_PANEL_DIR="/var/www/jabali"
+    if [ -d "$JABALI_PANEL_DIR/app/Filament" ]; then
+        echo "Jabali Panel detected, installing security plugin..."
+        mkdir -p "$JABALI_PANEL_DIR/app/JabaliSecurity/Pages"
+        mkdir -p "$JABALI_PANEL_DIR/app/JabaliSecurity/Widgets"
+        mkdir -p "$JABALI_PANEL_DIR/app/JabaliSecurity/views"
+        cp "$tmp_dir"/panel/JabaliSecurityPlugin.php "$JABALI_PANEL_DIR/app/JabaliSecurity/"
+        cp "$tmp_dir"/panel/JabaliSecurityClient.php "$JABALI_PANEL_DIR/app/JabaliSecurity/"
+        cp "$tmp_dir"/panel/Pages/*.php "$JABALI_PANEL_DIR/app/JabaliSecurity/Pages/"
+        cp "$tmp_dir"/panel/Widgets/*.php "$JABALI_PANEL_DIR/app/JabaliSecurity/Widgets/"
+        cp "$tmp_dir"/panel/views/*.blade.php "$JABALI_PANEL_DIR/app/JabaliSecurity/views/"
+
+        # Register plugin in AdminPanelProvider if not already registered
+        PROVIDER="$JABALI_PANEL_DIR/app/Providers/Filament/AdminPanelProvider.php"
+        if [ -f "$PROVIDER" ] && ! grep -q "JabaliSecurityPlugin" "$PROVIDER" 2>/dev/null; then
+            # Add ->plugins() call before ->middleware()
+            sed -i '/->middleware(\[/i\            ->plugins(array_filter([\
+                class_exists(\\App\\JabaliSecurity\\JabaliSecurityPlugin::class)\
+                    ? \\App\\JabaliSecurity\\JabaliSecurityPlugin::make()\
+                    : null,\
+            ]))' "$PROVIDER"
+            echo "Security plugin registered in AdminPanelProvider."
+        fi
+
+        echo "Jabali Panel security plugin installed."
+    fi
+
     # Clean up temp clone
     rm -rf "$tmp_dir"
 
