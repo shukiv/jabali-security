@@ -1,4 +1,5 @@
 <x-filament-panels::page>
+    <x-filament::section>
     <x-filament::tabs label="Security Management">
         <x-filament::tabs.item :active="$activeTab === 'overview'" wire:click="$set('activeTab', 'overview')" icon="heroicon-o-home">{{ __('Overview') }}</x-filament::tabs.item>
         <x-filament::tabs.item :active="$activeTab === 'incidents'" wire:click="$set('activeTab', 'incidents')" icon="heroicon-o-exclamation-triangle">{{ __('Incidents') }}</x-filament::tabs.item>
@@ -15,6 +16,7 @@
         <x-filament::tabs.item :active="$activeTab === 'rules'" wire:click="$set('activeTab', 'rules')" icon="heroicon-o-document-text">{{ __('Rules') }}</x-filament::tabs.item>
         <x-filament::tabs.item :active="$activeTab === 'config'" wire:click="$set('activeTab', 'config')" icon="heroicon-o-cog-6-tooth">{{ __('Configuration') }}</x-filament::tabs.item>
     </x-filament::tabs>
+    </x-filament::section>
 
     @if($activeTab === 'overview')
         @php
@@ -124,6 +126,7 @@
             $selectKeys = \App\JabaliSecurity\Pages\Security::$selectKeys;
             $configData = $this->getConfigData();
         @endphp
+        <x-filament::section>
         <x-filament::tabs label="Config categories">
             @foreach(array_keys($categories) as $cat)
                 <x-filament::tabs.item
@@ -134,6 +137,7 @@
                 </x-filament::tabs.item>
             @endforeach
         </x-filament::tabs>
+        </x-filament::section>
 
         <x-filament::section>
             @foreach($categories[$configCategory] ?? [] as $key)
