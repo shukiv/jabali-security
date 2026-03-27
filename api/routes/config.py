@@ -26,7 +26,7 @@ async def get_config(request: web.Request) -> web.Response:
         if key == "API_KEY":
             data[key] = "set" if config.api_key else "unset"
         elif isinstance(value, list):
-            data[key] = ",".join(value)
+            data[key] = ",".join(str(v) for v in value)
         elif isinstance(value, bool):
             data[key] = "yes" if value else "no"
         else:
