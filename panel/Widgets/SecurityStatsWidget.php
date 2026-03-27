@@ -16,7 +16,7 @@ class SecurityStatsWidget extends BaseWidget
 
     protected function getColumns(): int
     {
-        return 6;
+        return 5;
     }
 
     protected function getStats(): array
@@ -32,9 +32,6 @@ class SecurityStatsWidget extends BaseWidget
                     ->color('danger'),
             ];
         }
-
-        $u = (int) ($status['uptime_seconds'] ?? 0);
-        $uptime = sprintf('%dh %dm', intdiv($u, 3600), intdiv($u % 3600, 60));
 
         return [
             Stat::make(__('Incidents'), (string) ($status['incidents_24h'] ?? 0))
@@ -55,11 +52,6 @@ class SecurityStatsWidget extends BaseWidget
             Stat::make(__('Memory'), round($status['memory_mb'] ?? 0, 1).' MB')
                 ->description(($status['workers'] ?? 0).' '.__('workers'))
                 ->icon('heroicon-o-cpu-chip')
-                ->color('gray'),
-
-            Stat::make(__('Uptime'), $uptime)
-                ->description('v'.($status['version'] ?? '?'))
-                ->icon('heroicon-o-clock')
                 ->color('gray'),
 
             Stat::make(__('Daemon'), ($status['running'] ?? false) ? __('Online') : __('Offline'))
