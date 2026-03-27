@@ -1,6 +1,4 @@
 <x-filament-panels::page>
-    @livewire(\App\JabaliSecurity\Widgets\SecurityStatsWidget::class)
-
     <x-filament::tabs label="Security Management">
         <x-filament::tabs.item
             :active="$activeTab === 'overview'"
