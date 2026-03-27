@@ -17,11 +17,6 @@ _CMS_CORE_DIRS = frozenset({
     "core", "modules", "profiles",  # Drupal
 })
 
-# Behavioral findings that should be suppressed during bulk installs/updates
-_INSTALL_BEHAVIOR_RULES = frozenset({
-    "burst_file_creation", "rapid_create_modify", "random_filename",
-})
-
 
 class ScoringEngine:
     def __init__(self, config: JabaliConfig) -> None:
@@ -37,35 +32,24 @@ class ScoringEngine:
         # Check if file is in a known CMS core directory
         is_cms_core = self._is_cms_core_path(event.path)
 
+        # In CMS core dirs: only YARA/ClamAV signature matches matter.
+        # Heuristic, entropy, and behavior findings are noise from legitimate code.
         if is_cms_core:
-            # In CMS core dirs: only count findings from scanners that
-            # detect actual malware signatures (yara, clamav), not
-            # heuristic patterns that match legitimate CMS code
-            findings = [
-                f for f in findings
-                if f.scanner in ("yara", "clamav")
-                or f.rule not in _INSTALL_BEHAVIOR_RULES
-                and f.scanner != "behavior"
-            ]
-            # Suppress behavior-only findings entirely in CMS core
-            findings = [
-                f for f in findings
-                if not (f.scanner == "behavior" and f.rule in _INSTALL_BEHAVIOR_RULES)
-            ]
+            real_threats = [f for f in findings if f.scanner in ("yara", "clamav")]
+            if not real_threats:
+                # No signature matches — all findings are false positives from CMS code.
+                # Cap action at "log" regardless of score.
+                total = sum(f.score for f in findings)
+                action = "log" if total >= self._score_log else "ignore"
+                return ThreatScore(total=total, findings=findings, action=action)
+            # Has real signature matches — score normally but only count those
+            findings = real_threats
 
         total = sum(f.score for f in findings)
 
         # Context multipliers
         if event.in_uploads_dir:
             total = int(total * 1.5)
-
-        # CMS core files get score reduction — legitimate code triggers
-        # heuristic patterns (eval, exec, backticks) that aren't malicious
-        if is_cms_core and total > 0:
-            total = int(total * 0.3)  # 70% reduction
-
-        # Rapid file creation (age < 10 seconds from event timestamp)
-        # Future: integrate with behavior tracker
 
         # Determine action
         action = self._determine_action(total)
