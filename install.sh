@@ -184,7 +184,7 @@ do_install() {
 
     # -- Copy application files --
     mkdir -p "$INSTALL_DIR"/{daemon,api,rules,etc,bin}
-    mkdir -p "$INSTALL_DIR"/lib/{watcher,scanner,bruteforce,waf,proactive,cleanup,threat_intel,webshield}
+    mkdir -p "$INSTALL_DIR"/lib/{watcher,scanner,bruteforce,waf,proactive,cleanup,threat_intel,webshield,ufw}
     mkdir -p "$INSTALL_DIR"/web/{templates,static/css,static/js}
 
     cp "$tmp_dir"/daemon/*.py "$INSTALL_DIR/daemon/"
@@ -197,6 +197,7 @@ do_install() {
     cp "$tmp_dir"/lib/cleanup/*.py "$INSTALL_DIR/lib/cleanup/"
     cp "$tmp_dir"/lib/threat_intel/*.py "$INSTALL_DIR/lib/threat_intel/"
     cp "$tmp_dir"/lib/webshield/*.py "$INSTALL_DIR/lib/webshield/"
+    cp "$tmp_dir"/lib/ufw/*.py "$INSTALL_DIR/lib/ufw/"
     cp "$tmp_dir"/api/*.py "$INSTALL_DIR/api/"
     mkdir -p "$INSTALL_DIR/api/routes"
     cp "$tmp_dir"/api/routes/*.py "$INSTALL_DIR/api/routes/"
