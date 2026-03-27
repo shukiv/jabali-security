@@ -67,9 +67,19 @@ class ScoringEngine:
 
     @staticmethod
     def _is_cms_core_path(path: str) -> bool:
-        """Check if a file path is inside a known CMS core directory."""
-        parts = PurePosixPath(path).parts
-        return any(part in _CMS_CORE_DIRS for part in parts)
+        """Check if a file path is a known CMS core file or directory."""
+        p = PurePosixPath(path)
+        parts = p.parts
+
+        # Check if inside a known CMS core directory
+        if any(part in _CMS_CORE_DIRS for part in parts):
+            return True
+
+        # Check if file is a WordPress root file (same dir as wp-config.php)
+        if p.name.startswith("wp-") and p.parent.joinpath("wp-config.php").exists():
+            return True
+
+        return False
 
     @staticmethod
     def severity_from_score(score: int) -> str:
