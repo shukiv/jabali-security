@@ -497,6 +497,15 @@ class IncidentStore:
 
             file_event = FileEvent.model_validate_json(data["file_event_json"])
             findings = [Finding.model_validate(f) for f in json.loads(data["findings_json"])]
+            from datetime import datetime
+
+            # Parse stored timestamp — don't generate a new one
+            ts = data.get("created_at", "")
+            try:
+                timestamp = datetime.fromisoformat(ts)
+            except (ValueError, TypeError):
+                timestamp = None
+
             return Incident(
                 id=data["id"],
                 file_event=file_event,
@@ -504,6 +513,7 @@ class IncidentStore:
                 total_score=data["total_score"],
                 severity=data["severity"],
                 action_taken=data["action_taken"],
+                **({"timestamp": timestamp} if timestamp else {}),
                 username=data["username"],
                 resolved=bool(data["resolved"]),
                 notes=data["notes"] or "",
