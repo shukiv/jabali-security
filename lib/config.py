@@ -134,12 +134,19 @@ def parse_conf(filepath: Path) -> dict[str, str]:
 
 
 def _atomic_write(filepath: Path, content: str) -> None:
-    """Write content atomically via temp file + rename. Creates with mode 0o600."""
+    """Write content atomically via temp file + rename. Preserves original ownership and mode."""
     filepath.parent.mkdir(parents=True, exist_ok=True)
+    # Capture original ownership/mode before overwriting
+    try:
+        stat = os.stat(str(filepath))
+        orig_uid, orig_gid, orig_mode = stat.st_uid, stat.st_gid, stat.st_mode & 0o7777
+    except FileNotFoundError:
+        orig_uid, orig_gid, orig_mode = 0, 0, 0o640
     fd, tmp_path = tempfile.mkstemp(dir=str(filepath.parent), suffix=".tmp")
     try:
         os.write(fd, content.encode("utf-8"))
-        os.fchmod(fd, 0o600)
+        os.fchmod(fd, orig_mode)
+        os.fchown(fd, orig_uid, orig_gid)
         os.fsync(fd)
     finally:
         os.close(fd)
