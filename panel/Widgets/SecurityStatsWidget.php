@@ -14,6 +14,11 @@ class SecurityStatsWidget extends BaseWidget
 
     protected int|string|array $columnSpan = 'full';
 
+    protected function getColumns(): int
+    {
+        return 6;
+    }
+
     protected function getStats(): array
     {
         $client = new JabaliSecurityClient;
