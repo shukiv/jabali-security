@@ -45,10 +45,12 @@ _libc.inotify_rm_watch.restype = ctypes.c_int
 IN_CREATE = 0x00000100
 IN_MODIFY = 0x00000002
 IN_MOVED_TO = 0x00000080
+IN_DELETE_SELF = 0x00000400
+IN_IGNORED = 0x00008000
 IN_ISDIR = 0x40000000
 IN_NONBLOCK = 0x00000800
 
-WATCH_MASK = IN_CREATE | IN_MODIFY | IN_MOVED_TO
+WATCH_MASK = IN_CREATE | IN_MODIFY | IN_MOVED_TO | IN_DELETE_SELF
 
 # inotify_event header: int wd, uint32 mask, uint32 cookie, uint32 len
 _EVENT_HEADER_FMT = "iIII"
@@ -201,6 +203,13 @@ class InotifyWatcher:
 
             # Strip trailing null padding from the name.
             name = name_bytes.rstrip(b"\x00").decode("utf-8", errors="surrogateescape")
+
+            # Handle directory deletion — clean up stale watches
+            if mask & (IN_DELETE_SELF | IN_IGNORED):
+                if wd in self._wd_to_path:
+                    del self._wd_to_path[wd]
+                continue
+
             if not name:
                 continue
 
