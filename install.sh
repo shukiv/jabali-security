@@ -332,6 +332,30 @@ do_install() {
     sed -i 's|^WEBSHIELD_ENABLED="no"|WEBSHIELD_ENABLED="yes"|' "$CONFIG_DIR/jabali-security.conf" 2>/dev/null
     sed -i 's|^CLEANUP_ENABLED="no"|CLEANUP_ENABLED="yes"|' "$CONFIG_DIR/jabali-security.conf" 2>/dev/null
 
+    # Enable UFW management and set up default hosting rules
+    if command -v ufw &>/dev/null; then
+        sed -i 's|^UFW_ENABLED="no"|UFW_ENABLED="yes"|' "$CONFIG_DIR/jabali-security.conf" 2>/dev/null
+        # Default hosting ports: SSH, HTTP, HTTPS, mail, DNS
+        ufw allow 22/tcp comment "SSH" 2>/dev/null || true
+        ufw allow 80/tcp comment "HTTP" 2>/dev/null || true
+        ufw allow 443/tcp comment "HTTPS" 2>/dev/null || true
+        ufw allow 25/tcp comment "SMTP" 2>/dev/null || true
+        ufw allow 465/tcp comment "SMTPS" 2>/dev/null || true
+        ufw allow 587/tcp comment "Submission" 2>/dev/null || true
+        ufw allow 110/tcp comment "POP3" 2>/dev/null || true
+        ufw allow 143/tcp comment "IMAP" 2>/dev/null || true
+        ufw allow 993/tcp comment "IMAPS" 2>/dev/null || true
+        ufw allow 995/tcp comment "POP3S" 2>/dev/null || true
+        ufw allow 53/tcp comment "DNS" 2>/dev/null || true
+        ufw allow 53/udp comment "DNS" 2>/dev/null || true
+        # Jabali Panel port
+        if [ -d "/var/www/jabali" ]; then
+            ufw allow 2223/tcp comment "Jabali Panel (FrankenPHP)" 2>/dev/null || true
+        fi
+        ufw --force enable 2>/dev/null || true
+        echo "UFW enabled with default hosting rules."
+    fi
+
     # -- Set inotify watch limit --
     current_watches=$(cat /proc/sys/fs/inotify/max_user_watches 2>/dev/null || echo 0)
     if [ "$current_watches" -lt 524288 ]; then
