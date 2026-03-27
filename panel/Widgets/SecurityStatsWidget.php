@@ -48,7 +48,7 @@ class SecurityStatsWidget extends BaseWidget
                 ->color('info'),
 
             Stat::make(__('Memory'), round($status['memory_mb'] ?? 0, 1).' MB')
-                ->description($status['workers'] ?? 0 .' '.__('workers'))
+                ->description(($status['workers'] ?? 0).' '.__('workers'))
                 ->icon('heroicon-o-cpu-chip')
                 ->color('gray'),
 
