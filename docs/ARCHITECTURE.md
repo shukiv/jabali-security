@@ -28,10 +28,10 @@ Technical architecture of Jabali Security.
 |  | Intel     |   | Engine     |   | Manager   |   | Hardener   | |
 |  +-----------+   +------------+   +-----------+   +------------+ |
 |                                                                   |
-|  +-----------+   +------------+                                   |
-|  | REST API  |   | Scan       |                                   |
-|  | (aiohttp) |   | Scheduler  |                                   |
-|  +-----------+   +------------+                                   |
+|  +-----------+   +------------+   +-----------+                    |
+|  | REST API  |   | Scan       |   | UFW       |                    |
+|  | (aiohttp) |   | Scheduler  |   | Manager   |                    |
+|  +-----------+   +------------+   +-----------+                    |
 +------------------------------------------------------------------+
 
 +------------------------------------------------------------------+
@@ -167,6 +167,18 @@ Progressive blocking: durations escalate per repeat offense (default: 10m, 1h, 1
 - Install generates nginx config snippets that must be included in the nginx `http{}` and `server{}` blocks; nginx must be reloaded manually
 - Install/uninstall manages files in the nginx config directory
 
+### UFW Firewall Management (`lib/ufw/`)
+
+| File | Purpose |
+|---|---|
+| `manager.py` | Wraps the `ufw` CLI via async subprocess for rule CRUD, enable/disable/reload, and app profile listing |
+| `validators.py` | Input validation for IPs, ports, protocols, and rule parameters |
+| `models.py` | Pydantic data models for UFW rules, status, and app profiles |
+
+Separate from the nftables/iptables-based IP blocking in `lib/bruteforce/firewall.py`. The brute-force firewall manager handles automatic per-IP blocking for intrusion prevention, while the UFW module provides full firewall rule management (port rules, app profiles, direction, logging) exposed via REST API.
+
+Disabled by default (`UFW_ENABLED="no"`). Requires `ufw` to be installed on the system.
+
 ### Other Core Modules
 
 | Module | File | Purpose |
@@ -203,6 +215,7 @@ Progressive blocking: durations escalate per repeat offense (default: 10m, 1h, 1
 | `routes/cleanup.py` | Cleanup records and operations |
 | `routes/threat_intel.py` | Threat intel feeds, IP/hash checks |
 | `routes/webshield.py` | WebShield status, install, rules |
+| `routes/ufw.py` | UFW firewall status, rules CRUD, enable/disable/reload, app profiles |
 | `routes/helpers.py` | Shared response helpers (`_ok`, `_err`) |
 
 ### Web Dashboard (`web/`)

@@ -96,6 +96,10 @@ jabali-security/
 |   |   +-- feed_manager.py # Feed download, cache, lookup
 |   +-- webshield/          # WebShield
 |   |   +-- manager.py      # Nginx config generation
+|   +-- ufw/                # UFW firewall management
+|   |   +-- manager.py      # UFW CLI wrapper (async subprocess)
+|   |   +-- validators.py   # Input validation for rules
+|   |   +-- models.py       # Pydantic models for rules/status
 |   +-- watcher/            # File watching
 |       +-- inotify.py      # inotify wrapper
 +-- api/                    # REST API
@@ -117,6 +121,7 @@ jabali-security/
 |       +-- cleanup.py      # Cleanup endpoints
 |       +-- threat_intel.py # Threat intel endpoints
 |       +-- webshield.py    # WebShield endpoints
+|       +-- ufw.py          # UFW firewall management endpoints
 |       +-- helpers.py      # Shared response helpers
 +-- web/                    # Web dashboard
 |   +-- app.py              # Flask application factory

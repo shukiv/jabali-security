@@ -16,6 +16,7 @@ Standalone, event-driven security suite for Linux shared hosting.
 
 - `daemon/` — CLI entry point + async daemon server
 - `lib/` — Core library modules (scanners, watcher, scoring, etc.)
+- `lib/ufw/` — UFW firewall management (rule CRUD, enable/disable, app profiles)
 - `api/` — REST API (aiohttp), routes split into `api/routes/` by domain
 - `rules/` — YARA-X rule files (.yar)
 - `etc/` — Config example + systemd service

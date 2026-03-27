@@ -19,6 +19,7 @@ A lightweight, panel-agnostic alternative to Imunify360.
 | **Multi-engine scanning** | Heuristic regex, Shannon entropy, YARA-X signatures, ClamAV (optional) |
 | **Threat scoring** | Aggregated score per event with configurable log/quarantine/suspend thresholds |
 | **Automated response** | Quarantine, process kill, IP blocking via nftables/iptables |
+| **UFW management** | Full UFW firewall rule CRUD, enable/disable/reload, app profiles via REST API |
 | **Brute-force protection** | SSH + mail (Dovecot/Postfix/Exim/Stalwart) with progressive blocking |
 | **WAF integration** | ModSecurity audit log parsing, OWASP CRS management, rule toggling |
 | **Proactive defense** | PHP-FPM pool hardening (opt-in; disabled by default when hosting panel manages pools), suspicious process killer |
@@ -82,9 +83,9 @@ journalctl -u jabali-security -f    # watch live logs
 | ModSec Audit Log +--->| WAF Rule Manager  |    | Threat Intel     |
 +------------------+    +-------------------+    | Feed Manager     |
                                                  +------------------+
-+------------------+    +-------------------+
-| PHP-FPM Hardener |    | WebShield Manager |    (nginx config gen)
-+------------------+    +-------------------+
++------------------+    +-------------------+    +------------------+
+| PHP-FPM Hardener |    | WebShield Manager |    | UFW Manager      |
++------------------+    +-------------------+    +------------------+
 ```
 
 ## Requirements
@@ -92,7 +93,7 @@ journalctl -u jabali-security -f    # watch live logs
 - Linux with kernel 2.6.13+ (inotify support)
 - Python 3.12+
 - systemd (for service management)
-- Optional: ClamAV, nftables/iptables, nginx, ModSecurity + OWASP CRS
+- Optional: ClamAV, nftables/iptables, UFW, nginx, ModSecurity + OWASP CRS
 - Optional: SSH access to target (for proactive defense tests)
 
 ## CLI Reference
@@ -140,6 +141,7 @@ Full reference: [docs/API.md](docs/API.md)
 | `/cleanup/*` | GET/POST | Cleanup operations |
 | `/threat-intel/*` | GET/POST | Threat intelligence |
 | `/webshield/*` | GET/POST | WebShield management |
+| `/firewall/ufw/*` | GET/POST/PUT/DELETE | UFW firewall rule management |
 | `/scan/database` | POST | MySQL database scan |
 | `/scan/rapid` | POST | Fast parallel scan |
 

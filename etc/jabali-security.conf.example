@@ -234,6 +234,11 @@ FIREWALL_BACKEND="auto"
 # Comma-separated IPs to never block (whitelist)
 BRUTEFORCE_WHITELIST_IPS=""
 
+# -- UFW Management ----------------------------------------------------------
+
+# Enable UFW firewall rule management via the REST API
+UFW_ENABLED="no"
+
 # -- Threat Intelligence -----------------------------------------------------
 
 # Enable threat intelligence feeds (IP reputation + malware hash lookups)

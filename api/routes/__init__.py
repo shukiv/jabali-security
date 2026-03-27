@@ -16,6 +16,7 @@ from api.routes import (
     rules,
     scanning,
     threat_intel,
+    ufw,
     users,
     waf,
     webshield,
@@ -35,6 +36,7 @@ _MODULES = (
     proactive,
     cleanup,
     threat_intel,
+    ufw,
     webshield,
 )
 

@@ -219,6 +219,12 @@ Available feeds: `spamhaus_drop`, `spamhaus_edrop`, `blocklist_de_all`, `tor_exi
 | `WEBSHIELD_BOT_FILTERING` | bool | `yes` | Enable user-agent based bot filtering |
 | `WEBSHIELD_NGINX_CONF_DIR` | path | `/etc/nginx/jabali-security` | Directory for generated nginx config snippets |
 
+## UFW Firewall Management
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `UFW_ENABLED` | bool | `no` | Enable UFW firewall management via REST API. Requires `ufw` to be installed. Separate from the nftables/iptables-based brute-force IP blocking. |
+
 ## Database Scanner
 
 | Key | Type | Default | Description |
@@ -274,6 +280,7 @@ CLEANUP_ENABLED="yes"
 CLEANUP_AUTO="yes"
 THREAT_INTEL_ENABLED="yes"
 WEBSHIELD_ENABLED="yes"
+UFW_ENABLED="yes"
 SCHEDULED_SCAN_ENABLED="yes"
 WEB_ENABLED="yes"
 ```

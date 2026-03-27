@@ -29,6 +29,7 @@ from lib.threat_intel.feed_manager import FeedManager
 from lib.waf.audit_log_parser import ModSecAuditLogParser
 from lib.waf.rule_manager import WafRuleManager
 from lib.watcher.inotify import InotifyWatcher
+from lib.ufw.manager import UFWManager
 from lib.webshield.manager import WebShieldManager
 
 logger = logging.getLogger("jabali-security")
@@ -63,6 +64,7 @@ class ComponentRegistry:
     feed_manager: FeedManager | None = None
     php_hardener: PHPHardener | None = None
     webshield: WebShieldManager | None = None
+    ufw: UFWManager | None = None
 
     @classmethod
     async def build(cls, config: JabaliConfig, disabled: set[str] | None = None) -> ComponentRegistry:
@@ -118,6 +120,9 @@ class ComponentRegistry:
         webshield = (
             _build_webshield(config) if "webshield" not in disabled else None
         )
+        ufw = (
+            _build_ufw(config) if "ufw" not in disabled else None
+        )
 
         return cls(
             config=config,
@@ -143,6 +148,7 @@ class ComponentRegistry:
             feed_manager=feed_manager,
             php_hardener=php_hardener,
             webshield=webshield,
+            ufw=ufw,
         )
 
     async def __aenter__(self) -> ComponentRegistry:
@@ -185,6 +191,7 @@ class ComponentRegistry:
         app["scheduler"] = self.scan_scheduler
         app["threat_intel"] = self.feed_manager
         app["webshield"] = self.webshield
+        app["ufw"] = self.ufw
 
     def background_tasks(self, daemon) -> list:
         tasks = []
@@ -316,6 +323,13 @@ def _build_webshield(config: JabaliConfig) -> WebShieldManager | None:
         challenge_enabled=config.webshield_challenge_enabled,
         bot_filtering=config.webshield_bot_filtering,
     )
+
+
+def _build_ufw(config: JabaliConfig) -> UFWManager | None:
+    if not config.ufw_enabled:
+        return None
+    logger.info("UFW management enabled -- firewall control available via REST API")
+    return UFWManager()
 
 
 async def _sync_blocked_ips(incidents: IncidentStore, firewall: FirewallManager) -> None:

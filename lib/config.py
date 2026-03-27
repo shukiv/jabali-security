@@ -61,6 +61,7 @@ DEFAULTS: dict[str, str] = {
     "BRUTEFORCE_MAIL_WINDOW": "600",
     "BRUTEFORCE_BLOCK_DURATIONS": "600,3600,86400,0",
     "FIREWALL_BACKEND": "auto",
+    "UFW_ENABLED": "no",
     "BRUTEFORCE_WHITELIST_IPS": "",
     "WAF_ENABLED": "no",
     "WAF_AUDIT_LOG": "/var/log/modsec_audit.log",
@@ -239,6 +240,7 @@ class JabaliConfig:
     bruteforce_mail_window: int = 600
     bruteforce_block_durations: list[int] = field(default_factory=lambda: [600, 3600, 86400, 0])
     firewall_backend: str = "auto"
+    ufw_enabled: bool = False
     bruteforce_whitelist_ips: list[str] = field(default_factory=list)
     waf_enabled: bool = False
     waf_audit_log: str = "/var/log/modsec_audit.log"
@@ -368,6 +370,7 @@ def load_config(filepath: Path | None = None) -> JabaliConfig:
             if x.strip().lstrip("-").isdigit()
         ],
         firewall_backend=merged["FIREWALL_BACKEND"],
+        ufw_enabled=_bool(merged["UFW_ENABLED"]),
         bruteforce_whitelist_ips=_csv_list(merged["BRUTEFORCE_WHITELIST_IPS"]),
         waf_enabled=_bool(merged["WAF_ENABLED"]),
         waf_audit_log=merged["WAF_AUDIT_LOG"],

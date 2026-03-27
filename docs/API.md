@@ -1,59 +1,56 @@
 # REST API Reference
 
-Base URL: `http://127.0.0.1:9876/api/v1/`
+Jabali Security v0.1.0 -- 55 endpoints across 15 modules.
+
+Base URL: `http://127.0.0.1:9876/api/v1`
 
 ## Authentication
 
-All endpoints (except `/health`) require an API key via the `X-API-Key` header.
+All endpoints except `/health` require the `X-API-Key` header. The key is auto-generated on install and stored in `/etc/jabali-security/jabali-security.conf`. Uses constant-time comparison to prevent timing attacks. If no key is configured, requests are allowed without authentication.
 
 ```bash
 curl -H "X-API-Key: YOUR_KEY" http://127.0.0.1:9876/api/v1/status
 ```
 
-The API key is auto-generated on install and stored in the config file.
-
 ## Response Format
 
-All responses follow this envelope:
+All responses use this JSON envelope:
 
 ```json
-{
-  "success": true,
-  "data": { ... },
-  "error": null
-}
+{"success": true, "data": { ... }, "error": null}
 ```
 
 On error:
 
 ```json
-{
-  "success": false,
-  "data": null,
-  "error": "Description of the error"
-}
+{"success": false, "data": null, "error": "Description of the error"}
 ```
 
-HTTP status codes: `200` success, `400` bad request, `404` not found, `500` internal error.
+| HTTP Code | Meaning |
+|-----------|---------|
+| 200 | Success |
+| 400 | Bad request -- invalid parameters or missing required fields |
+| 401 | Unauthorized -- missing or invalid API key |
+| 404 | Not found -- resource doesn't exist or feature not enabled |
+| 500 | Server error -- command failed, database error, etc. |
+| 503 | Unavailable -- required subsystem not running |
 
 ---
 
 ## Health / Status
 
-### GET /health
+### `GET /health`
 
-Health check endpoint. No authentication required.
+No authentication required.
 
-**Response:**
 ```json
-{ "status": "ok" }
+{"status": "ok"}
 ```
 
-### GET /status
+### `GET /status`
 
-Daemon status and runtime statistics.
+Daemon status and resource metrics.
 
-**Response:**
 ```json
 {
   "running": true,
@@ -72,18 +69,21 @@ Daemon status and runtime statistics.
 
 ## Incidents
 
-### GET /incidents
+### `GET /incidents`
 
 List security incidents.
 
+**Query parameters:**
+
 | Parameter | Type | Default | Description |
-|---|---|---|---|
+|-----------|------|---------|-------------|
 | `limit` | int | 50 | Max results (1-1000) |
 | `user` | string | -- | Filter by username |
-| `severity` | string | -- | Filter: `low`, `medium`, `high`, `critical` |
-| `since` | string | -- | ISO timestamp lower bound |
+| `severity` | string | -- | `low`, `medium`, `high`, `critical` |
+| `since` | string | -- | ISO 8601 timestamp lower bound |
 
 **Response:**
+
 ```json
 [
   {
@@ -109,75 +109,77 @@ List security incidents.
 ]
 ```
 
-### GET /incidents/{id}
+### `GET /incidents/{id}`
 
-Get a single incident by ID.
+Get a single incident by ID. Returns 404 if not found.
 
-**Response:** Same structure as a single item in the list above.
-
-### POST /incidents/{id}/resolve
+### `POST /incidents/{id}/resolve`
 
 Mark an incident as resolved.
 
-**Body:**
+**Body (optional):**
+
 ```json
-{ "notes": "False positive, whitelisted" }
+{"notes": "False positive, whitelisted"}
 ```
 
 **Response:**
+
 ```json
-{ "resolved": true, "id": "a1b2c3d4e5f6g7h8" }
+{"resolved": true, "id": "a1b2c3d4e5f6g7h8"}
 ```
 
 ---
 
 ## Scanning
 
-### POST /scan
+### `POST /scan`
 
-Scan a file or directory on demand. When a directory path is given, the scan automatically uses the RapidScan engine for parallel scanning.
+Scan a single file or directory. Symlinks are rejected. Directories automatically use the RapidScan engine for parallel scanning.
 
-**Body (single file):**
+**Body:**
+
 ```json
-{
-  "path": "/home/user1/public_html/index.php"
-}
+{"path": "/home/user1/public_html/index.php"}
 ```
 
 **Response (single file):**
+
 ```json
 {
   "path": "/home/user1/public_html/index.php",
-  "findings": [],
-  "score": 0,
-  "action": "ignore",
-  "severity": "low"
-}
-```
-
-**Body (directory):**
-```json
-{
-  "path": "/home/user1/public_html"
+  "findings": [
+    {
+      "scanner": "yara",
+      "rule": "webshell_php_generic",
+      "score": 60,
+      "description": "PHP webshell pattern"
+    }
+  ],
+  "score": 60,
+  "action": "quarantine",
+  "severity": "high"
 }
 ```
 
 **Response (directory):** Same format as `POST /scan/rapid`.
 
-### POST /scan/full
+### `POST /scan/full`
 
-Trigger a full scheduled scan immediately.
+Trigger a full scheduled scan immediately. Returns 503 if scan scheduler not available.
 
 **Response:**
+
 ```json
-{ "started": true }
+{"started": true, "status": { ... }}
 ```
 
-### GET /scan/scheduled
+### `GET /scan/scheduled`
 
-Get scheduled scan status.
+Get scheduled scan status. Returns `{"enabled": false}` if scheduler not configured.
 
 **Response:**
+
 ```json
 {
   "enabled": true,
@@ -188,11 +190,12 @@ Get scheduled scan status.
 }
 ```
 
-### POST /scan/database
+### `POST /scan/database`
 
-Scan a MySQL database for injected payloads.
+Scan a MySQL CMS database for injected payloads. Validates database name, user, and host against allowlist patterns.
 
 **Body:**
+
 ```json
 {
   "database": "wp_user1",
@@ -203,7 +206,16 @@ Scan a MySQL database for injected payloads.
 }
 ```
 
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `database` | string | -- | Required. Alphanumeric + underscore only |
+| `user` | string | `"root"` | DB user. Alphanumeric + underscore only |
+| `host` | string | `"localhost"` | DB host. Alphanumeric, dots, hyphens only |
+| `cms_type` | string | `"wordpress"` | `"wordpress"` or `"joomla"` |
+| `table_prefix` | string | `"wp_"` | Table prefix. Alphanumeric + underscore only |
+
 **Response:**
+
 ```json
 {
   "database": "wp_user1",
@@ -220,16 +232,18 @@ Scan a MySQL database for injected payloads.
 }
 ```
 
-### POST /scan/rapid
+### `POST /scan/rapid`
 
-Fast parallel directory scan with mtime cache.
+Fast parallel directory scan with optional mtime caching. Path must be a directory. Returns 404 if directory not found.
 
 **Body:**
+
 ```json
-{ "path": "/home/user1/public_html" }
+{"path": "/home/user1/public_html"}
 ```
 
 **Response:**
+
 ```json
 {
   "directory": "/home/user1/public_html",
@@ -237,7 +251,7 @@ Fast parallel directory scan with mtime cache.
   "files_skipped": 890,
   "threats_found": 2,
   "results": [
-    { "path": "/home/user1/public_html/shell.php", "score": 85, "action": "quarantine" }
+    {"path": "/home/user1/public_html/shell.php", "score": 85, "action": "quarantine"}
   ]
 }
 ```
@@ -246,15 +260,16 @@ Fast parallel directory scan with mtime cache.
 
 ## Quarantine
 
-### GET /quarantine
+### `GET /quarantine`
 
 List quarantined files.
 
 | Parameter | Type | Description |
-|---|---|---|
-| `user` | string | Filter by username |
+|-----------|------|-------------|
+| `user` | string | Filter by username (optional) |
 
 **Response:**
+
 ```json
 [
   {
@@ -265,51 +280,55 @@ List quarantined files.
     "timestamp": "2026-03-27T10:30:00+00:00",
     "reason": "Score 85 exceeded quarantine threshold",
     "incident_id": "a1b2c3d4e5f6g7h8",
-    "sha256": "e3b0c44298fc...",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "restored": false,
     "deleted": false
   }
 ]
 ```
 
-### POST /quarantine/{id}/restore
+### `POST /quarantine/{id}/restore`
 
 Restore a quarantined file to its original location.
 
 **Response:**
+
 ```json
-{ "restored": true, "id": "f1e2d3c4b5a69788", "path": "/home/user1/public_html/shell.php" }
+{"restored": true, "id": "f1e2d3c4b5a69788", "path": "/home/user1/public_html/shell.php"}
 ```
 
-### DELETE /quarantine/{id}
+### `DELETE /quarantine/{id}`
 
 Permanently delete a quarantined file.
 
 **Response:**
+
 ```json
-{ "deleted": true, "id": "f1e2d3c4b5a69788" }
+{"deleted": true, "id": "f1e2d3c4b5a69788"}
 ```
 
 ---
 
 ## Users
 
-### GET /users
+### `GET /users`
 
-List users with incident counts.
+List users with aggregated incident statistics.
 
 **Response:**
+
 ```json
 [
-  { "username": "user1", "incident_count": 5, "max_score": 85 }
+  {"username": "user1", "incident_count": 5, "max_score": 85}
 ]
 ```
 
-### GET /users/{username}
+### `GET /users/{username}`
 
-Get full risk profile for a user.
+Get full risk profile for a user. Username must match `[a-zA-Z0-9._-]+`.
 
 **Response:**
+
 ```json
 {
   "username": "user1",
@@ -324,11 +343,14 @@ Get full risk profile for a user.
 
 ## IP Blocking
 
-### POST /block
+Manual IP blocking via the firewall (nftables/iptables). Separate from UFW rule management and brute-force auto-blocking.
+
+### `POST /block`
 
 Block an IP address.
 
 **Body:**
+
 ```json
 {
   "ip": "192.168.1.100",
@@ -338,12 +360,13 @@ Block an IP address.
 ```
 
 | Field | Type | Description |
-|---|---|---|
-| `ip` | string | IPv4 or IPv6 address (required) |
-| `reason` | string | Block reason |
-| `duration` | int | Seconds (0 = permanent) |
+|-------|------|-------------|
+| `ip` | string | Required. IPv4 or IPv6 address |
+| `reason` | string | Block reason (default: `"manual block"`) |
+| `duration` | int | Seconds until auto-unblock. Omit or `0` for permanent |
 
 **Response:**
+
 ```json
 {
   "blocked": true,
@@ -354,20 +377,24 @@ Block an IP address.
 }
 ```
 
-### DELETE /block/{ip}
+`firewall` indicates whether the IP was also blocked at the firewall level (false if no firewall backend available).
 
-Unblock an IP address.
+### `DELETE /block/{ip}`
+
+Unblock an IP address. Returns 404 if not found.
 
 **Response:**
+
 ```json
-{ "unblocked": true, "ip": "192.168.1.100" }
+{"unblocked": true, "ip": "192.168.1.100"}
 ```
 
-### GET /blocklist
+### `GET /blocklist`
 
 List all blocked IPs.
 
 **Response:**
+
 ```json
 [
   {
@@ -384,33 +411,37 @@ List all blocked IPs.
 
 ## Configuration
 
-### GET /config
+### `GET /config`
 
-Get current configuration. `API_KEY` is redacted to "set"/"unset".
+Get current configuration. All values are returned as strings. Booleans as `"yes"`/`"no"`, lists as comma-separated. `API_KEY` is redacted to `"set"` or `"unset"`.
 
 **Response:**
+
 ```json
 {
   "LOG_LEVEL": "info",
   "WORKERS": "4",
   "API_KEY": "set",
-  "YARA_ENABLED": "yes"
+  "YARA_ENABLED": "yes",
+  "WATCH_DIRS": "/home/*/public_html,/home/*/domains/*/public_html,/home/*/tmp"
 }
 ```
 
-### PATCH /config
+### `PATCH /config`
 
-Update configuration keys. Persists to config file. Restart daemon for runtime changes.
+Update configuration keys. Writes to the config file on disk. All values are converted to strings. Keys must exist in the defaults. `API_KEY` is redacted in the response. Daemon restart required for most changes to take effect at runtime.
 
 **Body:**
+
 ```json
-{ "LOG_LEVEL": "debug", "WORKERS": "4" }
+{"LOG_LEVEL": "debug", "WORKERS": "8"}
 ```
 
 **Response:**
+
 ```json
 {
-  "updated": { "LOG_LEVEL": "debug", "WORKERS": "4" },
+  "updated": {"LOG_LEVEL": "debug", "WORKERS": "8"},
   "note": "Restart daemon to apply runtime changes"
 }
 ```
@@ -419,16 +450,17 @@ Update configuration keys. Persists to config file. Restart daemon for runtime c
 
 ## Rules
 
-### GET /rules
+### `GET /rules`
 
-List loaded detection rules.
+List loaded detection rules and active scanners.
 
 **Response:**
+
 ```json
 {
   "yara_rules": [
-    { "name": "webshells.yar", "size": 4096 },
-    { "name": "exploits.yar", "size": 2048 }
+    {"name": "webshells.yar", "size": 4096},
+    {"name": "exploits.yar", "size": 2048}
   ],
   "yara_rules_dir": "/usr/local/jabali-security/rules",
   "yara_enabled": true,
@@ -437,11 +469,12 @@ List loaded detection rules.
 }
 ```
 
-### POST /rules/reload
+### `POST /rules/reload`
 
-Reload YARA rules and optionally run freshclam.
+Reload YARA rules from disk and optionally run freshclam to update ClamAV signatures.
 
 **Response:**
+
 ```json
 {
   "yara_reloaded": true,
@@ -450,63 +483,79 @@ Reload YARA rules and optionally run freshclam.
 }
 ```
 
+`freshclam_success` is `null` if `FRESHCLAM_ON_UPDATE` is disabled.
+
 ---
 
 ## Brute-Force Protection
 
-### GET /bruteforce/stats
+All endpoints return 404 if `BRUTEFORCE_ENABLED="no"`.
+
+### `GET /bruteforce/stats`
 
 **Response:**
+
 ```json
-{ "tracked_ips": 42, "blocked_count": 3 }
+{"tracked_ips": 42, "blocked_count": 3}
 ```
 
-### GET /bruteforce/blocked
+### `GET /bruteforce/blocked`
+
+List IPs currently blocked by the firewall. Returns 404 if no firewall backend available.
 
 **Response:**
+
 ```json
-{ "blocked_ips": ["192.168.1.100", "10.0.0.50"], "count": 2 }
+{"blocked_ips": ["192.168.1.100", "10.0.0.50"], "count": 2}
 ```
 
-### POST /bruteforce/whitelist
+### `POST /bruteforce/whitelist`
 
-Add IP to brute-force whitelist.
+Add IP to brute-force whitelist. Also unblocks the IP if currently blocked.
 
 **Body:**
+
 ```json
-{ "ip": "192.168.1.1" }
+{"ip": "192.168.1.1"}
 ```
 
 **Response:**
+
 ```json
-{ "whitelisted": true, "ip": "192.168.1.1" }
+{"whitelisted": true, "ip": "192.168.1.1"}
 ```
 
-### DELETE /bruteforce/whitelist/{ip}
+### `DELETE /bruteforce/whitelist/{ip}`
 
-Remove IP from whitelist.
+Remove IP from whitelist. Returns 404 if not in whitelist.
 
 **Response:**
+
 ```json
-{ "removed": true, "ip": "192.168.1.1" }
+{"removed": true, "ip": "192.168.1.1"}
 ```
 
 ---
 
 ## WAF (ModSecurity)
 
-### GET /waf/events
+Requires `WAF_ENABLED="yes"`. Rule management endpoints return 404 if WAF is not enabled.
 
-List WAF events.
+### `GET /waf/events`
 
-| Parameter | Type | Description |
-|---|---|---|
-| `limit` | int | Max results (1-1000, default 50) |
-| `ip` | string | Filter by client IP |
-| `rule_id` | int | Filter by ModSecurity rule ID |
-| `since` | string | ISO timestamp lower bound |
+List WAF events from the ModSecurity audit log.
+
+**Query parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `limit` | int | 50 | Max results (1-1000) |
+| `ip` | string | -- | Filter by client IP |
+| `rule_id` | int | -- | Filter by ModSecurity rule ID |
+| `since` | string | -- | ISO 8601 timestamp lower bound |
 
 **Response:**
+
 ```json
 [
   {
@@ -526,73 +575,79 @@ List WAF events.
 ]
 ```
 
-### GET /waf/rules
+### `GET /waf/rules`
 
 List CRS rule files and disabled rules.
 
 **Response:**
+
 ```json
 {
-  "web_server": "nginx",
   "rule_files": [
-    { "file": "REQUEST-942-APPLICATION-ATTACK-SQLI.conf", "size": 45000 }
+    {"file": "REQUEST-942-APPLICATION-ATTACK-SQLI.conf", "size": 45000}
   ],
-  "disabled_rules": [942100, 942200]
+  "disabled_rules": [942100, 942200],
+  "web_server": "nginx"
 }
 ```
 
-### POST /waf/rules/{rule_id}/disable
+### `POST /waf/rules/{rule_id}/disable`
 
-Disable a ModSecurity rule.
+Disable a ModSecurity rule and reload the web server. Rule ID must be 1-9999999.
 
 **Response:**
+
 ```json
-{ "disabled": true, "rule_id": 942100, "web_server_reloaded": true }
+{"disabled": true, "rule_id": 942100, "web_server_reloaded": true}
 ```
 
-### POST /waf/rules/{rule_id}/enable
+### `POST /waf/rules/{rule_id}/enable`
 
-Enable a previously disabled rule.
+Re-enable a previously disabled rule and reload the web server.
 
 **Response:**
+
 ```json
-{ "enabled": true, "rule_id": 942100, "web_server_reloaded": true }
+{"enabled": true, "rule_id": 942100, "web_server_reloaded": true}
 ```
 
-### GET /waf/stats
+### `GET /waf/stats`
 
-WAF statistics for the last 24 hours.
+WAF statistics (aggregated from stored events).
 
 **Response:**
+
 ```json
 {
   "total_events_24h": 156,
   "blocked_24h": 42,
   "top_ips": [
-    { "ip": "203.0.113.50", "count": 25 }
+    {"ip": "203.0.113.50", "count": 25}
   ],
   "top_rules": [
-    { "rule_id": 942100, "count": 18, "rule_msg": "SQL Injection Attack Detected" }
+    {"rule_id": 942100, "count": 18, "rule_msg": "SQL Injection Attack Detected"}
   ]
 }
 ```
 
-### POST /waf/crs/update
+### `POST /waf/crs/update`
 
-Update OWASP Core Rule Set.
+Update OWASP Core Rule Set. Returns 500 on failure.
 
 **Response:**
+
 ```json
-{ "success": true, "version": "4.0.0", "rules_count": 42 }
+{"success": true, "version": "4.0.0", "rules_count": 42}
 ```
 
 ---
 
 ## Proactive Defense
 
-### GET /proactive/status
+### `GET /proactive/status`
 
 **Response:**
+
 ```json
 {
   "process_kill_enabled": true,
@@ -601,56 +656,81 @@ Update OWASP Core Rule Set.
 }
 ```
 
-### GET /proactive/php/pools
+### `GET /proactive/php/pools`
 
-List PHP-FPM pools and hardening status.
+List all detected PHP-FPM pools and their hardening status. Works even if PHP hardening is disabled (uses a temporary scanner).
 
 **Response:**
+
 ```json
 [
   {
     "pool_name": "user1",
     "php_version": "8.3",
     "user": "user1",
+    "group": "user1",
+    "listen": "/run/php/php8.3-fpm-user1.sock",
     "hardened": true,
-    "issues": []
+    "disable_functions": "exec,passthru,shell_exec,system,proc_open,popen...",
+    "open_basedir": "/home/user1:/tmp:/usr/share/php:/var/lib/php",
+    "issues": [],
+    "socket_path": "/etc/php/8.3/fpm/pool.d/user1.conf"
   }
 ]
 ```
 
-### POST /proactive/php/harden
+### `POST /proactive/php/harden`
 
-Harden PHP-FPM pools.
+Harden PHP-FPM pools by injecting `disable_functions` and `open_basedir` directives.
 
-**Body (all pools):**
+**Body (all unhardened pools):**
+
 ```json
-{ "all": true }
+{"all": true}
+```
+
+**Response:**
+
+```json
+{"hardened_count": 5}
 ```
 
 **Body (single pool):**
+
 ```json
-{ "conf_path": "/etc/php/8.3/fpm/pool.d/user1.conf" }
+{"conf_path": "/etc/php/8.3/fpm/pool.d/user1.conf"}
 ```
+
+`conf_path` must end with `.conf`.
 
 **Response:**
+
 ```json
-{ "hardened_count": 5 }
+{"hardened": true, "conf_path": "/etc/php/8.3/fpm/pool.d/user1.conf"}
 ```
 
-### POST /proactive/php/unharden
+### `POST /proactive/php/unharden`
 
-Remove hardening from a pool.
+Remove jabali-security hardening block from a pool config. Returns 404 if no hardening block found.
 
 **Body:**
+
 ```json
-{ "conf_path": "/etc/php/8.3/fpm/pool.d/user1.conf" }
+{"conf_path": "/etc/php/8.3/fpm/pool.d/user1.conf"}
 ```
 
-### GET /proactive/kills
+**Response:**
 
-List recent process kills.
+```json
+{"unhardened": true, "conf_path": "/etc/php/8.3/fpm/pool.d/user1.conf"}
+```
+
+### `GET /proactive/kills`
+
+List recent process kills. Returns `[]` if process killer is not enabled.
 
 **Response:**
+
 ```json
 [
   {
@@ -669,11 +749,14 @@ List recent process kills.
 
 ## Cleanup
 
-### GET /cleanup/records
+Requires `CLEANUP_ENABLED="yes"`.
 
-List recent cleanup operations.
+### `GET /cleanup/records`
+
+List recent cleanup operations (max 50).
 
 **Response:**
+
 ```json
 [
   {
@@ -688,16 +771,18 @@ List recent cleanup operations.
 ]
 ```
 
-### POST /cleanup/file
+### `POST /cleanup/file`
 
-Clean a specific file.
+Clean a specific file. Creates a backup before cleaning. Rejects symlinks. Returns 404 if file not found, 503 if cleanup engine not available.
 
 **Body:**
+
 ```json
-{ "path": "/home/user1/public_html/index.php" }
+{"path": "/home/user1/public_html/index.php"}
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -710,46 +795,52 @@ Clean a specific file.
 
 ## Threat Intelligence
 
-### GET /threat-intel/feeds
+Requires `THREAT_INTEL_ENABLED="yes"`. All endpoints return 404 if not enabled.
+
+### `GET /threat-intel/feeds`
 
 List feed statuses.
 
 **Response:**
+
 ```json
 [
   {
     "name": "spamhaus_drop",
-    "feed_type": "ip",
+    "source_url": "https://www.spamhaus.org/drop/drop.txt",
+    "last_update": "2026-03-27T06:00:00+00:00",
     "entry_count": 1200,
-    "last_update": "2026-03-27T06:00:00+00:00"
+    "enabled": true,
+    "feed_type": "ip"
   }
 ]
 ```
 
-### POST /threat-intel/update
+### `POST /threat-intel/update`
 
 Trigger immediate update of all enabled feeds.
 
 **Response:**
+
 ```json
 {
-  "success_count": 5,
-  "total_count": 5,
   "updated": {
     "spamhaus_drop": true,
     "spamhaus_edrop": true,
     "blocklist_de_all": true,
-    "tor_exit_nodes": true,
     "malwarebazaar_recent": true
-  }
+  },
+  "success_count": 4,
+  "total_count": 4
 }
 ```
 
-### GET /threat-intel/check/ip/{ip}
+### `GET /threat-intel/check/ip/{ip}`
 
-Check an IP against threat intelligence feeds.
+Check an IP address against all threat intelligence feeds. IP must be valid IPv4 or IPv6.
 
 **Response:**
+
 ```json
 {
   "ip": "203.0.113.50",
@@ -759,18 +850,19 @@ Check an IP against threat intelligence feeds.
 }
 ```
 
-### GET /threat-intel/check/hash/{hash}
+### `GET /threat-intel/check/hash/{hash}`
 
-Check a SHA-256 hash against threat intelligence feeds.
+Check a SHA-256 file hash against threat intelligence feeds. Hash must be exactly 64 hex characters.
 
 | Parameter | Type | Description |
-|---|---|---|
-| `remote` | flag | Add `?remote=1` to also check remote APIs |
+|-----------|------|-------------|
+| `remote` | query | Set to `1`, `true`, or `yes` to also check remote APIs |
 
 **Response:**
+
 ```json
 {
-  "hash": "e3b0c44298fc...",
+  "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "is_malicious": true,
   "score": 2,
   "feeds": ["malwarebazaar_recent"],
@@ -785,9 +877,12 @@ Check a SHA-256 hash against threat intelligence feeds.
 
 ## WebShield
 
-### GET /webshield/status
+Nginx-level bot filtering, rate limiting, and JS challenge pages. Requires `WEBSHIELD_ENABLED="yes"`. All endpoints return 404 if not enabled.
+
+### `GET /webshield/status`
 
 **Response:**
+
 ```json
 {
   "installed": true,
@@ -800,11 +895,12 @@ Check a SHA-256 hash against threat intelligence feeds.
 }
 ```
 
-### POST /webshield/install
+### `POST /webshield/install`
 
-Install WebShield nginx configuration files.
+Generate and write WebShield nginx config snippets. Returns 500 if install fails.
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -814,20 +910,22 @@ Install WebShield nginx configuration files.
 }
 ```
 
-### POST /webshield/uninstall
+### `POST /webshield/uninstall`
 
-Remove WebShield nginx configuration files.
+Remove WebShield nginx config files.
 
 **Response:**
+
 ```json
-{ "files_removed": ["/etc/nginx/jabali-security/rate-limit.conf"] }
+{"files_removed": ["/etc/nginx/jabali-security/rate-limit.conf"]}
 ```
 
-### GET /webshield/rules
+### `GET /webshield/rules`
 
-List bot detection rules.
+Get bot detection rules.
 
 **Response:**
+
 ```json
 [
   {
@@ -840,17 +938,206 @@ List bot detection rules.
 ]
 ```
 
-### POST /webshield/update-blocklist
+### `POST /webshield/update-blocklist`
 
-Update the WebShield IP blocklist from threat intelligence data.
+Update the WebShield IP blocklist (nginx deny map). All IPs are validated.
+
+**Body:**
+
+```json
+{"ips": ["192.168.1.100", "10.0.0.50"]}
+```
+
+**Response:**
+
+```json
+{"updated": true, "count": 2}
+```
 
 ---
 
-## Error Codes
+## UFW Firewall Management
 
-| HTTP Code | Meaning |
-|---|---|
-| 200 | Success |
-| 400 | Bad request (invalid parameters, missing fields) |
-| 404 | Resource not found (incident, quarantine record, IP, feature not enabled) |
-| 500 | Internal server error (database unavailable, scan failure) |
+Manage system-level UFW firewall rules via the REST API. Requires `UFW_ENABLED="yes"`. All endpoints return 404 if not enabled. Separate from the nftables-based IP blocking used by brute-force protection.
+
+### `GET /firewall/ufw/status`
+
+Get UFW status and default policies.
+
+**Response:**
+
+```json
+{
+  "available": true,
+  "active": true,
+  "default_incoming": "deny",
+  "default_outgoing": "allow",
+  "default_routed": "disabled",
+  "rules": [ ... ],
+  "rules_count": 5
+}
+```
+
+`available` is `false` if the `ufw` binary is not installed on the system.
+
+### `GET /firewall/ufw/rules`
+
+List all UFW rules with their numbers.
+
+**Response:**
+
+```json
+[
+  {
+    "number": 1,
+    "to": "22/tcp",
+    "action": "ALLOW",
+    "from_ip": "Anywhere",
+    "direction": "IN",
+    "v6": false,
+    "raw": "[ 1] 22/tcp                     ALLOW IN    Anywhere"
+  }
+]
+```
+
+### `POST /firewall/ufw/rules`
+
+Add a UFW rule. At least one of `port`, `from_ip`, or `to_ip` is required.
+
+**Body:**
+
+```json
+{
+  "action": "allow",
+  "port": "443",
+  "protocol": "tcp",
+  "from_ip": "192.168.1.0/24",
+  "to_ip": "10.0.0.1",
+  "direction": "in",
+  "comment": "HTTPS from LAN"
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `action` | string | yes | `allow`, `deny`, `reject`, or `limit` |
+| `port` | string | no | Port (1-65535), range (`8000:8080`), or service name |
+| `protocol` | string | no | `tcp`, `udp`, or `any` |
+| `from_ip` | string | no | Source IP or CIDR |
+| `to_ip` | string | no | Destination IP or CIDR |
+| `direction` | string | no | `in` or `out` |
+| `comment` | string | no | Printable ASCII, max 256 chars |
+
+**Response:**
+
+```json
+{"added": true}
+```
+
+### `DELETE /firewall/ufw/rules/{number}`
+
+Delete a UFW rule by its number (1-9999).
+
+**Response:**
+
+```json
+{"deleted": true, "rule_number": 1}
+```
+
+### `POST /firewall/ufw/enable`
+
+Enable the UFW firewall.
+
+**Response:**
+
+```json
+{"enabled": true}
+```
+
+### `POST /firewall/ufw/disable`
+
+Disable the UFW firewall.
+
+**Response:**
+
+```json
+{"disabled": true}
+```
+
+### `POST /firewall/ufw/reload`
+
+Reload UFW configuration.
+
+**Response:**
+
+```json
+{"reloaded": true}
+```
+
+### `GET /firewall/ufw/apps`
+
+List available UFW application profiles.
+
+**Response:**
+
+```json
+["Apache", "Nginx Full", "OpenSSH"]
+```
+
+### `GET /firewall/ufw/apps/{name}`
+
+Get details for a specific application profile. URL-encode names with spaces (e.g., `Nginx%20Full`). Returns 404 if not found.
+
+**Response:**
+
+```json
+{
+  "name": "Nginx Full",
+  "title": "Web Server (Nginx, HTTP + HTTPS)",
+  "description": "Small, but very powerful and efficient web server",
+  "ports": "80,443/tcp"
+}
+```
+
+### `POST /firewall/ufw/apps/{name}/allow`
+
+Allow traffic for an application profile.
+
+**Response:**
+
+```json
+{"allowed": true, "app": "Nginx Full"}
+```
+
+### `POST /firewall/ufw/apps/{name}/deny`
+
+Deny traffic for an application profile.
+
+**Response:**
+
+```json
+{"denied": true, "app": "Nginx Full"}
+```
+
+---
+
+## Endpoint Summary
+
+| Module | Endpoints | Config Gate |
+|--------|-----------|-------------|
+| Health / Status | 2 | -- |
+| Incidents | 3 | -- |
+| Scanning | 5 | -- |
+| Quarantine | 3 | -- |
+| Users | 2 | -- |
+| IP Blocking | 3 | -- |
+| Configuration | 2 | -- |
+| Rules | 2 | -- |
+| Brute-Force | 4 | `BRUTEFORCE_ENABLED` |
+| WAF | 6 | `WAF_ENABLED` |
+| Proactive Defense | 5 | `PROACTIVE_ENABLED` |
+| Cleanup | 2 | `CLEANUP_ENABLED` |
+| Threat Intel | 4 | `THREAT_INTEL_ENABLED` |
+| WebShield | 5 | `WEBSHIELD_ENABLED` |
+| UFW Firewall | 11 | `UFW_ENABLED` |
+| **Total** | **59** | |
