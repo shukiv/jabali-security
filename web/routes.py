@@ -283,7 +283,11 @@ def register_routes(app):
                 ["/usr/bin/systemctl", "restart", "jabali-security"],
                 capture_output=True, timeout=15,
             )
-            time.sleep(2)  # wait for daemon to initialize
+            # Wait for API to become ready (up to 10s)
+            for _ in range(10):
+                time.sleep(1)
+                if api_call("GET", "/api/v1/health"):
+                    break
         except (OSError, subprocess.TimeoutExpired):
             logger.warning("Failed to restart jabali-security daemon")
 
