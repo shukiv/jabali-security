@@ -27,7 +27,6 @@ class SecurityStatsWidget extends BaseWidget
         if (! $status) {
             return [
                 Stat::make(__('Daemon'), __('Offline'))
-                    ->description(__('Security daemon is not responding'))
                     ->icon('heroicon-o-exclamation-circle')
                     ->color('danger'),
             ];
@@ -35,27 +34,22 @@ class SecurityStatsWidget extends BaseWidget
 
         return [
             Stat::make(__('Incidents'), (string) ($status['incidents_24h'] ?? 0))
-                ->description(__('Last 24 hours'))
                 ->icon('heroicon-o-exclamation-triangle')
                 ->color(($status['incidents_24h'] ?? 0) > 0 ? 'danger' : 'success'),
 
             Stat::make(__('Quarantine'), (string) ($status['quarantined_count'] ?? 0))
-                ->description(__('Files isolated'))
                 ->icon('heroicon-o-lock-closed')
                 ->color(($status['quarantined_count'] ?? 0) > 0 ? 'warning' : 'success'),
 
             Stat::make(__('Watching'), (string) ($status['watched_dirs'] ?? 0))
-                ->description(__('Folders monitored'))
                 ->icon('heroicon-o-eye')
                 ->color('info'),
 
             Stat::make(__('Memory'), round($status['memory_mb'] ?? 0, 1).' MB')
-                ->description(($status['workers'] ?? 0).' '.__('workers'))
                 ->icon('heroicon-o-cpu-chip')
                 ->color('gray'),
 
             Stat::make(__('Daemon'), ($status['running'] ?? false) ? __('Online') : __('Offline'))
-                ->description(($status['running'] ?? false) ? __('All systems operational') : __('Service down'))
                 ->icon(($status['running'] ?? false) ? 'heroicon-o-check-circle' : 'heroicon-o-x-circle')
                 ->color(($status['running'] ?? false) ? 'success' : 'danger'),
         ];
