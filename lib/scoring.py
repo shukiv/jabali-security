@@ -17,6 +17,15 @@ _CMS_CORE_DIRS = frozenset({
     "core", "modules", "profiles",  # Drupal
 })
 
+# Known WordPress root files — only THESE specific files are whitelisted
+_WP_ROOT_FILES = frozenset({
+    "wp-activate.php", "wp-blog-header.php", "wp-comments-post.php",
+    "wp-config-sample.php", "wp-config.php", "wp-cron.php",
+    "wp-links-opml.php", "wp-load.php", "wp-login.php",
+    "wp-mail.php", "wp-settings.php", "wp-signup.php",
+    "wp-trackback.php", "xmlrpc.php",
+})
+
 
 class ScoringEngine:
     def __init__(self, config: JabaliConfig) -> None:
@@ -75,8 +84,8 @@ class ScoringEngine:
         if any(part in _CMS_CORE_DIRS for part in parts):
             return True
 
-        # Any wp-*.php file is a WordPress core file
-        if p.name.startswith("wp-") and p.suffix == ".php":
+        # Known WordPress root files (exact match, not prefix)
+        if p.name in _WP_ROOT_FILES:
             return True
 
         return False
