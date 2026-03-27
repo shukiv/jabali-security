@@ -16,7 +16,6 @@ use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
-use Filament\Tables\Actions\Action as TableAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
@@ -185,7 +184,7 @@ class Security extends Page implements HasActions, HasForms, HasTable
                     ->since(),
             ])
             ->recordActions([
-                TableAction::make('resolve')
+                Action::make('resolve')
                     ->label(__('Resolve'))
                     ->icon('heroicon-o-check')
                     ->color('success')
@@ -228,7 +227,7 @@ class Security extends Page implements HasActions, HasForms, HasTable
                     ->since(),
             ])
             ->recordActions([
-                TableAction::make('restore')
+                Action::make('restore')
                     ->label(__('Restore'))
                     ->icon('heroicon-o-arrow-uturn-left')
                     ->color('warning')
@@ -240,7 +239,7 @@ class Security extends Page implements HasActions, HasForms, HasTable
                             ->color($result ? 'success' : 'danger')
                             ->send();
                     }),
-                TableAction::make('delete')
+                Action::make('delete')
                     ->label(__('Delete'))
                     ->icon('heroicon-o-trash')
                     ->color('danger')
@@ -262,7 +261,7 @@ class Security extends Page implements HasActions, HasForms, HasTable
         return $table
             ->records(fn () => $this->client()->get('/blocklist') ?? [])
             ->headerActions([
-                TableAction::make('blockIp')
+                Action::make('blockIp')
                     ->label(__('Block IP'))
                     ->icon('heroicon-o-no-symbol')
                     ->form([
@@ -309,7 +308,7 @@ class Security extends Page implements HasActions, HasForms, HasTable
                     ->color('gray'),
             ])
             ->recordActions([
-                TableAction::make('unblock')
+                Action::make('unblock')
                     ->label(__('Unblock'))
                     ->icon('heroicon-o-lock-open')
                     ->color('success')
@@ -331,7 +330,7 @@ class Security extends Page implements HasActions, HasForms, HasTable
         return $table
             ->records(fn () => ($this->client()->get('/firewall/ufw/status'))['rules'] ?? [])
             ->headerActions([
-                TableAction::make('addRule')
+                Action::make('addRule')
                     ->label(__('Add Rule'))
                     ->icon('heroicon-o-plus')
                     ->form([
@@ -406,7 +405,7 @@ class Security extends Page implements HasActions, HasForms, HasTable
                     ->boolean(),
             ])
             ->recordActions([
-                TableAction::make('delete')
+                Action::make('delete')
                     ->label(__('Delete'))
                     ->icon('heroicon-o-trash')
                     ->color('danger')
@@ -446,7 +445,7 @@ class Security extends Page implements HasActions, HasForms, HasTable
                     ->size('sm'),
             ])
             ->recordActions([
-                TableAction::make('edit')
+                Action::make('edit')
                     ->label(__('Edit'))
                     ->icon('heroicon-o-pencil')
                     ->form([
