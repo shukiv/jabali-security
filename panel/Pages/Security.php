@@ -879,18 +879,51 @@ class Security extends Page implements HasActions, HasForms, HasTable
         'NOTIFY_MIN_SEVERITY' => ['low', 'medium', 'high', 'critical'],
     ];
 
+    protected static array $configCategories = [
+        'Daemon' => ['LOG_LEVEL', 'LOG_DIR', 'DATA_DIR', 'QUARANTINE_DIR', 'WORKERS'],
+        'API' => ['API_BIND', 'API_PORT', 'API_KEY'],
+        'Web Dashboard' => ['WEB_ENABLED', 'WEB_BIND', 'WEB_PORT'],
+        'File Watcher' => ['WATCH_DIRS', 'WATCHER_BACKEND'],
+        'Pre-Filter' => ['SCAN_EXTENSIONS', 'MAX_FILE_SIZE', 'SKIP_DIRS'],
+        'Detection' => ['HEURISTIC_ENABLED', 'ENTROPY_ENABLED', 'ENTROPY_THRESHOLD', 'YARA_ENABLED', 'YARA_RULES_DIR'],
+        'ClamAV' => ['CLAMAV_ENABLED', 'CLAMAV_SOCKET', 'FRESHCLAM_ON_UPDATE'],
+        'Scoring' => ['SCORE_LOG', 'SCORE_QUARANTINE', 'SCORE_SUSPEND'],
+        'Process Monitor' => ['PROCESS_MONITOR_ENABLED', 'PROCESS_POLL_INTERVAL'],
+        'Behavior' => ['BEHAVIOR_TRACKING_ENABLED', 'BEHAVIOR_TTL'],
+        'Response' => ['AUTO_QUARANTINE', 'AUTO_SUSPEND', 'AUTO_BLOCK_IP'],
+        'WAF' => ['WAF_ENABLED', 'WAF_AUDIT_LOG', 'WAF_AUDIT_LOG_TYPE', 'WAF_RULES_DIR', 'WAF_OVERRIDES_FILE', 'WAF_CRS_AUTO_UPDATE', 'WAF_WEB_SERVER'],
+        'Brute-Force' => ['BRUTEFORCE_ENABLED', 'BRUTEFORCE_SSH_LOG', 'BRUTEFORCE_MAIL_LOG', 'BRUTEFORCE_STALWART_LOG', 'BRUTEFORCE_SSH_THRESHOLD', 'BRUTEFORCE_SSH_WINDOW', 'BRUTEFORCE_MAIL_THRESHOLD', 'BRUTEFORCE_MAIL_WINDOW', 'BRUTEFORCE_BLOCK_DURATIONS', 'FIREWALL_BACKEND', 'BRUTEFORCE_WHITELIST_IPS'],
+        'UFW' => ['UFW_ENABLED'],
+        'Proactive' => ['PROACTIVE_ENABLED', 'PHP_HARDENING_ENABLED', 'PHP_HARDENING_AUTO', 'PROCESS_KILL_ENABLED', 'PROCESS_KILL_THRESHOLD', 'PROCESS_KILL_MIN_UID', 'PROCESS_KILL_WHITELIST'],
+        'Cleanup' => ['CLEANUP_ENABLED', 'CLEANUP_AUTO', 'CLEANUP_BACKUP_DIR', 'CLEANUP_CMS_CHECKSUMS'],
+        'Scheduled Scan' => ['SCHEDULED_SCAN_ENABLED', 'SCHEDULED_SCAN_INTERVAL', 'SCHEDULED_SCAN_PATHS'],
+        'Threat Intel' => ['THREAT_INTEL_ENABLED', 'THREAT_INTEL_UPDATE_INTERVAL', 'THREAT_INTEL_FEEDS', 'THREAT_INTEL_AUTO_BLOCK', 'THREAT_INTEL_AUTO_BLOCK_THRESHOLD'],
+        'WebShield' => ['WEBSHIELD_ENABLED', 'WEBSHIELD_RATE_LIMIT', 'WEBSHIELD_RATE_BURST', 'WEBSHIELD_CHALLENGE_ENABLED', 'WEBSHIELD_BOT_FILTERING', 'WEBSHIELD_NGINX_CONF_DIR'],
+        'Performance' => ['DB_SCANNER_ENABLED', 'RAPIDSCAN_WORKERS', 'RAPIDSCAN_MTIME_CACHE'],
+        'Notifications' => ['NOTIFY_EMAIL', 'NOTIFY_WEBHOOK', 'NOTIFY_MIN_SEVERITY'],
+        'Retention' => ['INCIDENT_RETAIN_DAYS'],
+    ];
+
+    public string $configCategory = 'Daemon';
+
+    public function getConfigForCategory(): array
+    {
+        $config = $this->client()->get('/config') ?? [];
+        $keys = static::$configCategories[$this->configCategory] ?? [];
+        $records = [];
+        foreach ($keys as $key) {
+            if (isset($config[$key])) {
+                $records[] = ['key' => $key, 'value' => $config[$key]];
+            }
+        }
+
+        return $records;
+    }
+
     protected function configTable(Table $table): Table
     {
         return $table
-            ->records(function () {
-                $config = $this->client()->get('/config') ?? [];
-                $records = [];
-                foreach ($config as $key => $value) {
-                    $records[] = ['key' => $key, 'value' => $value];
-                }
-
-                return $records;
-            })
+            ->records(fn () => $this->getConfigForCategory())
             ->columns([
                 TextColumn::make('key')
                     ->label(__('Key'))

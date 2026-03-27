@@ -457,6 +457,23 @@
 
         {{ $this->table }}
 
+    @elseif($activeTab === 'config')
+        @php $categories = \App\JabaliSecurity\Pages\Security::$configCategories; @endphp
+        <div class="flex flex-wrap gap-2 mb-4">
+            @foreach(array_keys($categories) as $cat)
+                <button
+                    wire:click="$set('configCategory', '{{ $cat }}')"
+                    class="px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors
+                        {{ $configCategory === $cat
+                            ? 'bg-primary-500 text-white border-primary-500 dark:bg-primary-600'
+                            : 'bg-white text-gray-600 border-gray-200 hover:border-primary-300 dark:bg-white/5 dark:text-gray-400 dark:border-white/10' }}"
+                >
+                    {{ __($cat) }}
+                </button>
+            @endforeach
+        </div>
+
+        {{ $this->table }}
     @else
         {{ $this->table }}
     @endif
