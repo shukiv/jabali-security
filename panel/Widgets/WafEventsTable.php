@@ -1,0 +1,86 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\JabaliSecurity\Widgets;
+
+use App\JabaliSecurity\JabaliSecurityClient;
+use Filament\Actions\Action;
+use Filament\Notifications\Notification;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Concerns\InteractsWithTable;
+use Filament\Tables\Contracts\HasTable;
+use Filament\Tables\Table;
+use Filament\Widgets\Widget;
+
+class WafEventsTable extends Widget implements HasTable
+{
+    use InteractsWithTable;
+
+    protected static string $view = 'filament-widgets::table-widget';
+
+    protected function client(): JabaliSecurityClient
+    {
+        return new JabaliSecurityClient;
+    }
+
+    public function table(Table $table): Table
+    {
+        return $table
+            ->records(fn () => $this->client()->get('/waf/events', ['limit' => 100]) ?? [])
+            ->columns([
+                TextColumn::make('client_ip')
+                    ->label(__('Client IP'))
+                    ->copyable(),
+                TextColumn::make('method')
+                    ->label(__('Method'))
+                    ->badge()
+                    ->color('gray'),
+                TextColumn::make('uri')
+                    ->label(__('URI'))
+                    ->limit(40),
+                TextColumn::make('rule_id')
+                    ->label(__('Rule ID')),
+                TextColumn::make('rule_msg')
+                    ->label(__('Message'))
+                    ->limit(30),
+                TextColumn::make('severity')
+                    ->label(__('Severity'))
+                    ->badge(),
+                TextColumn::make('created_at')
+                    ->label(__('Time'))
+                    ->since(),
+            ])
+            ->headerActions([
+                Action::make('update_crs')
+                    ->label(__('Update CRS'))
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->requiresConfirmation()
+                    ->action(function (): void {
+                        $result = $this->client()->post('/waf/crs/update');
+
+                        Notification::make()
+                            ->title($result ? __('CRS updated') : __('Failed to update CRS'))
+                            ->color($result ? 'success' : 'danger')
+                            ->send();
+                    }),
+            ])
+            ->recordActions([
+                Action::make('disable_rule')
+                    ->label(__('Disable Rule'))
+                    ->icon('heroicon-o-x-circle')
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->action(function (array $record): void {
+                        $result = $this->client()->post("/waf/rules/{$record['rule_id']}/disable");
+
+                        Notification::make()
+                            ->title($result ? __('Rule disabled') : __('Failed to disable rule'))
+                            ->color($result ? 'success' : 'danger')
+                            ->send();
+                    }),
+            ])
+            ->emptyStateHeading(__('No WAF events'))
+            ->striped();
+    }
+}

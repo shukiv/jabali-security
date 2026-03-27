@@ -1,0 +1,80 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\JabaliSecurity\Widgets;
+
+use App\JabaliSecurity\JabaliSecurityClient;
+use Filament\Actions\Action;
+use Filament\Forms\Components\Textarea;
+use Filament\Notifications\Notification;
+use Filament\Tables\Columns\IconColumn;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Concerns\InteractsWithTable;
+use Filament\Tables\Contracts\HasTable;
+use Filament\Tables\Table;
+use Filament\Widgets\Widget;
+
+class IncidentsTable extends Widget implements HasTable
+{
+    use InteractsWithTable;
+
+    protected static string $view = 'filament-widgets::table-widget';
+
+    protected function client(): JabaliSecurityClient
+    {
+        return new JabaliSecurityClient;
+    }
+
+    public function table(Table $table): Table
+    {
+        return $table
+            ->records(fn () => $this->client()->get('/incidents', ['limit' => 100]) ?? [])
+            ->columns([
+                TextColumn::make('path')
+                    ->label(__('Path'))
+                    ->limit(50),
+                TextColumn::make('username')
+                    ->label(__('Username')),
+                TextColumn::make('severity')
+                    ->label(__('Severity'))
+                    ->badge()
+                    ->color(fn (string $state): string => match (true) {
+                        in_array($state, ['critical', 'high']) => 'danger',
+                        $state === 'medium' => 'warning',
+                        default => 'info',
+                    }),
+                TextColumn::make('total_score')
+                    ->label(__('Score')),
+                TextColumn::make('action_taken')
+                    ->label(__('Action'))
+                    ->badge()
+                    ->color('gray'),
+                IconColumn::make('resolved')
+                    ->label(__('Resolved'))
+                    ->boolean(),
+                TextColumn::make('timestamp')
+                    ->label(__('Time'))
+                    ->since(),
+            ])
+            ->recordActions([
+                Action::make('resolve')
+                    ->label(__('Resolve'))
+                    ->icon('heroicon-o-check-circle')
+                    ->form([
+                        Textarea::make('notes')
+                            ->label(__('Notes')),
+                    ])
+                    ->action(function (array $record, array $data): void {
+                        $result = $this->client()->post("/incidents/{$record['id']}/resolve", $data);
+
+                        Notification::make()
+                            ->title($result ? __('Incident resolved') : __('Failed to resolve incident'))
+                            ->color($result ? 'success' : 'danger')
+                            ->send();
+                    }),
+            ])
+            ->emptyStateHeading(__('No incidents'))
+            ->striped();
+    }
+}
