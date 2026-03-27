@@ -315,6 +315,46 @@ do_install() {
         fi
     fi
 
+    # -- Configure ModSecurity for nginx --
+    if [ -f /etc/nginx/modsecurity.conf ]; then
+        # Set to blocking mode (not DetectionOnly)
+        sed -i 's/SecRuleEngine DetectionOnly/SecRuleEngine On/' /etc/nginx/modsecurity.conf
+        echo "ModSecurity set to blocking mode."
+
+        # Fix audit log path
+        sed -i 's|^WAF_AUDIT_LOG=.*|WAF_AUDIT_LOG="/var/log/nginx/modsec_audit.log"|' "$CONFIG_DIR/jabali-security.conf"
+
+        # Create nginx-compatible CRS includes (IncludeOptional not supported)
+        if [ -n "$CRS_DIR" ] && [ -f /etc/nginx/modsecurity_includes.conf ]; then
+            CRS_SETUP=""
+            for f in /etc/modsecurity/crs/crs-setup.conf /usr/share/modsecurity-crs/crs-setup.conf; do
+                if [ -f "$f" ]; then CRS_SETUP="$f"; break; fi
+            done
+            if [ -n "$CRS_SETUP" ]; then
+                cat > /etc/nginx/modsecurity_includes.conf << MODSECEOF
+include modsecurity.conf
+include $CRS_SETUP
+include $CRS_DIR/*.conf
+MODSECEOF
+                echo "CRS rules configured for nginx."
+            fi
+        fi
+
+        # Enable modsecurity in nginx http block if not already
+        if ! grep -q "modsecurity on" /etc/nginx/nginx.conf 2>/dev/null; then
+            sed -i '/http {/a\\tmodsecurity on;\n\tmodsecurity_rules_file /etc/nginx/modsecurity_includes.conf;' /etc/nginx/nginx.conf
+            echo "ModSecurity enabled in nginx."
+        fi
+
+        # Test and reload nginx
+        if nginx -t 2>/dev/null; then
+            systemctl reload nginx 2>/dev/null || true
+            echo "nginx reloaded with ModSecurity."
+        else
+            echo "WARNING: nginx config test failed after ModSecurity setup."
+        fi
+    fi
+
     # -- Enable features with detected dependencies (on fresh install) --
     if command -v nft &>/dev/null || command -v iptables &>/dev/null; then
         sed -i 's|^BRUTEFORCE_ENABLED="no"|BRUTEFORCE_ENABLED="yes"|' "$CONFIG_DIR/jabali-security.conf"
