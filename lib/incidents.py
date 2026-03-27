@@ -275,6 +275,218 @@ class IncidentStore:
                 results.append(dict(zip(cols, row)))
         return results
 
+    # -- Public accessors for blocked_ips / waf_events / user stats ----------
+    # These replace direct _db access from api/routes.py, daemon/server.py, etc.
+
+    async def get_blocked_ips(self) -> list[dict]:
+        """Return all blocked IPs ordered by blocked_at descending."""
+        assert self._db is not None  # noqa: S101
+        results: list[dict] = []
+        async with self._db.execute(
+            "SELECT ip, reason, blocked_at, expires_at, blocked_by "
+            "FROM blocked_ips ORDER BY blocked_at DESC"
+        ) as cursor:
+            async for row in cursor:
+                results.append({
+                    "ip": row[0],
+                    "reason": row[1],
+                    "blocked_at": row[2],
+                    "expires_at": row[3],
+                    "blocked_by": row[4],
+                })
+        return results
+
+    async def save_blocked_ip(
+        self, ip: str, reason: str, blocked_at: str, expires_at: str | None, blocked_by: str,
+    ) -> None:
+        """Insert or replace a blocked IP record."""
+        assert self._db is not None  # noqa: S101
+        await self._db.execute(
+            "INSERT OR REPLACE INTO blocked_ips (ip, reason, blocked_at, expires_at, blocked_by) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (ip, reason, blocked_at, expires_at, blocked_by),
+        )
+        await self._db.commit()
+
+    async def delete_blocked_ip(self, ip: str) -> bool:
+        """Delete a blocked IP. Returns True if a row was deleted."""
+        assert self._db is not None  # noqa: S101
+        cursor = await self._db.execute(
+            "DELETE FROM blocked_ips WHERE ip = ?", (ip,)
+        )
+        await self._db.commit()
+        return cursor.rowcount > 0
+
+    async def save_waf_event(self, event) -> None:
+        """Persist a single WAF event."""
+        assert self._db is not None  # noqa: S101
+        await self._db.execute(
+            "INSERT OR IGNORE INTO waf_events "
+            "(id, client_ip, uri, method, rule_id, rule_msg, severity, action, "
+            "hostname, username, matched_data, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                event.id,
+                event.client_ip,
+                event.uri,
+                event.method,
+                event.rule_id,
+                event.rule_msg,
+                event.severity,
+                event.action,
+                event.hostname,
+                event.username,
+                event.matched_data,
+                event.timestamp.isoformat(),
+            ),
+        )
+        await self._db.commit()
+
+    async def get_waf_events(
+        self,
+        limit: int = 50,
+        ip: str | None = None,
+        rule_id: int | None = None,
+        since: str | None = None,
+    ) -> list[dict]:
+        """Query waf_events with optional filters."""
+        assert self._db is not None  # noqa: S101
+        conditions: list[str] = []
+        params: list[str | int] = []
+
+        if ip is not None:
+            conditions.append("client_ip = ?")
+            params.append(ip)
+        if rule_id is not None:
+            conditions.append("rule_id = ?")
+            params.append(rule_id)
+        if since is not None:
+            conditions.append("created_at >= ?")
+            params.append(since)
+
+        query = (
+            "SELECT id, client_ip, uri, method, rule_id, rule_msg, severity, "
+            "action, hostname, username, matched_data, created_at FROM waf_events"
+        )
+        where = " AND ".join(conditions)
+        if where:
+            query += " WHERE " + where
+        query += " ORDER BY created_at DESC LIMIT ?"
+        params.append(limit)
+
+        results: list[dict] = []
+        async with self._db.execute(query, params) as cursor:
+            async for row in cursor:
+                results.append({
+                    "id": row[0],
+                    "client_ip": row[1],
+                    "uri": row[2],
+                    "method": row[3],
+                    "rule_id": row[4],
+                    "rule_msg": row[5],
+                    "severity": row[6],
+                    "action": row[7],
+                    "hostname": row[8],
+                    "username": row[9],
+                    "matched_data": row[10],
+                    "created_at": row[11],
+                })
+        return results
+
+    async def get_waf_stats(self) -> dict:
+        """Return WAF aggregation stats for the last 24 hours."""
+        assert self._db is not None  # noqa: S101
+
+        async with self._db.execute(
+            "SELECT COUNT(*) FROM waf_events WHERE created_at >= datetime('now', '-24 hours')"
+        ) as cursor:
+            row = await cursor.fetchone()
+            total_24h = row[0] if row else 0
+
+        async with self._db.execute(
+            "SELECT COUNT(*) FROM waf_events "
+            "WHERE created_at >= datetime('now', '-24 hours') AND action = 'deny'"
+        ) as cursor:
+            row = await cursor.fetchone()
+            blocked_24h = row[0] if row else 0
+
+        top_ips: list[dict] = []
+        async with self._db.execute(
+            "SELECT client_ip, COUNT(*) AS cnt FROM waf_events "
+            "WHERE created_at >= datetime('now', '-24 hours') "
+            "GROUP BY client_ip ORDER BY cnt DESC LIMIT 10"
+        ) as cursor:
+            async for row in cursor:
+                top_ips.append({"ip": row[0], "count": row[1]})
+
+        top_rules: list[dict] = []
+        async with self._db.execute(
+            "SELECT rule_id, rule_msg, COUNT(*) AS cnt FROM waf_events "
+            "WHERE created_at >= datetime('now', '-24 hours') AND rule_id > 0 "
+            "GROUP BY rule_id ORDER BY cnt DESC LIMIT 10"
+        ) as cursor:
+            async for row in cursor:
+                top_rules.append({"rule_id": row[0], "rule_msg": row[1], "count": row[2]})
+
+        top_uris: list[dict] = []
+        async with self._db.execute(
+            "SELECT uri, COUNT(*) AS cnt FROM waf_events "
+            "WHERE created_at >= datetime('now', '-24 hours') "
+            "GROUP BY uri ORDER BY cnt DESC LIMIT 10"
+        ) as cursor:
+            async for row in cursor:
+                top_uris.append({"uri": row[0], "count": row[1]})
+
+        return {
+            "total_events_24h": total_24h,
+            "blocked_24h": blocked_24h,
+            "top_ips": top_ips,
+            "top_rules": top_rules,
+            "top_uris": top_uris,
+        }
+
+    async def get_user_stats(self) -> list[dict]:
+        """Return per-user incident stats (username, count, max_score)."""
+        assert self._db is not None  # noqa: S101
+        results: list[dict] = []
+        async with self._db.execute(
+            "SELECT username, COUNT(*) AS count, MAX(total_score) AS max_score "
+            "FROM incidents WHERE username IS NOT NULL GROUP BY username "
+            "ORDER BY count DESC"
+        ) as cursor:
+            async for row in cursor:
+                results.append({
+                    "username": row[0],
+                    "incident_count": row[1],
+                    "max_score": row[2],
+                })
+        return results
+
+    async def find_incident_by_path(self, path_pattern: str) -> dict | None:
+        """Find the most recent incident whose path matches the given LIKE pattern."""
+        assert self._db is not None  # noqa: S101
+        async with self._db.execute(
+            "SELECT id, total_score, severity FROM incidents "
+            "WHERE path LIKE ? ORDER BY created_at DESC LIMIT 1",
+            (path_pattern,),
+        ) as cursor:
+            row = await cursor.fetchone()
+        if row:
+            return {"id": row[0], "total_score": row[1], "severity": row[2]}
+        return None
+
+    async def get_user_detail(self, username: str) -> dict:
+        """Return incidents and quarantine records for a specific user."""
+        user_incidents = await self.list_incidents(limit=100, username=username)
+        quarantine_records = await self.list_quarantine(username=username)
+        return {
+            "username": username,
+            "incidents": user_incidents,
+            "quarantine": quarantine_records,
+            "incident_count": len(user_incidents),
+            "quarantine_count": len(quarantine_records),
+        }
+
     @staticmethod
     def _row_to_incident(row, description) -> Incident | None:
         """Convert a database row to an Incident model."""

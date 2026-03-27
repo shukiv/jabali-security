@@ -6,6 +6,7 @@ import logging
 import re
 from pathlib import Path
 
+from lib.log_tailer import AsyncLogTailer
 from lib.tenant import resolve_user
 from lib.waf.models import WafEvent
 
@@ -38,6 +39,7 @@ class ModSecAuditLogParser:
         self._log_path = log_path
         self._log_type = log_type
         self._running = False
+        self._tailer: AsyncLogTailer | None = None
 
     async def run(self, callback) -> None:
         """Tail the audit log and emit WafEvent for each entry."""
@@ -46,7 +48,7 @@ class ModSecAuditLogParser:
 
         if not p.exists():
             logger.warning("WAF audit log not found: %s", self._log_path)
-            # Wait and retry — log file may appear later
+            # Wait and retry -- log file may appear later
             while self._running and not p.exists():
                 await asyncio.sleep(10)
             if not self._running:
@@ -54,50 +56,29 @@ class ModSecAuditLogParser:
 
         logger.info("WAF audit log parser started: %s", self._log_path)
 
-        try:
-            current_inode = p.stat().st_ino
-            fh = open(p, "r", encoding="utf-8", errors="replace")  # noqa: SIM115
-            fh.seek(0, 2)  # Start from end
-        except OSError:
-            logger.error("Cannot open WAF audit log: %s", self._log_path)
-            return
-
         entry_lines: list[str] = []
-        try:
-            while self._running:
-                line = fh.readline()
-                if line:
-                    line = line.rstrip("\n")
-                    # Check for end-of-entry marker (section Z)
-                    m = _SECTION_RE.match(line)
-                    if m and m.group(1) == "Z":
-                        entry_lines.append(line)
-                        event = self._parse_entry(entry_lines)
-                        if event:
-                            await callback(event)
-                        entry_lines = []
-                    else:
-                        entry_lines.append(line)
-                else:
-                    # Check for log rotation
-                    try:
-                        new_stat = p.stat()
-                        if new_stat.st_ino != current_inode:
-                            logger.info("Log rotation detected for %s", self._log_path)
-                            fh.close()
-                            fh = open(p, "r", encoding="utf-8", errors="replace")  # noqa: SIM115
-                            current_inode = new_stat.st_ino
-                        elif new_stat.st_size < fh.tell():
-                            logger.info("Log truncation detected for %s", self._log_path)
-                            fh.seek(0)
-                    except OSError:
-                        pass
-                    await asyncio.sleep(0.5)
-        finally:
-            fh.close()
+
+        async def _on_line(raw_line: str) -> None:
+            nonlocal entry_lines
+            line = raw_line.rstrip("\n")
+            # Check for end-of-entry marker (section Z)
+            m = _SECTION_RE.match(line)
+            if m and m.group(1) == "Z":
+                entry_lines.append(line)
+                event = self._parse_entry(entry_lines)
+                if event:
+                    await callback(event)
+                entry_lines = []
+            else:
+                entry_lines.append(line)
+
+        self._tailer = AsyncLogTailer(self._log_path)
+        await self._tailer.tail(_on_line)
 
     async def stop(self) -> None:
         self._running = False
+        if self._tailer is not None:
+            await self._tailer.stop()
 
     def _parse_entry(self, lines: list[str]) -> WafEvent | None:
         """Parse a complete audit log entry into a WafEvent."""

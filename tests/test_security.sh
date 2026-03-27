@@ -124,7 +124,7 @@ separator
 if [ "$QUICK" != "--quick" ] && command -v nmap &>/dev/null; then
     log ""
     log "1.1 Port Scan (top 100 ports)"
-    nmap_out=$(nmap -sV -T3 --top-ports 100 "$TARGET" 2>&1)
+    nmap_out=$(timeout 60 nmap -sV -T4 --top-ports 100 --host-timeout 30s "$TARGET" 2>&1)
     open_ports=$(echo "$nmap_out" | grep "^[0-9].*open" || true)
     if [ -n "$open_ports" ]; then
         while IFS= read -r line; do

@@ -128,18 +128,13 @@ class SecurityDaemon:
                 return
             await firewall.block_ip(decision.ip, decision.duration)
             # Persist to blocked_ips table
-            db = incidents._db
-            if db is not None:
-                now = datetime.now(timezone.utc)
-                expires_at = None
-                if decision.duration > 0:
-                    expires_at = (now + timedelta(seconds=decision.duration)).isoformat()
-                await db.execute(
-                    "INSERT OR REPLACE INTO blocked_ips (ip, reason, blocked_at, expires_at, blocked_by) "
-                    "VALUES (?, ?, ?, ?, ?)",
-                    (decision.ip, decision.reason, now.isoformat(), expires_at, "bruteforce"),
-                )
-                await db.commit()
+            now = datetime.now(timezone.utc)
+            expires_at = None
+            if decision.duration > 0:
+                expires_at = (now + timedelta(seconds=decision.duration)).isoformat()
+            await incidents.save_blocked_ip(
+                decision.ip, decision.reason, now.isoformat(), expires_at, "bruteforce",
+            )
 
         return _on_auth_event
 
@@ -147,30 +142,7 @@ class SecurityDaemon:
     def _make_waf_callback(incidents):
         """Build the async callback that persists WAF events to the database."""
         async def _on_waf_event(event):
-            db = incidents._db
-            if db is None:
-                return
-            await db.execute(
-                "INSERT OR IGNORE INTO waf_events "
-                "(id, client_ip, uri, method, rule_id, rule_msg, severity, action, "
-                "hostname, username, matched_data, created_at) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (
-                    event.id,
-                    event.client_ip,
-                    event.uri,
-                    event.method,
-                    event.rule_id,
-                    event.rule_msg,
-                    event.severity,
-                    event.action,
-                    event.hostname,
-                    event.username,
-                    event.matched_data,
-                    event.timestamp.isoformat(),
-                ),
-            )
-            await db.commit()
+            await incidents.save_waf_event(event)
 
         return _on_waf_event
 

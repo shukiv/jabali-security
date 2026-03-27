@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Awaitable, Callable
 
 from lib.bruteforce.models import AuthEvent
+from lib.log_tailer import AsyncLogTailer
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +67,7 @@ class AuthLogParser:
         """
         self._log_configs = log_configs
         self._running = False
+        self._tailers: list[AsyncLogTailer] = []
 
     async def run(self, callback: Callable[[AuthEvent], Awaitable[None]]) -> None:
         """Tail all configured logs concurrently. Calls callback for each failed login."""
@@ -90,6 +92,8 @@ class AuthLogParser:
 
     async def stop(self) -> None:
         self._running = False
+        for tailer in self._tailers:
+            await tailer.stop()
 
     async def _tail_log(
         self,
@@ -99,45 +103,16 @@ class AuthLogParser:
         callback: Callable[[AuthEvent], Awaitable[None]],
     ) -> None:
         """Tail a single log file, matching patterns and emitting events."""
-        p = Path(log_path)
+        tailer = AsyncLogTailer(log_path)
+        self._tailers.append(tailer)
 
-        # Start from end of file (don't process old entries)
-        try:
-            current_inode = p.stat().st_ino
-            fh = open(p, "r", encoding="utf-8", errors="replace")  # noqa: SIM115
-            fh.seek(0, 2)  # Seek to end
-        except OSError:
-            logger.error("Cannot open log file: %s", log_path)
-            return
+        async def _on_line(raw_line: str) -> None:
+            line = raw_line.strip()
+            if line:
+                await self._process_line(service, line, patterns, callback)
 
         logger.info("Tailing %s for %s events", log_path, service)
-
-        try:
-            while self._running:
-                line = fh.readline()
-                if line:
-                    line = line.strip()
-                    if line:
-                        await self._process_line(service, line, patterns, callback)
-                else:
-                    # No new data — check for log rotation
-                    try:
-                        new_stat = p.stat()
-                        if new_stat.st_ino != current_inode:
-                            # File was rotated — reopen
-                            logger.info("Log rotation detected for %s", log_path)
-                            fh.close()
-                            fh = open(p, "r", encoding="utf-8", errors="replace")  # noqa: SIM115
-                            current_inode = new_stat.st_ino
-                        elif new_stat.st_size < fh.tell():
-                            # File was truncated — seek to beginning
-                            logger.info("Log truncation detected for %s", log_path)
-                            fh.seek(0)
-                    except OSError:
-                        pass
-                    await asyncio.sleep(0.5)
-        finally:
-            fh.close()
+        await tailer.tail(_on_line)
 
     async def _process_line(
         self,
