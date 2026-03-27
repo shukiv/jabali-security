@@ -494,7 +494,7 @@
                             <td class="py-2.5 px-3">
                                 @if(in_array($key, $boolKeys))
                                     <select
-                                        wire:change="updateConfigValue('{{ $key }}', $event.target.value)"
+                                        x-on:change="$wire.updateConfigValue('{{ $key }}', $event.target.value)"
                                         class="rounded-lg border-gray-300 dark:border-white/10 dark:bg-white/5 text-sm py-1 px-2"
                                     >
                                         <option value="yes" {{ in_array($val, ['yes', 'true', '1']) ? 'selected' : '' }}>yes</option>
@@ -502,7 +502,7 @@
                                     </select>
                                 @elseif(isset($selectKeys[$key]))
                                     <select
-                                        wire:change="updateConfigValue('{{ $key }}', $event.target.value)"
+                                        x-on:change="$wire.updateConfigValue('{{ $key }}', $event.target.value)"
                                         class="rounded-lg border-gray-300 dark:border-white/10 dark:bg-white/5 text-sm py-1 px-2"
                                     >
                                         @foreach($selectKeys[$key] as $opt)
