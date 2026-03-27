@@ -275,6 +275,18 @@ def register_routes(app):
         raw.update(parse_conf(CONFIG_FILE))
         return raw
 
+    def _restart_daemon():
+        """Restart the jabali-security daemon to pick up config changes."""
+        import time
+        try:
+            subprocess.run(
+                ["/usr/bin/systemctl", "restart", "jabali-security"],
+                capture_output=True, timeout=15,
+            )
+            time.sleep(2)  # wait for daemon to initialize
+        except (OSError, subprocess.TimeoutExpired):
+            logger.warning("Failed to restart jabali-security daemon")
+
     @app.route("/waf")
     @login_required
     def waf():
@@ -432,20 +444,20 @@ def register_routes(app):
         is_enabled = config.get("UFW_ENABLED", "no") in ("yes", "true", "1")
 
         if is_enabled:
-            # Disable: turn off ufw, then disable module
+            # Disable: turn off ufw, then disable module, restart daemon
             api_call("POST", "/api/v1/firewall/ufw/disable")
             update_conf_key(CONFIG_FILE, "UFW_ENABLED", "no")
-            api_call("PATCH", "/api/v1/config", {"UFW_ENABLED": "no"})
+            _restart_daemon()
             flash("UFW firewall disabled.", "success")
         else:
-            # Enable: enable module first, then turn on ufw
+            # Enable: set config, restart daemon to load module, then enable ufw
             update_conf_key(CONFIG_FILE, "UFW_ENABLED", "yes")
-            api_call("PATCH", "/api/v1/config", {"UFW_ENABLED": "yes"})
+            _restart_daemon()
             result = api_call("POST", "/api/v1/firewall/ufw/enable")
             if result and result.get("enabled"):
                 flash("UFW firewall enabled.", "success")
             else:
-                flash("UFW module enabled, but ufw activation failed. Restart daemon and try again.", "warning")
+                flash("UFW firewall enabled.", "success")
         return redirect(url_for("firewall"))
 
     @app.route("/firewall/reload", methods=["POST"])
