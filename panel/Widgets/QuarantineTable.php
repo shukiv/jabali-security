@@ -11,13 +11,17 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
-use Filament\Widgets\Widget;
+use Filament\Actions\Concerns\InteractsWithActions;
+use Filament\Actions\Contracts\HasActions;
+use Filament\Schemas\Concerns\InteractsWithSchemas;
+use Filament\Schemas\Contracts\HasSchemas;
+use Livewire\Component;
 
-class QuarantineTable extends Widget implements HasTable
+class QuarantineTable extends Component implements HasActions, HasSchemas, HasTable
 {
+    use InteractsWithActions;
+    use InteractsWithSchemas;
     use InteractsWithTable;
-
-    protected string $view = 'filament-widgets::table-widget';
 
     protected function client(): JabaliSecurityClient
     {
@@ -70,5 +74,10 @@ class QuarantineTable extends Widget implements HasTable
             ])
             ->emptyStateHeading(__('No quarantined files'))
             ->striped();
+    }
+
+    public function render()
+    {
+        return $this->getTable()->render();
     }
 }
