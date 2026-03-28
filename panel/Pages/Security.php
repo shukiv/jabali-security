@@ -138,30 +138,7 @@ class Security extends Page implements HasActions, HasForms
                 ->label(__('Save & Restart'))
                 ->icon('heroicon-o-check')
                 ->color('success')
-                ->action(function (): void {
-                    $payload = [];
-                    foreach (static::$configCategories as $keys) {
-                        foreach ($keys as $key) {
-                            $formKey = 'config_'.$key;
-                            if (! array_key_exists($formKey, $this->configData)) {
-                                continue;
-                            }
-                            $val = $this->configData[$formKey];
-                            if (in_array($key, static::$booleanKeys)) {
-                                $val = $val ? 'yes' : 'no';
-                            }
-                            $payload[$key] = (string) $val;
-                        }
-                    }
-                    if (! empty($payload)) {
-                        $this->client()->patch('/config', $payload);
-                    }
-                    $process = new \Symfony\Component\Process\Process(['/usr/bin/systemctl', 'restart', 'jabali-security']);
-                    $process->run();
-                    sleep(3);
-                    Notification::make()->title(__('Settings saved & daemon restarted'))->success()->send();
-                    $this->redirect(static::getUrl(['tab' => 'settings']));
-                }),
+                ->action('saveAndRestart'),
 
             Action::make('updateRules')
                 ->label(__('Update Rules'))
@@ -405,37 +382,34 @@ class Security extends Page implements HasActions, HasForms
 
     public function saveAndRestart(): void
     {
+        // Collect all form values
         $payload = [];
-
         foreach (static::$configCategories as $keys) {
             foreach ($keys as $key) {
                 $formKey = 'config_'.$key;
-                if (! array_key_exists($formKey, $this->configData)) {
-                    continue;
+                if (array_key_exists($formKey, $this->configData)) {
+                    $val = $this->configData[$formKey];
+                    if (in_array($key, static::$booleanKeys)) {
+                        $val = $val ? 'yes' : 'no';
+                    }
+                    $payload[$key] = (string) $val;
                 }
-                $val = $this->configData[$formKey];
-                if (in_array($key, static::$booleanKeys)) {
-                    $val = $val ? 'yes' : 'no';
-                }
-                $payload[$key] = (string) $val;
             }
         }
 
+        // Save via API
         if (! empty($payload)) {
             $this->client()->patch('/config', $payload);
         }
 
         // Restart daemon
-        $process = new \Symfony\Component\Process\Process(['/usr/bin/systemctl', 'restart', 'jabali-security']);
-        $process->run();
-        sleep(3);
+        process(['/usr/bin/systemctl', 'restart', 'jabali-security'])->run();
 
         Notification::make()
-            ->title(__('Settings saved & daemon restarted'))
+            ->title(__('Settings saved'))
+            ->body(count($payload).' settings applied, daemon restarting...')
             ->success()
             ->send();
-
-        $this->redirect(static::getUrl(['tab' => 'settings']));
     }
 
     // ── Firewall Actions ─────────────────────────────────────────────
