@@ -31,6 +31,7 @@ from lib.waf.rule_manager import WafRuleManager
 from lib.watcher.inotify import InotifyWatcher
 from lib.ufw.manager import UFWManager
 from lib.webshield.manager import WebShieldManager
+from lib.sshjail.manager import SSHJailManager
 
 logger = logging.getLogger("jabali-security")
 
@@ -65,6 +66,7 @@ class ComponentRegistry:
     php_hardener: PHPHardener | None = None
     webshield: WebShieldManager | None = None
     ufw: UFWManager | None = None
+    sshjail: SSHJailManager | None = None
 
     @classmethod
     async def build(cls, config: JabaliConfig, disabled: set[str] | None = None) -> ComponentRegistry:
@@ -123,6 +125,9 @@ class ComponentRegistry:
         ufw = (
             _build_ufw(config) if "ufw" not in disabled else None
         )
+        sshjail = (
+            _build_sshjail(config) if "sshjail" not in disabled else None
+        )
 
         return cls(
             config=config,
@@ -149,6 +154,7 @@ class ComponentRegistry:
             php_hardener=php_hardener,
             webshield=webshield,
             ufw=ufw,
+            sshjail=sshjail,
         )
 
     async def __aenter__(self) -> ComponentRegistry:
@@ -192,6 +198,7 @@ class ComponentRegistry:
         app["threat_intel"] = self.feed_manager
         app["webshield"] = self.webshield
         app["ufw"] = self.ufw
+        app["sshjail"] = self.sshjail
 
     def background_tasks(self, daemon) -> list:
         tasks = []
@@ -323,6 +330,13 @@ def _build_webshield(config: JabaliConfig) -> WebShieldManager | None:
         challenge_enabled=config.webshield_challenge_enabled,
         bot_filtering=config.webshield_bot_filtering,
     )
+
+
+def _build_sshjail(config: JabaliConfig) -> SSHJailManager | None:
+    if not config.sshjail_enabled:
+        return None
+    logger.info("SSH jail management enabled -- jail dir: %s", config.sshjail_jail_dir)
+    return SSHJailManager(jail_dir=config.sshjail_jail_dir)
 
 
 def _build_ufw(config: JabaliConfig) -> UFWManager | None:

@@ -48,6 +48,7 @@ _TOGGLE_KEYS = {
     "yara": "YARA_ENABLED",
     "process_monitor": "PROCESS_MONITOR_ENABLED",
     "behavior_tracking": "BEHAVIOR_TRACKING_ENABLED",
+    "sshjail": "SSHJAIL_ENABLED",
 }
 
 
@@ -537,3 +538,41 @@ def register_routes(app):
     def rules_page():
         data = api_call("GET", "/api/v1/rules") or {}
         return render_template("rules.html", rules=data)
+
+    @app.route("/ssh")
+    @login_required
+    def ssh_jail():
+        config = _config()
+        sshjail_enabled = config.get("SSHJAIL_ENABLED", "no") in ("yes", "true", "1")
+        users_data = []
+        if sshjail_enabled:
+            users = api_call("GET", "/api/v1/users")
+            users = users if isinstance(users, list) else []
+            for u in users:
+                username = u.get("username", "")
+                if not username:
+                    continue
+                status = api_call("GET", "/api/v1/ssh/shell/status?username=%s" % username) or {}
+                keys = api_call("GET", "/api/v1/ssh/keys?username=%s" % username)
+                keys = keys if isinstance(keys, list) else []
+                users_data.append({
+                    "username": username,
+                    "shell": status.get("shell", "/usr/sbin/nologin"),
+                    "shell_enabled": status.get("shell_enabled", False),
+                    "sftp_only": status.get("sftp_only", True),
+                    "key_count": len(keys),
+                })
+        return render_template("ssh_jail.html",
+            sshjail_enabled=sshjail_enabled, users=users_data, config=config)
+
+    @app.route("/ssh/toggle/<username>", methods=["POST"])
+    @login_required
+    def ssh_toggle_shell(username):
+        action = request.form.get("action", "enable")
+        endpoint = "/api/v1/ssh/shell/enable" if action == "enable" else "/api/v1/ssh/shell/disable"
+        result = api_call("POST", endpoint, {"username": username})
+        if result is not None:
+            flash("Shell %sd for %s." % (action, username), "success")
+        else:
+            flash("Failed to %s shell for %s." % (action, username), "error")
+        return redirect(url_for("ssh_jail"))

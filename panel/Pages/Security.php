@@ -12,6 +12,7 @@ use App\JabaliSecurity\Widgets\FirewallRulesTable;
 use App\JabaliSecurity\Widgets\IncidentsTable;
 use App\JabaliSecurity\Widgets\PhpPoolsTable;
 use App\JabaliSecurity\Widgets\QuarantineTable;
+use App\JabaliSecurity\Widgets\SshKeysTable;
 use App\JabaliSecurity\Widgets\ThreatFeedsTable;
 use App\JabaliSecurity\Widgets\UsersTable;
 use App\JabaliSecurity\Widgets\WafEventsTable;
@@ -30,6 +31,7 @@ use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Actions as SchemaActions;
 use Filament\Schemas\Components\EmbeddedTable;
+use Filament\Schemas\Components\Form;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Text;
@@ -204,6 +206,8 @@ class Security extends Page implements HasActions, HasForms
                                         ->schema(array_merge($this->proactiveStats(), [EmbeddedTable::make(PhpPoolsTable::class)])),
                                     'webshield' => Tab::make(__('WebShield'))
                                         ->schema(array_merge($this->webshieldStats(), [EmbeddedTable::make(WebshieldRulesTable::class)])),
+                                    'ssh' => Tab::make(__('SSH Jail'))
+                                        ->schema([EmbeddedTable::make(SshKeysTable::class)]),
                                 ]),
                         ]),
                     'intelligence' => Tab::make(__('Intelligence'))
@@ -443,17 +447,22 @@ class Security extends Page implements HasActions, HasForms
         }
 
         return [
-            Tabs::make(__('Configuration'))
-                ->contained()
+            Form::make([
+                Tabs::make(__('Configuration'))
+                    ->contained()
+                    ->tabs($tabs),
+            ])
                 ->statePath('configData')
-                ->tabs($tabs),
-            SchemaActions::make([
-                Action::make('saveAndRestart')
-                    ->label(__('Save & Restart'))
-                    ->icon('heroicon-o-check')
-                    ->color('success')
-                    ->action('saveAndRestart'),
-            ]),
+                ->livewireSubmitHandler('saveAndRestart')
+                ->footer([
+                    SchemaActions::make([
+                        Action::make('saveAndRestart')
+                            ->label(__('Save & Restart'))
+                            ->icon('heroicon-o-check')
+                            ->color('success')
+                            ->submit('saveAndRestart'),
+                    ]),
+                ]),
         ];
     }
 
@@ -616,6 +625,9 @@ class Security extends Page implements HasActions, HasForms
         'NOTIFY_WEBHOOK' => 'Webhook URL for incident notifications',
         'NOTIFY_MIN_SEVERITY' => 'Minimum severity to trigger notifications',
         'INCIDENT_RETAIN_DAYS' => 'Days to keep incident records before cleanup',
+        'SSHJAIL_ENABLED' => 'Enable SSH jail management (chroot jailshell with wp-cli)',
+        'SSHJAIL_JAIL_DIR' => 'Root directory for the SSH chroot jail',
+        'SSH_SHELL_ACCESS_ENABLED' => 'Allow users to enable terminal shell access',
     ];
 
     // ── Static Data ──────────────────────────────────────────────────
@@ -641,6 +653,7 @@ class Security extends Page implements HasActions, HasForms
                 'THREAT_INTEL_ENABLED' => ['label' => 'Threat Intelligence', 'desc' => 'IP reputation and malware hash feeds'],
                 'CLEANUP_ENABLED' => ['label' => 'Auto Cleanup', 'desc' => 'Removes injected code from files'],
                 'UFW_ENABLED' => ['label' => 'UFW Firewall', 'desc' => 'Manage system firewall rules'],
+                'SSHJAIL_ENABLED' => ['label' => 'SSH Jail', 'desc' => 'Chroot jailshell with wp-cli for hosting users'],
                 'SCHEDULED_SCAN_ENABLED' => ['label' => 'Scheduled Scans', 'desc' => 'Periodic full-path scanning'],
                 'AUTO_SUSPEND' => ['label' => 'Auto Suspend', 'desc' => 'Suspends accounts above score threshold'],
             ],
@@ -656,7 +669,7 @@ class Security extends Page implements HasActions, HasForms
         'SCHEDULED_SCAN_ENABLED', 'THREAT_INTEL_ENABLED', 'THREAT_INTEL_AUTO_BLOCK',
         'WEBSHIELD_ENABLED', 'WEBSHIELD_CHALLENGE_ENABLED', 'WEBSHIELD_BOT_FILTERING',
         'WEB_ENABLED', 'DB_SCANNER_ENABLED', 'RAPIDSCAN_MTIME_CACHE', 'FRESHCLAM_ON_UPDATE',
-        'UFW_ENABLED',
+        'UFW_ENABLED', 'SSHJAIL_ENABLED', 'SSH_SHELL_ACCESS_ENABLED',
     ];
 
     public static array $selectKeys = [
@@ -681,6 +694,7 @@ class Security extends Page implements HasActions, HasForms
         'WAF' => ['WAF_ENABLED', 'WAF_AUDIT_LOG', 'WAF_AUDIT_LOG_TYPE', 'WAF_RULES_DIR', 'WAF_OVERRIDES_FILE', 'WAF_CRS_AUTO_UPDATE', 'WAF_WEB_SERVER'],
         'Brute-Force' => ['BRUTEFORCE_ENABLED', 'BRUTEFORCE_SSH_LOG', 'BRUTEFORCE_MAIL_LOG', 'BRUTEFORCE_STALWART_LOG', 'BRUTEFORCE_SSH_THRESHOLD', 'BRUTEFORCE_SSH_WINDOW', 'BRUTEFORCE_MAIL_THRESHOLD', 'BRUTEFORCE_MAIL_WINDOW', 'BRUTEFORCE_BLOCK_DURATIONS', 'FIREWALL_BACKEND', 'BRUTEFORCE_WHITELIST_IPS'],
         'UFW' => ['UFW_ENABLED'],
+        'SSH Jail' => ['SSHJAIL_ENABLED', 'SSHJAIL_JAIL_DIR', 'SSH_SHELL_ACCESS_ENABLED'],
         'Proactive' => ['PROACTIVE_ENABLED', 'PHP_HARDENING_ENABLED', 'PHP_HARDENING_AUTO', 'PROCESS_KILL_ENABLED', 'PROCESS_KILL_THRESHOLD', 'PROCESS_KILL_MIN_UID', 'PROCESS_KILL_WHITELIST'],
         'Cleanup' => ['CLEANUP_ENABLED', 'CLEANUP_AUTO', 'CLEANUP_BACKUP_DIR', 'CLEANUP_CMS_CHECKSUMS'],
         'Scheduled Scan' => ['SCHEDULED_SCAN_ENABLED', 'SCHEDULED_SCAN_INTERVAL', 'SCHEDULED_SCAN_PATHS'],

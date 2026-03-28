@@ -102,6 +102,9 @@ DEFAULTS: dict[str, str] = {
     "WEB_ENABLED": "no",
     "WEB_BIND": "0.0.0.0",  # noqa: S104
     "WEB_PORT": "8443",
+    "SSHJAIL_ENABLED": "no",
+    "SSHJAIL_JAIL_DIR": "/var/jail",
+    "SSH_SHELL_ACCESS_ENABLED": "yes",
 }
 
 
@@ -294,6 +297,9 @@ class JabaliConfig:
     web_enabled: bool = False
     web_bind: str = "0.0.0.0"  # noqa: S104
     web_port: int = 8443
+    sshjail_enabled: bool = False
+    sshjail_jail_dir: str = "/var/jail"
+    ssh_shell_access_enabled: bool = True
 
 
 def _safe_int(value: str, default: int, min_val: int | None = None, max_val: int | None = None) -> int:
@@ -423,4 +429,7 @@ def load_config(filepath: Path | None = None) -> JabaliConfig:
         web_enabled=_bool(merged["WEB_ENABLED"]),
         web_bind=merged["WEB_BIND"],
         web_port=_safe_int(merged["WEB_PORT"], 8443, min_val=1024, max_val=65535),
+        sshjail_enabled=_bool(merged["SSHJAIL_ENABLED"]),
+        sshjail_jail_dir=merged["SSHJAIL_JAIL_DIR"],
+        ssh_shell_access_enabled=_bool(merged["SSH_SHELL_ACCESS_ENABLED"]),
     )

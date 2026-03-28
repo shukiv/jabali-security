@@ -302,6 +302,17 @@ WEB_BIND="0.0.0.0"
 # Port for the web dashboard (default 8443)
 WEB_PORT="8443"
 
+# -- SSH Jail Management -----------------------------------------------------
+
+# Enable SSH jail (chroot) management
+# SSHJAIL_ENABLED="no"
+
+# Base directory for jailed user environments
+# SSHJAIL_JAIL_DIR="/var/jail"
+
+# Allow shell access for hosting users (disable to force SFTP-only)
+# SSH_SHELL_ACCESS_ENABLED="yes"
+
 # -- Retention ---------------------------------------------------------------
 
 # Number of days to retain incident records
