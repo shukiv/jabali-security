@@ -53,8 +53,9 @@ See also: `etc/jabali-security.conf.example` for a fully commented template.
 
 | Key | Type | Default | Description |
 |---|---|---|---|
-| `API_BIND` | string | `127.0.0.1` | Bind address for REST API (`127.0.0.1` = localhost only) |
-| `API_PORT` | int | `9876` | Port for REST API (1024-65535) |
+| `API_SOCKET` | path | `/run/jabali-security/jabali-security.sock` | Unix domain socket path for the REST API. Created automatically by systemd `RuntimeDirectory`. Permissions: `0660 root:www-data`. |
+| `API_BIND` | string | *(empty)* | TCP bind address. Empty = disabled (Unix socket only). Set to `127.0.0.1` to re-enable TCP fallback for debugging. |
+| `API_PORT` | int | `9876` | TCP port for REST API (only used when `API_BIND` is non-empty). |
 | `API_KEY` | string | *(auto-generated)* | API authentication key. Auto-generated on install. |
 
 ## File Watcher

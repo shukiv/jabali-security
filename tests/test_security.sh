@@ -18,7 +18,7 @@ set -euo pipefail
 
 TARGET="${1:-}"
 QUICK="${2:-}"
-PROTO="https"
+PROTO="http"
 REPORT_FILE="/tmp/jabali-security-test-$(date +%Y%m%d-%H%M%S).txt"
 
 PASS=0
@@ -717,7 +717,7 @@ if [ -n "$SSH_HOST" ]; then
     if [ -n "$api_key" ]; then
         # Test UFW status endpoint
         ufw_api=$(ssh -o ConnectTimeout=10 "$SSH_HOST" \
-            "curl -s -H 'X-API-Key: ${api_key}' http://127.0.0.1:9876/api/v1/firewall/ufw/status 2>/dev/null" 2>/dev/null)
+            "curl -s -H 'X-API-Key: ${api_key}' --unix-socket /run/jabali-security/jabali-security.sock http://localhost/api/v1/firewall/ufw/status 2>/dev/null" 2>/dev/null)
 
         if echo "$ufw_api" | grep -q '"success": true'; then
             pass "UFW API status endpoint responds"
@@ -739,7 +739,7 @@ if [ -n "$SSH_HOST" ]; then
 
         # Test that UFW API rejects unauthenticated requests
         ufw_noauth=$(ssh -o ConnectTimeout=10 "$SSH_HOST" \
-            "curl -s http://127.0.0.1:9876/api/v1/firewall/ufw/status 2>/dev/null" 2>/dev/null)
+            "curl -s --unix-socket /run/jabali-security/jabali-security.sock http://localhost/api/v1/firewall/ufw/status 2>/dev/null" 2>/dev/null)
         if echo "$ufw_noauth" | grep -qi "invalid.*api.*key\|unauthorized"; then
             pass "UFW API rejects unauthenticated requests"
         elif echo "$ufw_noauth" | grep -q '"success": true'; then
@@ -752,7 +752,7 @@ if [ -n "$SSH_HOST" ]; then
         inject_test=$(ssh -o ConnectTimeout=10 "$SSH_HOST" \
             "curl -s -X POST -H 'X-API-Key: ${api_key}' -H 'Content-Type: application/json' \
             -d '{\"action\":\"allow\",\"port\":\"; rm -rf /\"}' \
-            http://127.0.0.1:9876/api/v1/firewall/ufw/rules 2>/dev/null" 2>/dev/null)
+            --unix-socket /run/jabali-security/jabali-security.sock http://localhost/api/v1/firewall/ufw/rules 2>/dev/null" 2>/dev/null)
         if echo "$inject_test" | grep -q '"success": false'; then
             pass "UFW API rejects command injection in port field"
         elif echo "$inject_test" | grep -q '"success": true'; then
@@ -765,18 +765,18 @@ if [ -n "$SSH_HOST" ]; then
         add_result=$(ssh -o ConnectTimeout=10 "$SSH_HOST" \
             "curl -s -X POST -H 'X-API-Key: ${api_key}' -H 'Content-Type: application/json' \
             -d '{\"action\":\"deny\",\"port\":\"19999\",\"protocol\":\"tcp\",\"comment\":\"jabali-test\"}' \
-            http://127.0.0.1:9876/api/v1/firewall/ufw/rules 2>/dev/null" 2>/dev/null)
+            --unix-socket /run/jabali-security/jabali-security.sock http://localhost/api/v1/firewall/ufw/rules 2>/dev/null" 2>/dev/null)
         if echo "$add_result" | grep -q '"added": true'; then
             pass "UFW API: added test rule (deny 19999/tcp)"
 
             # Find and delete the test rule
             rules_json=$(ssh -o ConnectTimeout=10 "$SSH_HOST" \
-                "curl -s -H 'X-API-Key: ${api_key}' http://127.0.0.1:9876/api/v1/firewall/ufw/rules 2>/dev/null" 2>/dev/null)
+                "curl -s -H 'X-API-Key: ${api_key}' --unix-socket /run/jabali-security/jabali-security.sock http://localhost/api/v1/firewall/ufw/rules 2>/dev/null" 2>/dev/null)
             test_rule_num=$(echo "$rules_json" | grep -oP '"number":\s*\K\d+(?=.*19999)' | tail -1)
             if [ -n "$test_rule_num" ]; then
                 del_result=$(ssh -o ConnectTimeout=10 "$SSH_HOST" \
                     "curl -s -X DELETE -H 'X-API-Key: ${api_key}' \
-                    http://127.0.0.1:9876/api/v1/firewall/ufw/rules/${test_rule_num} 2>/dev/null" 2>/dev/null)
+                    --unix-socket /run/jabali-security/jabali-security.sock http://localhost/api/v1/firewall/ufw/rules/${test_rule_num} 2>/dev/null" 2>/dev/null)
                 if echo "$del_result" | grep -q '"deleted": true'; then
                     pass "UFW API: deleted test rule #${test_rule_num}"
                 else
@@ -830,24 +830,34 @@ else
 fi
 
 # ============================================================================
-# PHASE 6: JABALI API (PORT 9876)
+# PHASE 6: JABALI API (UNIX SOCKET)
 # ============================================================================
 separator
-bold "PHASE 6: JABALI REST API (PORT 9876)"
+bold "PHASE 6: JABALI REST API (UNIX SOCKET)"
 separator
 
 log ""
-log "6.1 API Accessibility from External"
+log "6.1 API Socket Accessibility"
+
+# Verify Unix socket exists on the server
+if [ -n "${SSH_HOST:-}" ]; then
+    sock_exists=$(ssh -o ConnectTimeout=10 "$SSH_HOST" \
+        'test -S /run/jabali-security/jabali-security.sock && echo yes || echo no' 2>/dev/null)
+    if [ "$sock_exists" = "yes" ]; then
+        pass "API Unix socket exists at /run/jabali-security/jabali-security.sock"
+    else
+        warn "API Unix socket not found (daemon may not be running)"
+    fi
+fi
+
+log ""
+log "6.2 TCP Port 9876 Not Exposed"
 
 api_code=$(http_code "http://${TARGET}:9876/api/v1/status" 2>/dev/null)
 if [ "$api_code" = "000" ]; then
-    pass "API port 9876 not reachable externally (localhost-only — correct)"
-elif [ "$api_code" = "401" ] || [ "$api_code" = "403" ]; then
-    warn "API port 9876 is reachable but requires auth -> ${api_code}"
-elif [ "$api_code" = "200" ]; then
-    fail "API port 9876 is reachable externally WITHOUT auth!"
+    pass "TCP port 9876 not reachable externally (Unix socket only — correct)"
 else
-    info "API port 9876 -> ${api_code}"
+    fail "TCP port 9876 is reachable externally (should be disabled) -> ${api_code}"
 fi
 
 # ============================================================================

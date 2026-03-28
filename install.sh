@@ -370,6 +370,14 @@ if 'JabaliSecurityPlugin' not in c and '->middleware([' in c:
         fi
         echo "  API key generated."
     fi
+
+    # -- Set Unix socket path if not already present --
+    if ! grep -q "^API_SOCKET=" "$CONFIG_DIR/jabali-security.conf" 2>/dev/null; then
+        echo 'API_SOCKET="/run/jabali-security/jabali-security.sock"' >> "$CONFIG_DIR/jabali-security.conf"
+    fi
+    # Disable TCP by default (Unix socket is primary)
+    sed -i 's|^API_BIND="127.0.0.1"|API_BIND=""|' "$CONFIG_DIR/jabali-security.conf" 2>/dev/null
+
     done_ok "Daemon configured"
 
     section "Configuring WAF (ModSecurity)"

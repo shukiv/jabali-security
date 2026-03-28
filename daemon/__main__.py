@@ -355,6 +355,23 @@ def update() -> None:
     # Cleanup
     shutil.rmtree(tmp_dir, ignore_errors=True)
 
+    # Migrate config to Unix socket if not yet configured
+    config_file = "/etc/jabali-security/jabali-security.conf"
+    if os.path.isfile(config_file):
+        with open(config_file) as fh:
+            conf_content = fh.read()
+        migrated = False
+        if "API_SOCKET=" not in conf_content:
+            conf_content += '\nAPI_SOCKET="/run/jabali-security/jabali-security.sock"\n'
+            migrated = True
+        if 'API_BIND="127.0.0.1"' in conf_content:
+            conf_content = conf_content.replace('API_BIND="127.0.0.1"', 'API_BIND=""')
+            migrated = True
+        if migrated:
+            with open(config_file, "w") as fh:
+                fh.write(conf_content)
+            click.echo("Config migrated to Unix socket.")
+
     # Restart services
     subprocess.run(["/usr/bin/systemctl", "restart", "jabali-security"], capture_output=True)  # noqa: S603
     subprocess.run(["/usr/bin/systemctl", "restart", "jabali-security-web"], capture_output=True)  # noqa: S603

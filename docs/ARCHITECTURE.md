@@ -50,7 +50,7 @@ Technical architecture of Jabali Security.
 | `__main__.py` | CLI entry point (click). 30+ commands for all subsystems. |
 | `server.py` | `SecurityDaemon` -- async supervisor that starts all subsystems via `asyncio.TaskGroup`. |
 
-The daemon uses a single async event loop. On startup it builds a `ComponentRegistry`, starts the API server, file watcher, scan workers, and all enabled optional subsystems as concurrent tasks.
+The daemon uses a single async event loop. On startup it builds a `ComponentRegistry`, starts the API server (Unix socket at `/run/jabali-security/jabali-security.sock`), file watcher, scan workers, and all enabled optional subsystems as concurrent tasks.
 
 ### Component Registry (`lib/registry.py`)
 
@@ -228,7 +228,7 @@ Disabled by default (`UFW_ENABLED="no"`). Requires `ufw` to be installed on the 
 | `templates/` | Jinja2 templates (20 pages) |
 | `static/` | CSS and JavaScript |
 
-The web dashboard is a separate process (systemd service `jabali-security-web`). It communicates with the daemon exclusively through the REST API.
+The web dashboard is a separate process (systemd service `jabali-security-web`). It communicates with the daemon exclusively through the REST API via the Unix socket.
 
 ### Jabali Panel Plugin (`panel/`)
 
@@ -240,7 +240,7 @@ The web dashboard is a separate process (systemd service `jabali-security-web`).
 | `Widgets/SecurityStatsWidget.php` | Stats overview widget |
 | `views/security.blade.php` | Blade view template |
 
-The panel plugin is deployed to `/var/www/jabali/app/JabaliSecurity/` on servers with Jabali Panel. It communicates with the daemon through the same REST API. See [PARITY.md](PARITY.md) for feature comparison between the two interfaces.
+The panel plugin is deployed to `/var/www/jabali/app/JabaliSecurity/` on servers with Jabali Panel. It communicates with the daemon through the same REST API via the Unix socket. See [PARITY.md](PARITY.md) for feature comparison between the two interfaces.
 
 ## Data Flow
 
@@ -407,8 +407,10 @@ RuntimeDirectory=jabali-security
 
 ### API Authentication
 
+- API listens on Unix socket `/run/jabali-security/jabali-security.sock` (TCP disabled by default)
 - `X-API-Key` header required on all API requests (except `/health`)
 - Key auto-generated on install (44-char URL-safe token)
+- Socket permissions: `0660 root:www-data`
 - Config file written with `0o600` permissions
 
 ### Input Validation

@@ -2,15 +2,27 @@
 
 Jabali Security v0.1.0 -- 55 endpoints across 15 modules.
 
-Base URL: `http://127.0.0.1:9876/api/v1`
+## Connection
+
+The API listens on a Unix domain socket (not a TCP port):
+
+    /run/jabali-security/jabali-security.sock
+
+**curl example:**
+
+```bash
+curl --unix-socket /run/jabali-security/jabali-security.sock \
+  -H "X-API-Key: YOUR_KEY" \
+  http://localhost/api/v1/status
+```
+
+TCP fallback (disabled by default -- set `API_BIND="127.0.0.1"` in config to enable):
+
+    http://127.0.0.1:9876/api/v1
 
 ## Authentication
 
 All endpoints except `/health` require the `X-API-Key` header. The key is auto-generated on install and stored in `/etc/jabali-security/jabali-security.conf`. Uses constant-time comparison to prevent timing attacks. If no key is configured, requests are allowed without authentication.
-
-```bash
-curl -H "X-API-Key: YOUR_KEY" http://127.0.0.1:9876/api/v1/status
-```
 
 ## Response Format
 
