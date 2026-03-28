@@ -14,6 +14,9 @@ def setup_routes(app: web.Application) -> None:
     app.router.add_post("/api/v1/waf/rules/{rule_id}/enable", post_waf_rule_enable)
     app.router.add_get("/api/v1/waf/stats", get_waf_stats)
     app.router.add_post("/api/v1/waf/crs/update", post_waf_crs_update)
+    app.router.add_post("/api/v1/waf/modsecurity/enable", post_waf_modsec_enable)
+    app.router.add_post("/api/v1/waf/modsecurity/disable", post_waf_modsec_disable)
+    app.router.add_get("/api/v1/waf/modsecurity/status", get_waf_modsec_status)
 
 
 async def get_waf_events(request: web.Request) -> web.Response:
@@ -108,6 +111,29 @@ async def get_waf_stats(request: web.Request) -> web.Response:
     incidents = request.app["incidents"]
     stats = await incidents.get_waf_stats()
     return _ok(stats)
+
+
+async def post_waf_modsec_enable(request: web.Request) -> web.Response:
+    waf_rules = request.app.get("waf_rules")
+    if not waf_rules:
+        return _err("WAF not enabled", 404)
+    reloaded = await waf_rules.set_modsecurity_enabled(True)
+    return _ok({"enabled": True, "nginx_reloaded": reloaded})
+
+
+async def post_waf_modsec_disable(request: web.Request) -> web.Response:
+    waf_rules = request.app.get("waf_rules")
+    if not waf_rules:
+        return _err("WAF not enabled", 404)
+    reloaded = await waf_rules.set_modsecurity_enabled(False)
+    return _ok({"disabled": True, "nginx_reloaded": reloaded})
+
+
+async def get_waf_modsec_status(request: web.Request) -> web.Response:
+    waf_rules = request.app.get("waf_rules")
+    if not waf_rules:
+        return _err("WAF not enabled", 404)
+    return _ok({"modsecurity_active": waf_rules.is_modsecurity_enabled()})
 
 
 async def post_waf_crs_update(request: web.Request) -> web.Response:

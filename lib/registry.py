@@ -269,6 +269,7 @@ def _build_waf(config: JabaliConfig) -> tuple[WafRuleManager | None, ModSecAudit
         overrides_file=config.waf_overrides_file,
         rules_dir=config.waf_rules_dir,
         web_server=config.waf_web_server,
+        nginx_include=config.waf_nginx_include,
     )
     parser = ModSecAuditLogParser(
         log_path=config.waf_audit_log,

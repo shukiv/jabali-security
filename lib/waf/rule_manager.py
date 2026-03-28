@@ -13,10 +13,12 @@ logger = logging.getLogger(__name__)
 class WafRuleManager:
     """Manage ModSecurity rules without editing CRS files directly."""
 
-    def __init__(self, overrides_file: str, rules_dir: str, web_server: str = "auto") -> None:
+    def __init__(self, overrides_file: str, rules_dir: str, web_server: str = "auto",
+                 nginx_include: str = "") -> None:
         self._overrides = Path(overrides_file)
         self._rules_dir = Path(rules_dir)
         self._web_server = self._detect_web_server(web_server)
+        self._nginx_include = Path(nginx_include) if nginx_include else None
         self._disabled_rules: set[int] = set()
         self._load_overrides()
 
@@ -79,6 +81,26 @@ class WafRuleManager:
                 "size": f.stat().st_size,
             })
         return rules
+
+    async def set_modsecurity_enabled(self, enabled: bool) -> bool:
+        """Write modsecurity on/off to the nginx include file and reload."""
+        if not self._nginx_include:
+            logger.warning("No WAF_NGINX_INCLUDE configured")
+            return False
+        self._nginx_include.parent.mkdir(parents=True, exist_ok=True)
+        state = "on" if enabled else "off"
+        self._nginx_include.write_text(
+            "# Managed by Jabali Security\nmodsecurity %s;\n" % state
+        )
+        logger.info("Set modsecurity %s in %s", state, self._nginx_include)
+        return await self._reload_web_server()
+
+    def is_modsecurity_enabled(self) -> bool:
+        """Check if modsecurity is on in the nginx include file."""
+        if not self._nginx_include or not self._nginx_include.is_file():
+            return False
+        content = self._nginx_include.read_text()
+        return "modsecurity on" in content.lower().replace(" ", " ")
 
     async def _reload_web_server(self) -> bool:
         """Reload nginx or apache to apply rule changes."""

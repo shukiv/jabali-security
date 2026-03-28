@@ -154,6 +154,9 @@ WAF_CRS_AUTO_UPDATE="no"
 # Web server to reload after rule changes: "auto", "nginx", "apache"
 WAF_WEB_SERVER="auto"
 
+# Nginx include file for per-site modsecurity on/off toggle
+WAF_NGINX_INCLUDE="/etc/nginx/jabali/includes/waf.conf"
+
 # -- Proactive Defense -------------------------------------------------------
 
 # Enable proactive defense subsystem (master switch)

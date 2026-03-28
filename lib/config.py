@@ -71,6 +71,7 @@ DEFAULTS: dict[str, str] = {
     "WAF_OVERRIDES_FILE": "/etc/modsecurity/jabali-overrides.conf",
     "WAF_CRS_AUTO_UPDATE": "no",
     "WAF_WEB_SERVER": "auto",
+    "WAF_NGINX_INCLUDE": "/etc/nginx/jabali/includes/waf.conf",
     "PROACTIVE_ENABLED": "no",
     "PHP_HARDENING_ENABLED": "no",
     "PHP_HARDENING_AUTO": "no",
@@ -264,6 +265,7 @@ class JabaliConfig:
     waf_overrides_file: str = "/etc/modsecurity/jabali-overrides.conf"
     waf_crs_auto_update: bool = False
     waf_web_server: str = "auto"
+    waf_nginx_include: str = "/etc/nginx/jabali/includes/waf.conf"
     proactive_enabled: bool = False
     php_hardening_enabled: bool = False
     php_hardening_auto: bool = False
@@ -398,6 +400,7 @@ def load_config(filepath: Path | None = None) -> JabaliConfig:
         waf_overrides_file=merged["WAF_OVERRIDES_FILE"],
         waf_crs_auto_update=_bool(merged["WAF_CRS_AUTO_UPDATE"]),
         waf_web_server=merged["WAF_WEB_SERVER"],
+        waf_nginx_include=merged["WAF_NGINX_INCLUDE"],
         proactive_enabled=_bool(merged["PROACTIVE_ENABLED"]),
         php_hardening_enabled=_bool(merged["PHP_HARDENING_ENABLED"]),
         php_hardening_auto=_bool(merged["PHP_HARDENING_AUTO"]),
