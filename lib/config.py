@@ -22,9 +22,10 @@ DEFAULTS: dict[str, str] = {
     "DATA_DIR": "/var/lib/jabali-security",
     "QUARANTINE_DIR": "/var/security/quarantine",
     "WORKERS": "4",
-    "API_BIND": "127.0.0.1",
+    "API_BIND": "",
     "API_PORT": "9876",
     "API_KEY": "",
+    "API_SOCKET": "/run/jabali-security/jabali-security.sock",
     "WATCH_DIRS": "/home/*/public_html,/home/*/domains/*/public_html,/home/*/tmp",
     "SCAN_EXTENSIONS": ".php,.phtml,.js,.py,.sh,.cgi,.pl,.asp,.aspx,.jsp",
     "MAX_FILE_SIZE": "2097152",
@@ -145,8 +146,11 @@ def _atomic_write(filepath: Path, content: str) -> None:
     fd, tmp_path = tempfile.mkstemp(dir=str(filepath.parent), suffix=".tmp")
     try:
         os.write(fd, content.encode("utf-8"))
-        os.fchmod(fd, orig_mode)
-        os.fchown(fd, orig_uid, orig_gid)
+        try:
+            os.fchmod(fd, orig_mode)
+            os.fchown(fd, orig_uid, orig_gid)
+        except PermissionError:
+            pass  # Non-root can't chown
         os.fsync(fd)
     finally:
         os.close(fd)
@@ -206,9 +210,10 @@ class JabaliConfig:
     data_dir: str = "/var/lib/jabali-security"
     quarantine_dir: str = "/var/security/quarantine"
     workers: int = 4
-    api_bind: str = "127.0.0.1"
+    api_bind: str = ""
     api_port: int = 9876
     api_key: str = ""
+    api_socket: str = "/run/jabali-security/jabali-security.sock"
     watch_dirs: list[str] = field(default_factory=lambda: ["/home/*/public_html", "/home/*/tmp", "/var/www"])
     scan_extensions: list[str] = field(
         default_factory=lambda: [".php", ".phtml", ".js", ".py", ".sh", ".cgi", ".pl", ".asp", ".aspx", ".jsp"]
@@ -338,6 +343,7 @@ def load_config(filepath: Path | None = None) -> JabaliConfig:
         api_bind=api_bind,
         api_port=_safe_int(merged["API_PORT"], 9876, min_val=1024, max_val=65535),
         api_key=merged["API_KEY"],
+        api_socket=merged["API_SOCKET"],
         watch_dirs=_csv_list(merged["WATCH_DIRS"]),
         scan_extensions=_csv_list(merged["SCAN_EXTENSIONS"]),
         max_file_size=_safe_int(merged["MAX_FILE_SIZE"], 2097152, min_val=1024),

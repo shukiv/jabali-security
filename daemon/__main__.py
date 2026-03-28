@@ -117,15 +117,33 @@ def _setup_logging(foreground: bool, level: str) -> None:
 # -- API client helpers ------------------------------------------------------
 
 def _api_request(config: JabaliConfig, method: str, path: str, body: dict | None = None) -> dict:
-    """Make an API request to the running daemon. Returns parsed JSON or raises."""
-    url = "http://%s:%d%s" % (config.api_bind, config.api_port, path)
+    """Make an API request to the running daemon via Unix socket or TCP."""
+    import http.client
+    import socket as socket_mod
+
     data = json.dumps(body).encode() if body else None
     headers = {"Content-Type": "application/json"}
     if config.api_key:
         headers["X-API-Key"] = config.api_key
-    req = Request(url, data=data, headers=headers, method=method)  # noqa: S310
-    with urlopen(req, timeout=30) as resp:  # noqa: S310
-        return json.loads(resp.read().decode())
+
+    socket_path = config.api_socket
+    if socket_path and os.path.exists(socket_path):
+        # Connect via Unix socket
+        conn = http.client.HTTPConnection("localhost")
+        sock = socket_mod.socket(socket_mod.AF_UNIX, socket_mod.SOCK_STREAM)
+        sock.connect(socket_path)
+        conn.sock = sock
+        conn.request(method, path, body=data, headers=headers)
+        resp = conn.getresponse()
+        result = json.loads(resp.read().decode())
+        conn.close()
+        return result
+    else:
+        # TCP fallback
+        url = "http://%s:%d%s" % (config.api_bind, config.api_port, path)
+        req = Request(url, data=data, headers=headers, method=method)  # noqa: S310
+        with urlopen(req, timeout=30) as resp:  # noqa: S310
+            return json.loads(resp.read().decode())
 
 
 def _daemon_not_running() -> None:

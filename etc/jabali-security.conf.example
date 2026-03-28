@@ -25,10 +25,11 @@ WORKERS="4"
 
 # -- API ---------------------------------------------------------------------
 
-# Bind address for the REST API (127.0.0.1 = localhost only)
-API_BIND="127.0.0.1"
+# Unix socket path (primary, secure — no network exposure)
+API_SOCKET="/run/jabali-security/jabali-security.sock"
 
-# Port for the REST API
+# TCP fallback (optional — set API_BIND to enable, empty = disabled)
+API_BIND=""
 API_PORT="9876"
 
 # API authentication key (auto-generated on install; change if needed)

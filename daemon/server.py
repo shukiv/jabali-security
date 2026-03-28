@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import grp
 import logging
+import os
 import signal
 from datetime import datetime, timezone
 from pathlib import Path
@@ -38,7 +40,6 @@ class SecurityDaemon:
             self._registry.populate_app(app, daemon=self)
             api_runner = web.AppRunner(app)
             await api_runner.setup()
-            api_site = web.TCPSite(api_runner, self.config.api_bind, self.config.api_port)
 
             loop = asyncio.get_running_loop()
             stop_event = asyncio.Event()
@@ -53,8 +54,27 @@ class SecurityDaemon:
                 ", ".join(self._registry.scanner.scanner_names) or "none",
             )
 
-            await api_site.start()
-            logger.info("REST API listening on %s:%d", self.config.api_bind, self.config.api_port)
+            # Unix socket (primary)
+            socket_path = self.config.api_socket
+            if socket_path:
+                # Remove stale socket from previous crash
+                Path(socket_path).unlink(missing_ok=True)
+                unix_site = web.UnixSite(api_runner, socket_path)
+                await unix_site.start()
+                # Set socket permissions: root:www-data 0660
+                os.chmod(socket_path, 0o660)
+                try:
+                    www_gid = grp.getgrnam("www-data").gr_gid
+                    os.chown(socket_path, 0, www_gid)
+                except (KeyError, PermissionError):
+                    pass  # www-data group may not exist
+                logger.info("REST API listening on unix:%s", socket_path)
+
+            # TCP fallback (optional, for debugging)
+            if self.config.api_bind:
+                tcp_site = web.TCPSite(api_runner, self.config.api_bind, self.config.api_port)
+                await tcp_site.start()
+                logger.info("REST API also listening on %s:%d (TCP fallback)", self.config.api_bind, self.config.api_port)
 
             try:
                 async with asyncio.TaskGroup() as tg:
