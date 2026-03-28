@@ -54,6 +54,9 @@ class WebShieldManager:
                 challenge_dst.write_text(self._default_challenge_page(), encoding="utf-8")
                 written.append(str(challenge_dst))
 
+            # Add http-level include to nginx.conf if not present
+            self._add_nginx_http_include()
+
             # Test nginx config
             test_ok = await self._test_nginx_config()
 
@@ -61,9 +64,6 @@ class WebShieldManager:
                 "success": True,
                 "files_written": written,
                 "nginx_config_valid": test_ok,
-                "note": "Add 'include %s/jabali-webshield-http.conf;' to your nginx http{} block "
-                        "and 'include %s/jabali-webshield-server.conf;' to each server{} block." % (
-                            self._config_dir, self._config_dir),
             }
         except OSError as exc:
             return {"success": False, "error": str(exc)}
@@ -77,6 +77,9 @@ class WebShieldManager:
             if p.is_file():
                 p.unlink()
                 removed.append(str(p))
+
+        # Remove http-level include from nginx.conf
+        self._remove_nginx_http_include()
 
         return {"success": True, "files_removed": removed}
 
@@ -113,6 +116,34 @@ class WebShieldManager:
     def get_rules(self) -> list[dict]:
         """Get bot rules as dicts."""
         return [r.model_dump() for r in get_rules()]
+
+    _NGINX_CONF = Path("/etc/nginx/nginx.conf")
+
+    def _add_nginx_http_include(self) -> None:
+        """Add WebShield http-level include to nginx.conf if not present."""
+        include_line = "\tinclude %s/jabali-webshield-http.conf;" % self._config_dir
+        if not self._NGINX_CONF.is_file():
+            return
+        content = self._NGINX_CONF.read_text()
+        if "jabali-webshield-http.conf" in content:
+            return
+        # Insert after 'modsecurity on;' or after 'http {' line
+        for marker in ("modsecurity on;", "http {"):
+            if marker in content:
+                content = content.replace(marker, marker + "\n" + include_line, 1)
+                self._NGINX_CONF.write_text(content)
+                logger.info("Added WebShield http include to nginx.conf")
+                return
+
+    def _remove_nginx_http_include(self) -> None:
+        """Remove WebShield http-level include from nginx.conf."""
+        if not self._NGINX_CONF.is_file():
+            return
+        lines = self._NGINX_CONF.read_text().splitlines()
+        filtered = [l for l in lines if "jabali-webshield-http.conf" not in l]
+        if len(filtered) < len(lines):
+            self._NGINX_CONF.write_text("\n".join(filtered) + "\n")
+            logger.info("Removed WebShield http include from nginx.conf")
 
     @staticmethod
     async def _test_nginx_config() -> bool:
