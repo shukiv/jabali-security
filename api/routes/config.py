@@ -54,8 +54,12 @@ async def patch_config(request: web.Request) -> web.Response:
         update_conf_key(CONFIG_FILE, key, str_value)
         updated[key] = str_value
 
-    # Reload in-memory config from the updated file
-    request.app["config"] = load_config(CONFIG_FILE)
+    # Reload in-memory config from the updated file (update in-place so
+    # existing references like NotificationEngine see the new values)
+    new_config = load_config(CONFIG_FILE)
+    old_config = request.app["config"]
+    for attr in vars(new_config):
+        setattr(old_config, attr, getattr(new_config, attr))
 
     # Redact API_KEY in response
     if "API_KEY" in updated:

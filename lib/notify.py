@@ -20,37 +20,37 @@ class NotificationEngine:
     """Send notifications for security incidents via email and/or webhook."""
 
     def __init__(self, config: JabaliConfig) -> None:
-        self._email = config.notify_email
-        self._webhook = config.notify_webhook
-        self._min_severity = config.notify_min_severity
-        self._enabled = bool(self._email or self._webhook)
-        if self._enabled:
-            logger.info(
-                "Notifications enabled: email=%s webhook=%s min_severity=%s",
-                "yes" if self._email else "no",
-                "yes" if self._webhook else "no",
-                self._min_severity,
-            )
+        self._config = config
+        self._log_once = True
 
     @property
     def enabled(self) -> bool:
-        return self._enabled
+        return bool(self._config.notify_email or self._config.notify_webhook)
 
     def _should_notify(self, severity: str) -> bool:
         """Check if severity meets minimum threshold."""
-        return _SEVERITY_ORDER.get(severity, 0) >= _SEVERITY_ORDER.get(self._min_severity, 2)
+        return _SEVERITY_ORDER.get(severity, 0) >= _SEVERITY_ORDER.get(self._config.notify_min_severity, 2)
 
     async def notify(self, incident: Incident) -> None:
         """Send notification for an incident if severity threshold met."""
-        if not self._enabled:
+        if not self.enabled:
             return
         if not self._should_notify(incident.severity):
             return
 
+        if self._log_once:
+            logger.info(
+                "Notifications enabled: email=%s webhook=%s min_severity=%s",
+                "yes" if self._config.notify_email else "no",
+                "yes" if self._config.notify_webhook else "no",
+                self._config.notify_min_severity,
+            )
+            self._log_once = False
+
         tasks = []
-        if self._email:
+        if self._config.notify_email:
             tasks.append(self._send_email(incident))
-        if self._webhook:
+        if self._config.notify_webhook:
             tasks.append(self._send_webhook(incident))
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -67,7 +67,7 @@ class NotificationEngine:
             incident.file_event.path,
         )
         msg["From"] = "jabali-security@localhost"
-        msg["To"] = self._email
+        msg["To"] = self._config.notify_email
 
         body_lines = [
             "Security Incident Detected",
@@ -102,9 +102,9 @@ class NotificationEngine:
         try:
             with smtplib.SMTP("localhost", 25, timeout=10) as smtp:
                 smtp.send_message(msg)
-            logger.info("Email notification sent to %s", self._email)
+            logger.info("Email notification sent to %s", self._config.notify_email)
         except (smtplib.SMTPException, OSError) as exc:
-            logger.error("Failed to send email to %s: %s", self._email, exc)
+            logger.error("Failed to send email to %s: %s", self._config.notify_email, exc)
 
     async def _send_webhook(self, incident: Incident) -> None:
         """Send webhook POST with incident data."""
@@ -127,7 +127,7 @@ class NotificationEngine:
 
         data = json.dumps(payload).encode("utf-8")
         headers = {"Content-Type": "application/json"}
-        req = urllib.request.Request(self._webhook, data=data, headers=headers, method="POST")  # noqa: S310
+        req = urllib.request.Request(self._config.notify_webhook, data=data, headers=headers, method="POST")  # noqa: S310
 
         try:
 
@@ -136,6 +136,6 @@ class NotificationEngine:
                     return resp.status
 
             status = await asyncio.to_thread(_do_post)
-            logger.info("Webhook notification sent to %s (status=%d)", self._webhook, status)
+            logger.info("Webhook notification sent to %s (status=%d)", self._config.notify_webhook, status)
         except (urllib.error.URLError, OSError) as exc:
-            logger.error("Failed to send webhook to %s: %s", self._webhook, exc)
+            logger.error("Failed to send webhook to %s: %s", self._config.notify_webhook, exc)
