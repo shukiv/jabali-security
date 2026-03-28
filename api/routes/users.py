@@ -19,6 +19,26 @@ def setup_routes(app: web.Application) -> None:
 async def get_users(request: web.Request) -> web.Response:
     incidents = request.app["incidents"]
     users = await incidents.get_user_stats()
+
+    # Enrich with shell info if sshjail is available
+    sshjail = request.app.get("sshjail")
+    if sshjail:
+        for user in users:
+            username = user.get("username", "")
+            if not username:
+                continue
+            try:
+                status = await sshjail.get_shell_status(username)
+                user["shell"] = status.shell
+                user["shell_enabled"] = status.shell_enabled
+                user["sftp_only"] = status.sftp_only
+                user["key_count"] = len(await sshjail.list_keys(username))
+            except Exception:
+                user["shell"] = "unknown"
+                user["shell_enabled"] = False
+                user["sftp_only"] = True
+                user["key_count"] = 0
+
     return _ok(users)
 
 

@@ -148,7 +148,9 @@ class Security extends Page implements HasActions, HasForms
                     TextInput::make('path')
                         ->label(__('Path'))
                         ->placeholder('/home/user/public_html')
-                        ->required(),
+                        ->required()
+                        ->rules(['regex:/^\/home\/|^\/var\/www\//'])
+                        ->validationMessages(['regex' => __('Path must be under /home/ or /var/www/')]),
                 ])
                 ->action(function (array $data): void {
                     $result = $this->client()->post('/scan', ['path' => $data['path']]);

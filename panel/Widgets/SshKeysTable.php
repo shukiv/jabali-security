@@ -39,7 +39,7 @@ class SshKeysTable extends Component implements HasActions, HasSchemas, HasTable
         return $table
             ->records(function () {
                 if (! $this->sshUsername) {
-                    // Show all users with SSH info
+                    // Show all users — use /users endpoint which includes shell status
                     $users = $this->client()->get('/users') ?? [];
                     $records = [];
                     foreach ($users as $user) {
@@ -47,14 +47,12 @@ class SshKeysTable extends Component implements HasActions, HasSchemas, HasTable
                         if (! $username) {
                             continue;
                         }
-                        $status = $this->client()->get('/ssh/shell/status?username='.$username);
-                        $keys = $this->client()->get('/ssh/keys?username='.$username) ?? [];
                         $records[] = [
                             'username' => $username,
-                            'shell' => $status['shell'] ?? '/usr/sbin/nologin',
-                            'shell_enabled' => $status['shell_enabled'] ?? false,
-                            'sftp_only' => $status['sftp_only'] ?? true,
-                            'key_count' => count($keys),
+                            'shell' => $user['shell'] ?? '/usr/sbin/nologin',
+                            'shell_enabled' => ($user['shell'] ?? '') !== '/usr/sbin/nologin',
+                            'sftp_only' => ($user['shell'] ?? '') === '/usr/sbin/nologin',
+                            'key_count' => $user['key_count'] ?? 0,
                         ];
                     }
 
