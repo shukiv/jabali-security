@@ -5,6 +5,7 @@ from __future__ import annotations
 from aiohttp import web
 
 from api.routes import (
+    attack_mode,
     blocking,
     bruteforce,
     cleanup,
@@ -25,6 +26,7 @@ from api.routes import (
 
 _MODULES = (
     core,
+    attack_mode,
     incidents,
     scanning,
     quarantine,

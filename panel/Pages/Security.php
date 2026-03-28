@@ -451,7 +451,29 @@ class Security extends Page implements HasActions, HasForms
                 ->live();
         }
 
+        $attackMode = $this->client()->get('/attack-mode') ?? ['active' => false];
+        $underAttack = $attackMode['active'] ?? false;
+
         return [
+            Section::make($underAttack ? __('UNDER ATTACK MODE ACTIVE') : __('Under Attack Mode'))
+                ->description($underAttack
+                    ? __('Aggressive defenses are active: process killer, auto-block IPs, low brute-force thresholds.')
+                    : __('Enable if your server is under active attack. Activates process killer, auto-blocks IPs, lowers brute-force thresholds.'))
+                ->icon($underAttack ? 'heroicon-o-fire' : 'heroicon-o-shield-exclamation')
+                ->headerActions([
+                    Action::make('toggleAttackMode')
+                        ->label($underAttack ? __('Disable Attack Mode') : __('I Am Under Attack!'))
+                        ->icon($underAttack ? 'heroicon-o-shield-check' : 'heroicon-o-fire')
+                        ->color($underAttack ? 'gray' : 'danger')
+                        ->size('lg')
+                        ->requiresConfirmation()
+                        ->modalHeading($underAttack ? __('Disable Under Attack Mode?') : __('Enable Under Attack Mode?'))
+                        ->modalDescription($underAttack
+                            ? __('This will restore your previous defense settings.')
+                            : __('This will activate aggressive defenses: process killer (threshold 50), auto-block IPs, brute-force threshold lowered to 3 attempts.'))
+                        ->action($underAttack ? 'disableAttackMode' : 'enableAttackMode'),
+                ])
+                ->compact(),
             Section::make(__('Protection Modules'))->schema([Grid::make(3)->schema($coreToggles)])->compact(),
             Section::make(__('Advanced Protection'))->schema([Grid::make(3)->schema($advToggles)])->compact(),
         ];
@@ -608,6 +630,30 @@ class Security extends Page implements HasActions, HasForms
             ->body(count($payload).' '.__('settings applied'))
             ->success()
             ->send();
+    }
+
+    // ── Attack Mode Actions ────────────────────────────────────────────
+
+    public function enableAttackMode(): void
+    {
+        $result = $this->client()->post('/attack-mode/enable');
+        Notification::make()
+            ->title($result ? __('Under Attack mode ENABLED') : __('Failed to enable attack mode'))
+            ->body($result ? __('Aggressive defenses activated. Process killer, auto-block, low thresholds.') : '')
+            ->color($result ? 'danger' : 'gray')
+            ->send();
+        $this->redirect(static::getUrl(['tab' => 'overview']));
+    }
+
+    public function disableAttackMode(): void
+    {
+        $result = $this->client()->post('/attack-mode/disable');
+        Notification::make()
+            ->title($result ? __('Under Attack mode disabled') : __('Failed to disable attack mode'))
+            ->body($result ? __('Normal defense settings restored.') : '')
+            ->color($result ? 'success' : 'gray')
+            ->send();
+        $this->redirect(static::getUrl(['tab' => 'overview']));
     }
 
     // ── Firewall Actions ─────────────────────────────────────────────
