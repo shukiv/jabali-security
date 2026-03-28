@@ -328,11 +328,9 @@ def register_routes(app):
     @login_required
     def proactive():
         status = api_call("GET", "/api/v1/proactive/status") or {}
-        pools = api_call("GET", "/api/v1/proactive/php/pools")
-        pools = pools if isinstance(pools, list) else []
         kills = api_call("GET", "/api/v1/proactive/kills")
         kills = kills if isinstance(kills, list) else []
-        return render_template("proactive.html", status=status, pools=pools, kills=kills, config=_config())
+        return render_template("proactive.html", status=status, kills=kills, config=_config())
 
     @app.route("/cleanup")
     @login_required

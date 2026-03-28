@@ -470,36 +470,6 @@ Show proactive defense status (process killer, PHP hardening).
 jabali-security proactive status [--json]
 ```
 
-### proactive php-pools
-
-List PHP-FPM pools and their hardening status.
-
-```bash
-jabali-security proactive php-pools [--json]
-```
-
-### proactive harden
-
-Harden PHP-FPM pools with `disable_functions` and `open_basedir`.
-
-```bash
-jabali-security proactive harden --all
-jabali-security proactive harden --pool /etc/php/8.3/fpm/pool.d/user1.conf
-```
-
-| Option | Description |
-|---|---|
-| `--all` | Harden all unhardened pools |
-| `--pool PATH` | Harden a specific pool config file |
-
-### proactive unharden
-
-Remove Jabali hardening from a PHP-FPM pool.
-
-```bash
-jabali-security proactive unharden --pool /etc/php/8.3/fpm/pool.d/user1.conf
-```
-
 ### proactive kills
 
 List recent process kills.

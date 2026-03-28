@@ -71,7 +71,7 @@
     <div class="protection-grid">
         {{ toggle("waf", "WAF (ModSecurity)", config.get("WAF_ENABLED", "no") in ("yes", "true", "1"), "Web application firewall with OWASP Core Rule Set") }}
         {{ toggle("bruteforce", "Brute-Force Protection", config.get("BRUTEFORCE_ENABLED", "no") in ("yes", "true", "1"), "Blocks IPs after repeated failed login attempts") }}
-        {{ toggle("proactive", "Proactive Defense", config.get("PROACTIVE_ENABLED", "no") in ("yes", "true", "1"), "Master switch for PHP pool scanning and process killer") }}
+        {{ toggle("proactive", "Proactive Defense", config.get("PROACTIVE_ENABLED", "no") in ("yes", "true", "1"), "Master switch for process killer") }}
         {{ toggle("process_kill", "Process Killer", config.get("PROCESS_KILL_ENABLED", "no") in ("yes", "true", "1"), "Kills suspicious processes (reverse shells, miners)") }}
         {{ toggle("webshield", "WebShield", config.get("WEBSHIELD_ENABLED", "no") in ("yes", "true", "1"), "Nginx-level bot filtering, rate limiting, JS challenges") }}
         {{ toggle("threat_intel", "Threat Intelligence", config.get("THREAT_INTEL_ENABLED", "no") in ("yes", "true", "1"), "IP reputation and malware hash feeds") }}

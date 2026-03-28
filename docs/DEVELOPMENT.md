@@ -84,7 +84,6 @@ jabali-security/
 |   |   +-- audit_log_parser.py  # ModSecurity audit log parser
 |   |   +-- rule_manager.py      # CRS rule management
 |   +-- proactive/          # Proactive defense
-|   |   +-- php_hardener.py      # PHP-FPM pool scanner (read-only)
 |   |   +-- process_killer.py    # Suspicious process killer
 |   +-- cleanup/            # Malware cleanup
 |   |   +-- engine.py       # Cleanup orchestrator

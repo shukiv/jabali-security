@@ -22,7 +22,7 @@ A lightweight, panel-agnostic alternative to Imunify360.
 | **UFW management** | Full UFW firewall rule CRUD, enable/disable/reload, app profiles via REST API |
 | **Brute-force protection** | SSH + mail (Dovecot/Postfix/Exim/Stalwart) with progressive blocking |
 | **WAF integration** | ModSecurity audit log parsing, OWASP CRS management, rule toggling |
-| **Proactive defense** | PHP-FPM pool hardening (opt-in; disabled by default when hosting panel manages pools), suspicious process killer |
+| **Proactive defense** | Suspicious process killer (reverse shells, crypto miners, malicious scripts) |
 | **Malware cleanup** | Injection removal, CMS integrity checks (WordPress/Joomla), backup-before-clean |
 | **Threat intelligence** | Spamhaus, blocklist.de, MalwareBazaar, Tor exit nodes; IP + hash lookups |
 | **WebShield** | Nginx rate limiting, JS challenge pages, bot UA filtering |
@@ -112,7 +112,7 @@ Full command reference: [docs/CLI.md](docs/CLI.md)
 | **IP Blocking** | `block`, `unblock`, `blocklist` |
 | **Brute-Force** | `bruteforce stats`, `bruteforce blocked`, `bruteforce whitelist-add`, `bruteforce whitelist-remove` |
 | **WAF** | `waf events`, `waf rules`, `waf disable`, `waf enable`, `waf stats`, `waf update` |
-| **Proactive** | `proactive status`, `proactive php-pools`, `proactive harden`, `proactive unharden`, `proactive kills` |
+| **Proactive** | `proactive status`, `proactive kills` |
 | **Cleanup** | `cleanup records`, `cleanup file`, `cleanup cms` |
 | **Threat Intel** | `threat-intel feeds`, `threat-intel update`, `threat-intel check-ip`, `threat-intel check-hash` |
 | **WebShield** | `webshield status`, `webshield install`, `webshield uninstall`, `webshield rules` |

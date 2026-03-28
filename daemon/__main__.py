@@ -1003,34 +1003,6 @@ def proactive_status(as_json: bool) -> None:
     click.echo("  Process kill count:    %s" % data.get("process_kill_count", 0))
 
 
-@proactive.command("php-pools")
-@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
-def proactive_php_pools(as_json: bool) -> None:
-    """List PHP-FPM pools and their security status."""
-    config = load_config()
-    data = _api_call(config, "GET", "/api/v1/proactive/php/pools")
-
-    if as_json:
-        click.echo(json.dumps(data, indent=2))
-        return
-
-    pools = data if isinstance(data, list) else []
-    if not pools:
-        click.echo("No PHP-FPM pools found.")
-        return
-
-    click.echo("%-20s  %-6s  %-12s  %-8s  %s" % ("Pool", "PHP", "User", "Hardened", "Issues"))
-    for pool in pools:
-        issues = ", ".join(pool.get("issues", [])) or "none"
-        click.echo("%-20s  %-6s  %-12s  %-8s  %s" % (
-            pool.get("pool_name", "")[:20],
-            pool.get("php_version", "?"),
-            pool.get("user", ""),
-            "yes" if pool.get("hardened") else "NO",
-            issues[:50],
-        ))
-
-
 @proactive.command("kills")
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON")
 def proactive_kills(as_json: bool) -> None:

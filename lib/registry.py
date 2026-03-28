@@ -17,7 +17,6 @@ from lib.config import JabaliConfig
 from lib.filter import PreFilter
 from lib.hash_cache import HashCache
 from lib.incidents import IncidentStore
-from lib.proactive.php_hardener import PHPPoolScanner
 from lib.proactive.process_killer import ProactiveProcessKiller
 from lib.process_monitor import ProcessMonitor
 from lib.quarantine import QuarantineManager
@@ -63,7 +62,6 @@ class ComponentRegistry:
     cleanup_engine: CleanupEngine | None = None
     scan_scheduler: ScanScheduler | None = None
     feed_manager: FeedManager | None = None
-    php_pool_scanner: PHPPoolScanner | None = None
     webshield: WebShieldManager | None = None
     ufw: UFWManager | None = None
     sshjail: SSHJailManager | None = None
@@ -116,9 +114,6 @@ class ComponentRegistry:
         feed_manager = (
             _build_threat_intel(config) if "threat_intel" not in disabled else None
         )
-        php_pool_scanner = (
-            _build_php_pool_scanner(config) if "php_pool_scanner" not in disabled else None
-        )
         webshield = (
             _build_webshield(config) if "webshield" not in disabled else None
         )
@@ -151,7 +146,6 @@ class ComponentRegistry:
             cleanup_engine=cleanup_engine,
             scan_scheduler=scan_scheduler,
             feed_manager=feed_manager,
-            php_pool_scanner=php_pool_scanner,
             webshield=webshield,
             ufw=ufw,
             sshjail=sshjail,
@@ -184,7 +178,6 @@ class ComponentRegistry:
         app["waf_parser"] = self.waf_parser
         app["waf_rules"] = self.waf_rules
         app["proactive_killer"] = self.proactive_killer
-        app["php_pool_scanner"] = self.php_pool_scanner
         app["cleanup"] = self.cleanup_engine
         app["scheduler"] = self.scan_scheduler
         app["threat_intel"] = self.feed_manager
@@ -302,12 +295,6 @@ def _build_threat_intel(config: JabaliConfig) -> FeedManager | None:
         data_dir=config.data_dir,
         enabled_feeds=config.threat_intel_feeds,
     )
-
-
-def _build_php_pool_scanner(config: JabaliConfig) -> PHPPoolScanner | None:
-    if not config.proactive_enabled:
-        return None
-    return PHPPoolScanner()
 
 
 def _build_webshield(config: JabaliConfig) -> WebShieldManager | None:

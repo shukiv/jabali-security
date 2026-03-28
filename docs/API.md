@@ -1,6 +1,6 @@
 # REST API Reference
 
-Jabali Security v0.1.0 -- 53 endpoints across 15 modules.
+Jabali Security v0.1.0 -- 52 endpoints across 15 modules.
 
 ## Connection
 
@@ -667,29 +667,6 @@ Update OWASP Core Rule Set. Returns 500 on failure.
 }
 ```
 
-### `GET /proactive/php/pools`
-
-List all detected PHP-FPM pools and their hardening status (read-only). PHP pool config management is handled by the hosting panel.
-
-**Response:**
-
-```json
-[
-  {
-    "pool_name": "user1",
-    "php_version": "8.3",
-    "user": "user1",
-    "group": "user1",
-    "listen": "/run/php/php8.3-fpm-user1.sock",
-    "hardened": true,
-    "disable_functions": "exec,passthru,shell_exec,system,proc_open,popen...",
-    "open_basedir": "/home/user1:/tmp:/usr/share/php:/var/lib/php",
-    "issues": [],
-    "socket_path": "/etc/php/8.3/fpm/pool.d/user1.conf"
-  }
-]
-```
-
 ### `GET /proactive/kills`
 
 List recent process kills. Returns `[]` if process killer is not enabled.
@@ -1100,9 +1077,9 @@ Deny traffic for an application profile.
 | Rules | 2 | -- |
 | Brute-Force | 4 | `BRUTEFORCE_ENABLED` |
 | WAF | 6 | `WAF_ENABLED` |
-| Proactive Defense | 3 | `PROACTIVE_ENABLED` |
+| Proactive Defense | 2 | `PROACTIVE_ENABLED` |
 | Cleanup | 2 | `CLEANUP_ENABLED` |
 | Threat Intel | 4 | `THREAT_INTEL_ENABLED` |
 | WebShield | 5 | `WEBSHIELD_ENABLED` |
 | UFW Firewall | 11 | `UFW_ENABLED` |
-| **Total** | **57** | |
+| **Total** | **56** | |

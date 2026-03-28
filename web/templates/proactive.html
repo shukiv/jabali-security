@@ -3,7 +3,7 @@
 {% block content %}
 {% from "macros.html" import protection_toggle %}
 <div class="page-header flex items-center" style="justify-content:space-between">
-    <div><h1>Proactive Defense</h1><p>PHP-FPM pool scanning and suspicious process killer (reverse shells, crypto miners).</p></div>
+    <div><h1>Proactive Defense</h1><p>Suspicious process killer (reverse shells, crypto miners).</p></div>
     <div class="flex gap-2">
         {{ protection_toggle("process_kill", "Process Killer", config.get("PROCESS_KILL_ENABLED", "no") in ("yes", "true", "1")) }}
     </div>
@@ -19,28 +19,6 @@
         <div class="stat-label">Processes Killed</div>
     </div>
 </div>
-
-{% if pools %}
-<div class="card">
-    <h3>PHP-FPM Pools</h3>
-    <table>
-        <thead>
-            <tr><th>Pool</th><th>PHP</th><th>User</th><th>Status</th><th>Issues</th></tr>
-        </thead>
-        <tbody>
-            {% for pool in pools %}
-            <tr>
-                <td>{{ pool.get('pool_name', '') }}</td>
-                <td>{{ pool.get('php_version', '?') }}</td>
-                <td>{{ pool.get('user', '') }}</td>
-                <td>{% if pool.get('hardened') %}<span class="badge badge-low">Hardened</span>{% else %}<span class="badge badge-high">Unhardened</span>{% endif %}</td>
-                <td class="text-sm">{{ pool.get('issues', [])|join(', ') or 'none' }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
-{% endif %}
 
 {% if kills %}
 <div class="card">

@@ -23,10 +23,10 @@ Technical architecture of Jabali Security.
 |  | Parser    +-->| Detector   +-->| Manager   |   | Manager    | |
 |  +-----------+   +------------+   +-----------+   +------------+ |
 |                                                                   |
-|  +-----------+   +------------+   +-----------+   +------------+ |
-|  | Threat    |   | Cleanup    |   | WebShield |   | PHP-FPM    | |
-|  | Intel     |   | Engine     |   | Manager   |   | Hardener   | |
-|  +-----------+   +------------+   +-----------+   +------------+ |
+|  +-----------+   +------------+   +-----------+                    |
+|  | Threat    |   | Cleanup    |   | WebShield |                    |
+|  | Intel     |   | Engine     |   | Manager   |                    |
+|  +-----------+   +------------+   +-----------+                    |
 |                                                                   |
 |  +-----------+   +------------+   +-----------+                    |
 |  | REST API  |   | Scan       |   | UFW       |                    |
@@ -61,7 +61,7 @@ The daemon uses a single async event loop. On startup it builds a `ComponentRegi
 - `populate_app()` -- injects components into the aiohttp app for route handlers
 - `background_tasks()` -- returns the list of async tasks to run in the TaskGroup
 
-Optional components (brute-force, WAF, cleanup, threat intel, WebShield, PHP hardener) are only instantiated when their feature flag is enabled.
+Optional components (brute-force, WAF, cleanup, threat intel, WebShield) are only instantiated when their feature flag is enabled.
 
 ### File Watcher (`lib/watcher/`)
 
@@ -142,7 +142,6 @@ Progressive blocking: durations escalate per repeat offense (default: 10m, 1h, 1
 
 | File | Purpose |
 |---|---|
-| `php_hardener.py` | Read-only PHP-FPM pool scanner. Discovers pools and reports their security status (disable_functions, open_basedir). Does not modify pool configs — hardening is managed by the hosting panel |
 | `process_killer.py` | Kills suspicious processes above score threshold (respects min UID + whitelist). Uses graceful shutdown: SIGTERM first, waits 5 seconds, then SIGKILL if still alive. |
 
 ### Malware Cleanup (`lib/cleanup/`)
@@ -211,7 +210,7 @@ Disabled by default (`UFW_ENABLED="no"`). Requires `ufw` to be installed on the 
 | `routes/rules.py` | YARA/ClamAV rule management |
 | `routes/bruteforce.py` | Brute-force stats, blocked, whitelist |
 | `routes/waf.py` | WAF events, rules, stats |
-| `routes/proactive.py` | PHP hardening, process kills |
+| `routes/proactive.py` | Proactive defense, process kills |
 | `routes/cleanup.py` | Cleanup records and operations |
 | `routes/threat_intel.py` | Threat intel feeds, IP/hash checks |
 | `routes/webshield.py` | WebShield status, install, rules |
@@ -403,7 +402,7 @@ LimitNOFILE=65536
 RuntimeDirectory=jabali-security
 ```
 
-`ProtectHome=no` is required because the security scanner needs write access to quarantine files in `/home`. Writable paths: `/home`, `/var/security/quarantine`, `/var/lib/jabali-security`, `/var/log/jabali-security`, and `/etc/php`.
+`ProtectHome=no` is required because the security scanner needs write access to quarantine files in `/home`. Writable paths: `/home`, `/var/security/quarantine`, `/var/lib/jabali-security`, and `/var/log/jabali-security`.
 
 ### API Authentication
 

@@ -20,7 +20,8 @@ class PoolStatus(BaseModel):
     listen: str = ""
     hardened: bool = False
     disable_functions: str = ""
-    open_basedir: str = ""
+    isolation: str = ""
+    container_status: str = ""
     issues: list[str] = Field(default_factory=list)
 
 

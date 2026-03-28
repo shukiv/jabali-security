@@ -454,8 +454,6 @@ MODSECEOF
     echo "  WebShield ................ enabled"
     sed -i 's|^CLEANUP_ENABLED="no"|CLEANUP_ENABLED="yes"|' "$CONFIG_DIR/jabali-security.conf" 2>/dev/null
     echo "  Auto Cleanup ............. enabled"
-    # PHP hardening left disabled — hosting panels manage this
-    echo "  PHP Hardening ............ skipped (panel-managed)"
     done_ok "Protection modules configured"
 
     section "Configuring Firewall (UFW)"

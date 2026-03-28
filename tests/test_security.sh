@@ -561,64 +561,7 @@ for candidate in testserver "$TARGET"; do
 done
 
 if [ -n "$SSH_HOST" ]; then
-    # -- 4b.1 PHP Hardening --
-    log ""
-    log "4b.1 PHP-FPM Hardening"
-
-    php_result=$(ssh -o ConnectTimeout=10 "$SSH_HOST" '
-        for pool in /etc/php/*/fpm/pool.d/*.conf; do
-            [ -f "$pool" ] || continue
-            name=$(basename "$pool" .conf)
-            has_disable=$(grep -c "disable_functions" "$pool" 2>/dev/null || echo 0)
-            has_basedir=$(grep -c "open_basedir" "$pool" 2>/dev/null || echo 0)
-            echo "${name}:${has_disable}:${has_basedir}"
-        done
-    ' 2>/dev/null)
-
-    if [ -n "$php_result" ]; then
-        while IFS=: read -r pool_name df_count ob_count; do
-            if [ "$df_count" -gt 0 ] && [ "$ob_count" -gt 0 ]; then
-                pass "PHP pool '${pool_name}' hardened (disable_functions + open_basedir)"
-            elif [ "$df_count" -gt 0 ]; then
-                warn "PHP pool '${pool_name}' has disable_functions but no open_basedir"
-            elif [ "$ob_count" -gt 0 ]; then
-                warn "PHP pool '${pool_name}' has open_basedir but no disable_functions"
-            else
-                fail "PHP pool '${pool_name}' NOT hardened"
-            fi
-        done <<< "$php_result"
-    else
-        info "No PHP-FPM pools found"
-    fi
-
-    # -- 4b.2 open_basedir Isolation --
-    log ""
-    log "4b.2 open_basedir Isolation"
-
-    basedir_test=$(ssh -o ConnectTimeout=10 "$SSH_HOST" '
-        first_user=$(ls /etc/php/*/fpm/pool.d/*.conf 2>/dev/null | head -1)
-        if [ -n "$first_user" ]; then
-            user=$(grep -oP "^user\s*=\s*\K\S+" "$first_user" 2>/dev/null || basename "$first_user" .conf)
-            basedir=$(grep -oP "open_basedir\]\s*=\s*\K.*" "$first_user" 2>/dev/null | tail -1)
-            if [ -n "$basedir" ]; then
-                # Test that open_basedir blocks /etc/passwd
-                result=$(php -d "open_basedir=${basedir}" -r "@file_get_contents(\"/etc/passwd\") === false ? print(\"blocked\") : print(\"readable\");" 2>/dev/null)
-                echo "${result}"
-            else
-                echo "no_basedir"
-            fi
-        fi
-    ' 2>/dev/null)
-
-    if [ "$basedir_test" = "blocked" ]; then
-        pass "open_basedir blocks access to /etc/passwd"
-    elif [ "$basedir_test" = "readable" ]; then
-        fail "open_basedir does NOT block /etc/passwd"
-    else
-        info "Could not test open_basedir isolation"
-    fi
-
-    # -- 4b.3 Process Killer --
+    # -- 4b.1 Process Killer --
     log ""
     log "4b.3 Process Killer"
 

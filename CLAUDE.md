@@ -35,7 +35,7 @@ Standalone, event-driven security suite for Linux shared hosting.
 - Use `import yara_x` not `import yara`
 - YARA-X API: `yara_x.Compiler()`, `yara_x.Scanner(rules)`, `results.matching_rules`
 - Use `trash` instead of `rm`/`rmdir`
-- PHP hardening disabled by default — hosting panels manage FPM pools
+- PHP-FPM pool hardening is managed by the hosting panel, not by jabali-security
 - WebShield requires manual nginx include + reload after install
 - Default watch paths: `/home/*/public_html`, `/home/*/domains/*/public_html`, `/home/*/tmp`
 

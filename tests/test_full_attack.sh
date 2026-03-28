@@ -1229,17 +1229,7 @@ if feature_enabled "PROACTIVE_ENABLED"; then
     fi
 
     log ""
-    log "12.2 PHP-FPM Pools"
-
-    result=$(remote_api GET /proactive/php/pools)
-    if [ "$(json_success "$result")" = "true" ]; then
-        pool_count=$(echo "$result" | jq '.data | length' 2>/dev/null)
-        hardened=$(echo "$result" | jq '[.data[]? | select(.hardened == true)] | length' 2>/dev/null)
-        pass "PHP pools: ${pool_count} total, ${hardened} hardened"
-    fi
-
-    log ""
-    log "12.3 Process Killer Live Test"
+    log "12.2 Process Killer Live Test"
 
     test_user=$(ssh_cmd 'awk -F: "\$3 >= 1000 && \$3 < 65534 {print \$1; exit}" /etc/passwd')
     pk_enabled=$(json_data "$(remote_api GET /proactive/status)" "process_kill_enabled")

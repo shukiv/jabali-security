@@ -10,7 +10,6 @@ use App\JabaliSecurity\Widgets\BruteforceBlockedTable;
 use App\JabaliSecurity\Widgets\CleanupRecordsTable;
 use App\JabaliSecurity\Widgets\FirewallRulesTable;
 use App\JabaliSecurity\Widgets\IncidentsTable;
-use App\JabaliSecurity\Widgets\PhpPoolsTable;
 use App\JabaliSecurity\Widgets\QuarantineTable;
 use App\JabaliSecurity\Widgets\SshKeysTable;
 use App\JabaliSecurity\Widgets\ThreatFeedsTable;
@@ -261,9 +260,8 @@ class Security extends Page implements HasActions, HasForms
                                         )),
                                     'proactive' => Tab::make(__('Proactive'))
                                         ->schema(array_merge(
-                                            [Text::make(__('Server hardening features: PHP-FPM pool hardening (disable_functions, open_basedir) and suspicious process killer (reverse shells, crypto miners).'))->size(TextSize::Small)->color('gray')],
+                                            [Text::make(__('Suspicious process killer: detects and terminates reverse shells, crypto miners, and other malicious processes.'))->size(TextSize::Small)->color('gray')],
                                             $this->proactiveStats(),
-                                            [EmbeddedTable::make(PhpPoolsTable::class)],
                                         )),
                                     'webshield' => Tab::make(__('WebShield'))
                                         ->schema(array_merge(
