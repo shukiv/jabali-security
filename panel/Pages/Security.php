@@ -428,17 +428,20 @@ class Security extends Page implements HasActions, HasForms
                 if (in_array($key, static::$booleanKeys)) {
                     $fields[] = Toggle::make('configData.config_'.$key)
                         ->label($key)
-                        ->helperText($help);
+                        ->helperText($help)
+                        ->live();
                 } elseif (isset(static::$selectKeys[$key])) {
                     $opts = array_combine(static::$selectKeys[$key], static::$selectKeys[$key]);
                     $fields[] = Select::make('configData.config_'.$key)
                         ->label($key)
                         ->options($opts)
-                        ->helperText($help);
+                        ->helperText($help)
+                        ->live();
                 } else {
                     $fields[] = TextInput::make('configData.config_'.$key)
                         ->label($key)
-                        ->helperText($help);
+                        ->helperText($help)
+                        ->lazy();
                 }
             }
 
