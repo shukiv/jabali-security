@@ -7,7 +7,7 @@ from pathlib import Path
 
 from aiohttp import web
 
-from api.routes.helpers import _err, _ok
+from api.routes.helpers import _err, _ok, _validate_path
 from lib.models import FileEvent
 from lib.tenant import resolve_user
 
@@ -32,6 +32,9 @@ async def post_scan(request: web.Request) -> web.Response:
     path = body.get("path")
     if not path or not isinstance(path, str):
         return _err("'path' is required")
+
+    if not _validate_path(path):
+        return _err("Path must be under /home/ or /var/www/")
 
     p = Path(path)
 

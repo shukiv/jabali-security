@@ -57,10 +57,9 @@ class DatabaseScanner:
 
         for table_tpl, column, id_col, where in targets:
             table = table_tpl.replace("wp_", table_prefix) if cms_type == "wordpress" else table_tpl
-            rows = await self._query(
-                db_name, db_user, db_host,
-                "SELECT %s, %s FROM %s WHERE %s LIMIT 5000" % (id_col, column, table, where),  # noqa: S608
-            )
+            # Identifiers are from hardcoded targets + validated prefix — backtick-quote for defense-in-depth
+            query = "SELECT `%s`, `%s` FROM `%s` WHERE %s LIMIT 5000" % (id_col, column, table, where)
+            rows = await self._query(db_name, db_user, db_host, query)
             if rows is None:
                 continue
 

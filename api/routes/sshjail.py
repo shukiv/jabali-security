@@ -189,13 +189,13 @@ async def post_shell_enable(request: web.Request) -> web.Response:
 
     logger.info("SSH shell enable: user=%s", username)
     try:
-        success, message = await sshjail.enable_shell(username)
+        success = await sshjail.enable_shell(username)
     except Exception:
         logger.exception("Failed to enable shell for %s", username)
         return _err("Failed to enable shell", 500)
 
     if not success:
-        logger.warning("SSH shell enable failed for %s: %s", username, message)
+        logger.warning("SSH shell enable failed for %s", username)
         return _err("Failed to enable shell", 500)
 
     return _ok({"enabled": True, "username": username})
@@ -221,13 +221,13 @@ async def post_shell_disable(request: web.Request) -> web.Response:
 
     logger.info("SSH shell disable: user=%s", username)
     try:
-        success, message = await sshjail.disable_shell(username)
+        success = await sshjail.disable_shell(username)
     except Exception:
         logger.exception("Failed to disable shell for %s", username)
         return _err("Failed to disable shell", 500)
 
     if not success:
-        logger.warning("SSH shell disable failed for %s: %s", username, message)
+        logger.warning("SSH shell disable failed for %s", username)
         return _err("Failed to disable shell", 500)
 
     return _ok({"disabled": True, "username": username})

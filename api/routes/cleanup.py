@@ -6,7 +6,7 @@ from pathlib import Path
 
 from aiohttp import web
 
-from api.routes.helpers import _err, _ok
+from api.routes.helpers import _err, _ok, _validate_path
 
 
 def setup_routes(app: web.Application) -> None:
@@ -29,6 +29,9 @@ async def post_cleanup_file(request: web.Request) -> web.Response:
     path = body.get("path")
     if not path or not isinstance(path, str):
         return _err("'path' is required")
+
+    if not _validate_path(path):
+        return _err("Path must be under /home/ or /var/www/")
 
     p = Path(path)
     if p.is_symlink():

@@ -24,3 +24,18 @@ def _validate_ip(ip_str: str) -> bool:
         return True
     except ValueError:
         return False
+
+
+def _validate_path(path: str, allowed_roots: list[str] | None = None) -> bool:
+    """Validate a file path is under allowed directories (default: /home/)."""
+    from pathlib import Path
+
+    if not path or not isinstance(path, str):
+        return False
+
+    resolved = str(Path(path).resolve())
+
+    if allowed_roots is None:
+        allowed_roots = ["/home/", "/var/www/"]
+
+    return any(resolved.startswith(root) for root in allowed_roots)

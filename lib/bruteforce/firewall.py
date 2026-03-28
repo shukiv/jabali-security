@@ -206,7 +206,6 @@ class FirewallManager:
     # -- helper --
 
     @staticmethod
-    @staticmethod
     async def _run(*args: str) -> int:
         """Run a command, return exit code. Never uses shell."""
         try:

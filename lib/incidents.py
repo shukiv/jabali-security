@@ -102,7 +102,8 @@ class IncidentStore:
 
     async def save(self, incident: Incident) -> None:
         """Insert or update an incident."""
-        assert self._db is not None  # noqa: S101
+        if self._db is None:
+            raise RuntimeError("IncidentStore not initialized — call open() first")
         await self._db.execute(
             """INSERT OR REPLACE INTO incidents
                (id, path, username, event_type, total_score, severity, action_taken,
@@ -127,7 +128,8 @@ class IncidentStore:
 
     async def save_quarantine(self, record: QuarantineRecord) -> None:
         """Insert a quarantine record."""
-        assert self._db is not None  # noqa: S101
+        if self._db is None:
+            raise RuntimeError("IncidentStore not initialized — call open() first")
         await self._db.execute(
             """INSERT OR REPLACE INTO quarantine
                (id, incident_id, original_path, quarantine_path, username, sha256,
@@ -150,7 +152,8 @@ class IncidentStore:
 
     async def get(self, incident_id: str) -> Incident | None:
         """Get a single incident by ID."""
-        assert self._db is not None  # noqa: S101
+        if self._db is None:
+            raise RuntimeError("IncidentStore not initialized — call open() first")
         async with self._db.execute(
             "SELECT * FROM incidents WHERE id = ?", (incident_id,)
         ) as cursor:
@@ -167,7 +170,8 @@ class IncidentStore:
         since: str | None = None,
     ) -> list[Incident]:
         """List incidents with optional filters."""
-        assert self._db is not None  # noqa: S101
+        if self._db is None:
+            raise RuntimeError("IncidentStore not initialized — call open() first")
         conditions: list[str] = []
         params: list[str | int] = []
 
@@ -198,7 +202,8 @@ class IncidentStore:
 
     async def count_recent(self, hours: int = 24) -> int:
         """Count incidents in the last N hours."""
-        assert self._db is not None  # noqa: S101
+        if self._db is None:
+            raise RuntimeError("IncidentStore not initialized — call open() first")
         async with self._db.execute(
             "SELECT COUNT(*) FROM incidents WHERE created_at >= datetime('now', ?)",
             ("-%d hours" % hours,),
@@ -208,7 +213,8 @@ class IncidentStore:
 
     async def resolve(self, incident_id: str, notes: str = "") -> bool:
         """Mark an incident as resolved."""
-        assert self._db is not None  # noqa: S101
+        if self._db is None:
+            raise RuntimeError("IncidentStore not initialized — call open() first")
         cursor = await self._db.execute(
             "UPDATE incidents SET resolved = 1, notes = ? WHERE id = ?",
             (notes, incident_id),
@@ -218,7 +224,8 @@ class IncidentStore:
 
     async def list_quarantine(self, username: str | None = None) -> list[QuarantineRecord]:
         """List quarantine records."""
-        assert self._db is not None  # noqa: S101
+        if self._db is None:
+            raise RuntimeError("IncidentStore not initialized — call open() first")
         if username:
             query = "SELECT * FROM quarantine WHERE username = ? AND deleted = 0 ORDER BY created_at DESC"
             params: tuple = (username,)
@@ -235,7 +242,8 @@ class IncidentStore:
         return results
 
     async def mark_quarantine_restored(self, record_id: str) -> bool:
-        assert self._db is not None  # noqa: S101
+        if self._db is None:
+            raise RuntimeError("IncidentStore not initialized — call open() first")
         cursor = await self._db.execute(
             "UPDATE quarantine SET restored = 1 WHERE id = ?", (record_id,)
         )
@@ -243,7 +251,8 @@ class IncidentStore:
         return cursor.rowcount > 0
 
     async def mark_quarantine_deleted(self, record_id: str) -> bool:
-        assert self._db is not None  # noqa: S101
+        if self._db is None:
+            raise RuntimeError("IncidentStore not initialized — call open() first")
         cursor = await self._db.execute(
             "UPDATE quarantine SET deleted = 1 WHERE id = ?", (record_id,)
         )
@@ -252,7 +261,8 @@ class IncidentStore:
 
     async def save_cleanup(self, result) -> None:
         """Save a cleanup result."""
-        assert self._db is not None  # noqa: S101
+        if self._db is None:
+            raise RuntimeError("IncidentStore not initialized — call open() first")
         await self._db.execute(
             """INSERT OR REPLACE INTO cleanup_records
                (id, path, strategy, success, backup_path, changes_json, error, username, created_at)
@@ -265,7 +275,8 @@ class IncidentStore:
 
     async def list_cleanups(self, limit: int = 50) -> list[dict]:
         """List recent cleanup records."""
-        assert self._db is not None  # noqa: S101
+        if self._db is None:
+            raise RuntimeError("IncidentStore not initialized — call open() first")
         results = []
         async with self._db.execute(
             "SELECT * FROM cleanup_records ORDER BY created_at DESC LIMIT ?", (limit,)
@@ -280,7 +291,8 @@ class IncidentStore:
 
     async def get_blocked_ips(self) -> list[dict]:
         """Return all blocked IPs ordered by blocked_at descending."""
-        assert self._db is not None  # noqa: S101
+        if self._db is None:
+            raise RuntimeError("IncidentStore not initialized — call open() first")
         results: list[dict] = []
         async with self._db.execute(
             "SELECT ip, reason, blocked_at, expires_at, blocked_by "
@@ -300,7 +312,8 @@ class IncidentStore:
         self, ip: str, reason: str, blocked_at: str, expires_at: str | None, blocked_by: str,
     ) -> None:
         """Insert or replace a blocked IP record."""
-        assert self._db is not None  # noqa: S101
+        if self._db is None:
+            raise RuntimeError("IncidentStore not initialized — call open() first")
         await self._db.execute(
             "INSERT OR REPLACE INTO blocked_ips (ip, reason, blocked_at, expires_at, blocked_by) "
             "VALUES (?, ?, ?, ?, ?)",
@@ -310,7 +323,8 @@ class IncidentStore:
 
     async def delete_blocked_ip(self, ip: str) -> bool:
         """Delete a blocked IP. Returns True if a row was deleted."""
-        assert self._db is not None  # noqa: S101
+        if self._db is None:
+            raise RuntimeError("IncidentStore not initialized — call open() first")
         cursor = await self._db.execute(
             "DELETE FROM blocked_ips WHERE ip = ?", (ip,)
         )
@@ -319,7 +333,8 @@ class IncidentStore:
 
     async def save_waf_event(self, event) -> None:
         """Persist a single WAF event."""
-        assert self._db is not None  # noqa: S101
+        if self._db is None:
+            raise RuntimeError("IncidentStore not initialized — call open() first")
         await self._db.execute(
             "INSERT OR IGNORE INTO waf_events "
             "(id, client_ip, uri, method, rule_id, rule_msg, severity, action, "
@@ -350,7 +365,8 @@ class IncidentStore:
         since: str | None = None,
     ) -> list[dict]:
         """Query waf_events with optional filters."""
-        assert self._db is not None  # noqa: S101
+        if self._db is None:
+            raise RuntimeError("IncidentStore not initialized — call open() first")
         conditions: list[str] = []
         params: list[str | int] = []
 
@@ -395,7 +411,8 @@ class IncidentStore:
 
     async def get_waf_stats(self) -> dict:
         """Return WAF aggregation stats for the last 24 hours."""
-        assert self._db is not None  # noqa: S101
+        if self._db is None:
+            raise RuntimeError("IncidentStore not initialized — call open() first")
 
         async with self._db.execute(
             "SELECT COUNT(*) FROM waf_events WHERE created_at >= datetime('now', '-24 hours')"
@@ -447,7 +464,8 @@ class IncidentStore:
 
     async def get_user_stats(self) -> list[dict]:
         """Return per-user incident stats (username, count, max_score)."""
-        assert self._db is not None  # noqa: S101
+        if self._db is None:
+            raise RuntimeError("IncidentStore not initialized — call open() first")
         results: list[dict] = []
         async with self._db.execute(
             "SELECT username, COUNT(*) AS count, MAX(total_score) AS max_score "
@@ -464,7 +482,8 @@ class IncidentStore:
 
     async def find_incident_by_path(self, path_pattern: str) -> dict | None:
         """Find the most recent incident whose path matches the given LIKE pattern."""
-        assert self._db is not None  # noqa: S101
+        if self._db is None:
+            raise RuntimeError("IncidentStore not initialized — call open() first")
         async with self._db.execute(
             "SELECT id, total_score, severity FROM incidents "
             "WHERE path LIKE ? ORDER BY created_at DESC LIMIT 1",
