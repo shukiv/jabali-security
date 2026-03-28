@@ -8,7 +8,6 @@ dependencies = [
     "yara-x>=0.11",
     "click>=8.0",
     "aiohttp>=3.9",
-    "pyyaml>=6.0",
     "aiosqlite>=0.20",
     "flask>=3.0",
     "waitress>=3.0",

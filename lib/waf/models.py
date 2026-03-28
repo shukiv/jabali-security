@@ -31,11 +31,3 @@ class WafEvent(BaseModel):
     request_headers: dict = Field(default_factory=dict)
     hostname: str = ""
     username: str | None = None  # resolved from URI path
-
-
-class WafStats(BaseModel):
-    total_events_24h: int = 0
-    blocked_24h: int = 0
-    top_ips: list[dict] = Field(default_factory=list)
-    top_rules: list[dict] = Field(default_factory=list)
-    top_uris: list[dict] = Field(default_factory=list)

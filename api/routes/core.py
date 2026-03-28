@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import resource
+import time
 from datetime import datetime, timezone
 
 from aiohttp import web
@@ -17,7 +19,44 @@ def setup_routes(app: web.Application) -> None:
 
 
 async def get_health(request: web.Request) -> web.Response:
-    return _ok({"status": "ok"})
+    components: dict[str, str] = {}
+
+    # Database check (short timeout)
+    incidents = request.app.get("incidents")
+    if incidents and incidents._db is not None:
+        try:
+            await asyncio.wait_for(incidents._db.execute("SELECT 1"), timeout=2.0)
+            components["database"] = "ok"
+        except Exception as exc:
+            components["database"] = f"error: {exc}"
+    else:
+        components["database"] = "unavailable"
+
+    # Scanner check
+    scanner = request.app.get("scanner")
+    components["scanner"] = "ok" if scanner is not None else "unavailable"
+
+    # Watcher check
+    daemon = request.app.get("daemon")
+    if daemon and daemon._registry and daemon._registry.watcher:
+        watcher = daemon._registry.watcher
+        components["watcher"] = "ok" if watcher.watch_count > 0 else "unavailable"
+    else:
+        components["watcher"] = "unavailable"
+
+    # Uptime
+    start_time = request.app.get("start_time")
+    uptime_seconds = round(time.time() - start_time, 1) if start_time else 0
+
+    # Overall status
+    has_error = any(v.startswith("error:") for v in components.values())
+    status = "degraded" if has_error else "healthy"
+
+    return _ok({
+        "status": status,
+        "components": components,
+        "uptime_seconds": uptime_seconds,
+    })
 
 
 async def get_status(request: web.Request) -> web.Response:

@@ -14,8 +14,6 @@ class IPReputationDB:
     def __init__(self) -> None:
         # feed_name -> set of ip_network objects
         self._feeds: dict[str, set[ipaddress.IPv4Network | ipaddress.IPv6Network]] = {}
-        # Flattened set of all networks for fast lookup
-        self._all_networks: list[ipaddress.IPv4Network | ipaddress.IPv6Network] = []
 
     def load_feed(self, name: str, path: Path) -> int:
         """Load a blocklist file (one IP or CIDR per line). Returns entry count."""
@@ -39,7 +37,6 @@ class IPReputationDB:
                 continue
 
         self._feeds[name] = networks
-        self._rebuild_index()
         logger.info("Loaded feed %s: %d entries from %s", name, len(networks), path)
         return len(networks)
 
@@ -61,12 +58,6 @@ class IPReputationDB:
     def is_malicious(self, ip: str) -> bool:
         """Quick check: is this IP in any feed?"""
         return len(self.check(ip)) > 0
-
-    def _rebuild_index(self) -> None:
-        """Rebuild the flattened network list."""
-        self._all_networks = []
-        for networks in self._feeds.values():
-            self._all_networks.extend(networks)
 
     @property
     def total_entries(self) -> int:

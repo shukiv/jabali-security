@@ -32,13 +32,3 @@ class BlockDecision(BaseModel):
     service: str
     attempt_count: int
     offense_number: int
-
-
-class BlockedIP(BaseModel):
-    ip: str
-    reason: str
-    blocked_at: datetime = Field(default_factory=_utcnow)
-    expires_at: datetime | None = None
-    service: str = ""
-    offense_number: int = 1
-    blocked_by: str = "bruteforce"

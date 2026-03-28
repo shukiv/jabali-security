@@ -16,7 +16,6 @@ class HashCache:
     """LRU-ish cache of file SHA-256 hashes to skip re-scanning clean files."""
 
     def __init__(self, persist_path: Path | None = None, max_entries: int = 10000) -> None:
-        self._cache: dict[str, str] = {}  # path -> sha256
         self._clean: set[str] = set()     # sha256 hashes known to be clean
         self._max_entries = max_entries
         self._persist_path = persist_path

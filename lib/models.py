@@ -82,15 +82,3 @@ class ProcessThreat(BaseModel):
     score: int
     description: str
     timestamp: datetime = Field(default_factory=_utcnow)
-
-
-class DaemonStatus(BaseModel):
-    running: bool
-    version: str
-    uptime_seconds: float
-    incidents_24h: int
-    quarantined_count: int
-    watched_dirs: int
-    scan_queue_size: int
-    workers: int
-    memory_mb: float

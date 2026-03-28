@@ -82,7 +82,6 @@ async def post_scan_full(request: web.Request) -> web.Response:
     if not scheduler:
         return _err("Scan scheduler not available", 503)
 
-    import asyncio
     asyncio.create_task(scheduler.run_now())
     return _ok({"started": True, "status": scheduler.status})
 

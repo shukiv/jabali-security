@@ -7,6 +7,7 @@ import grp
 import logging
 import os
 import signal
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -38,6 +39,7 @@ class SecurityDaemon:
         async with self._registry:
             app = create_app()
             self._registry.populate_app(app, daemon=self)
+            app["start_time"] = time.time()
             api_runner = web.AppRunner(app)
             await api_runner.setup()
 
