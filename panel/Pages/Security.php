@@ -386,8 +386,7 @@ class Security extends Page implements HasActions, HasForms
 
     public function saveAndRestart(): void
     {
-        $config = $this->client()->get('/config') ?? [];
-        $changes = [];
+        $payload = [];
 
         foreach (static::$configCategories as $keys) {
             foreach ($keys as $key) {
@@ -395,29 +394,25 @@ class Security extends Page implements HasActions, HasForms
                 if (! array_key_exists($formKey, $this->configData)) {
                     continue;
                 }
-                $newVal = $this->configData[$formKey];
+                $val = $this->configData[$formKey];
                 if (in_array($key, static::$booleanKeys)) {
-                    $newVal = $newVal ? 'yes' : 'no';
+                    $val = $val ? 'yes' : 'no';
                 }
-                $oldVal = $config[$key] ?? '';
-                if ((string) $newVal !== (string) $oldVal) {
-                    $changes[$key] = (string) $newVal;
-                }
+                $payload[$key] = (string) $val;
             }
         }
 
-        if (! empty($changes)) {
-            $this->client()->patch('/config', $changes);
+        if (! empty($payload)) {
+            $this->client()->patch('/config', $payload);
         }
 
-        // Restart daemon via systemctl (no user input in command)
+        // Restart daemon
         $process = new \Symfony\Component\Process\Process(['/usr/bin/systemctl', 'restart', 'jabali-security']);
         $process->run();
-        sleep(2);
+        sleep(3);
 
         Notification::make()
-            ->title(__('Settings saved'))
-            ->body(count($changes).' '.__('changes applied, daemon restarted'))
+            ->title(__('Settings saved & daemon restarted'))
             ->success()
             ->send();
 
