@@ -40,7 +40,6 @@ use Filament\Schemas\Schema;
 use Filament\Support\Enums\FontWeight;
 use Filament\Support\Enums\TextSize;
 use Illuminate\Contracts\Support\Htmlable;
-use Illuminate\Support\Facades\Log;
 use Livewire\Attributes\Url;
 
 class Security extends Page implements HasActions, HasForms
@@ -492,11 +491,6 @@ class Security extends Page implements HasActions, HasForms
 
     public function saveAndRestart(): void
     {
-        // Debug: show what Livewire has in configData
-        $debugLevel = $this->configData['config_LOG_LEVEL'] ?? 'MISSING';
-        $debugWorkers = $this->configData['config_WORKERS'] ?? 'MISSING';
-        $debugCount = count($this->configData);
-
         $payload = [];
         foreach (static::$configCategories as $keys) {
             foreach ($keys as $key) {
@@ -514,21 +508,15 @@ class Security extends Page implements HasActions, HasForms
         if (! empty($payload)) {
             $result = $this->client()->patch('/config', $payload);
             if (! $result) {
-                Notification::make()
-                    ->title(__('API call failed'))
-                    ->body("configData has {$debugCount} keys. LOG_LEVEL={$debugLevel}, WORKERS={$debugWorkers}")
-                    ->danger()
-                    ->send();
+                Notification::make()->title(__('Failed to save config'))->danger()->send();
 
                 return;
             }
         }
 
-        \Illuminate\Support\Facades\Process::run('/usr/bin/systemctl restart jabali-security');
-
         Notification::make()
             ->title(__('Settings saved'))
-            ->body("LOG_LEVEL={$debugLevel}, WORKERS={$debugWorkers} ({$debugCount} keys, ".count($payload).' sent)')
+            ->body(count($payload).' '.__('settings applied'))
             ->success()
             ->send();
     }

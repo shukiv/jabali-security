@@ -5,7 +5,7 @@ from __future__ import annotations
 from aiohttp import web
 
 from api.routes.helpers import _err, _ok
-from lib.config import DEFAULTS, update_conf_key
+from lib.config import DEFAULTS, load_config, update_conf_key
 from lib.constants import CONFIG_FILE
 
 
@@ -54,8 +54,11 @@ async def patch_config(request: web.Request) -> web.Response:
         update_conf_key(CONFIG_FILE, key, str_value)
         updated[key] = str_value
 
+    # Reload in-memory config from the updated file
+    request.app["config"] = load_config(CONFIG_FILE)
+
     # Redact API_KEY in response
     if "API_KEY" in updated:
         updated["API_KEY"] = "set" if updated["API_KEY"] else "unset"
 
-    return _ok({"updated": updated, "note": "Restart daemon to apply runtime changes"})
+    return _ok({"updated": updated})
