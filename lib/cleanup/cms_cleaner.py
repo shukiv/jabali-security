@@ -67,7 +67,7 @@ class CMSCleaner:
 
         # Read content
         try:
-            content = p.read_bytes()
+            content = await asyncio.to_thread(p.read_bytes)
         except OSError as exc:
             return CleanupResult(path=path, strategy="error", success=False, error=str(exc), username=username)
 
@@ -158,7 +158,7 @@ class CMSCleaner:
         # Create backup before cleaning
         backup_path = str(p) + ".jabali-backup"
         try:
-            Path(backup_path).write_bytes(content)
+            await asyncio.to_thread(Path(backup_path).write_bytes, content)
         except OSError:
             backup_path = ""
 
@@ -174,7 +174,7 @@ class CMSCleaner:
 
         # Write cleaned content
         try:
-            p.write_bytes(cleaned)
+            await asyncio.to_thread(p.write_bytes, cleaned)
         except OSError as exc:
             return CleanupResult(
                 path=str(p), strategy=strategy, success=False,

@@ -1,6 +1,7 @@
 """Flask web dashboard for Jabali Security."""
 from __future__ import annotations
 
+import hashlib
 import secrets
 from functools import wraps
 from pathlib import Path
@@ -30,7 +31,10 @@ def create_app():
     )
 
     config = load_config()
-    app.secret_key = config.api_key or secrets.token_urlsafe(32)
+    if config.api_key:
+        app.secret_key = hashlib.sha256(config.api_key.encode() + b"flask-session").hexdigest()
+    else:
+        app.secret_key = secrets.token_urlsafe(32)
     app.config["API_URL"] = "http://%s:%d" % (config.api_bind, config.api_port)
     app.config["API_KEY"] = config.api_key
     app.config["VERSION"] = VERSION

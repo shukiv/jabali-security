@@ -34,7 +34,7 @@ class AsyncLogTailer:
 
         try:
             current_inode = p.stat().st_ino
-            fh = open(p, "r", encoding="utf-8", errors="replace")  # noqa: SIM115
+            fh = await asyncio.to_thread(open, p, "r", encoding="utf-8", errors="replace")  # noqa: SIM115
             fh.seek(0, 2)  # Seek to end
         except OSError:
             logger.error("Cannot open log file: %s", self._log_path)
@@ -44,7 +44,7 @@ class AsyncLogTailer:
 
         try:
             while self._running:
-                line = fh.readline()
+                line = await asyncio.to_thread(fh.readline)
                 if line:
                     await on_line(line)
                 else:
@@ -55,7 +55,7 @@ class AsyncLogTailer:
                             # File was rotated -- reopen
                             logger.info("Log rotation detected for %s", self._log_path)
                             fh.close()
-                            fh = open(p, "r", encoding="utf-8", errors="replace")  # noqa: SIM115
+                            fh = await asyncio.to_thread(open, p, "r", encoding="utf-8", errors="replace")  # noqa: SIM115
                             current_inode = new_stat.st_ino
                         elif new_stat.st_size < fh.tell():
                             # File was truncated -- seek to beginning

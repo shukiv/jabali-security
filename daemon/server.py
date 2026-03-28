@@ -76,14 +76,27 @@ class SecurityDaemon:
                 await tcp_site.start()
                 logger.info("REST API also listening on %s:%d (TCP fallback)", self.config.api_bind, self.config.api_port)
 
+            bg_tasks: list[asyncio.Task] = []
             try:
-                async with asyncio.TaskGroup() as tg:
-                    for coro in self._registry.background_tasks(self):
-                        tg.create_task(coro)
-                    tg.create_task(self._wait_for_stop(stop_event))
-            except* KeyboardInterrupt:
-                pass
+                for coro in self._registry.background_tasks(self):
+                    bg_tasks.append(asyncio.create_task(coro))
+
+                await stop_event.wait()
+                logger.info("Shutdown signal received...")
+            except KeyboardInterrupt:
+                logger.info("Keyboard interrupt received...")
             finally:
+                for task in bg_tasks:
+                    task.cancel()
+                results = await asyncio.gather(*bg_tasks, return_exceptions=True)
+                for task, result in zip(bg_tasks, results):
+                    if isinstance(result, BaseException) and not isinstance(
+                        result, (asyncio.CancelledError, KeyboardInterrupt)
+                    ):
+                        logger.error(
+                            "Task %s failed during shutdown: %s",
+                            task.get_name(), result, exc_info=result,
+                        )
                 await api_runner.cleanup()
                 logger.info("Jabali Security stopped.")
 
@@ -176,8 +189,3 @@ class SecurityDaemon:
             )
         # Future: create incidents for process threats
 
-    async def _wait_for_stop(self, stop_event: asyncio.Event) -> None:
-        """Wait for shutdown signal, then cancel all tasks."""
-        await stop_event.wait()
-        logger.info("Shutdown signal received...")
-        raise KeyboardInterrupt

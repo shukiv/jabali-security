@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import logging
@@ -35,7 +36,7 @@ class QuarantineManager:
         user = incident.username or "_system"
         date_dir = datetime.now(timezone.utc).strftime("%Y%m%d")
         dest_dir = self._base / user / date_dir
-        dest_dir.mkdir(parents=True, exist_ok=True)
+        await asyncio.to_thread(dest_dir.mkdir, parents=True, exist_ok=True)
 
         # Handle name collisions by appending incident ID
         dest_name = src.name
@@ -45,14 +46,14 @@ class QuarantineManager:
 
         try:
             # Read content for hash before moving
-            content = src.read_bytes()
+            content = await asyncio.to_thread(src.read_bytes)
             file_hash = hashlib.sha256(content).hexdigest()
 
             # Move file to quarantine
-            shutil.move(str(src), str(dest))
+            await asyncio.to_thread(shutil.move, str(src), str(dest))
 
             # Remove all permissions (make inaccessible)
-            os.chmod(str(dest), 0o000)
+            await asyncio.to_thread(os.chmod, str(dest), 0o000)
 
             record = QuarantineRecord(
                 original_path=str(src),
@@ -65,11 +66,12 @@ class QuarantineManager:
 
             # Write metadata sidecar
             meta_path = Path(str(dest) + ".meta.json")
-            meta_path.write_text(
+            await asyncio.to_thread(
+                meta_path.write_text,
                 record.model_dump_json(indent=2),
                 encoding="utf-8",
             )
-            os.chmod(str(meta_path), 0o600)
+            await asyncio.to_thread(os.chmod, str(meta_path), 0o600)
 
             logger.info("Quarantined: %s -> %s (sha256=%s)", path, dest, file_hash[:16])
             return record
@@ -93,14 +95,14 @@ class QuarantineManager:
 
         try:
             # Restore permissions before moving (need read access)
-            os.chmod(str(src), 0o644)
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            shutil.move(str(src), str(dest))
+            await asyncio.to_thread(os.chmod, str(src), 0o644)
+            await asyncio.to_thread(dest.parent.mkdir, parents=True, exist_ok=True)
+            await asyncio.to_thread(shutil.move, str(src), str(dest))
 
             # Remove metadata sidecar
             meta = Path(str(src) + ".meta.json")
             if meta.exists():
-                meta.unlink()
+                await asyncio.to_thread(meta.unlink)
 
             logger.info("Restored: %s -> %s", src, dest)
             return True
@@ -113,11 +115,11 @@ class QuarantineManager:
         src = Path(record.quarantine_path)
         try:
             if src.exists():
-                os.chmod(str(src), 0o600)  # need write to delete
-                src.unlink()
+                await asyncio.to_thread(os.chmod, str(src), 0o600)  # need write to delete
+                await asyncio.to_thread(src.unlink)
             meta = Path(str(src) + ".meta.json")
             if meta.exists():
-                meta.unlink()
+                await asyncio.to_thread(meta.unlink)
             logger.info("Deleted quarantined file: %s", src)
             return True
         except OSError:
@@ -128,29 +130,39 @@ class QuarantineManager:
         """Count total quarantined files (not metadata)."""
         if not self._base.is_dir():
             return 0
-        count = 0
-        for _root, _dirs, files in os.walk(str(self._base)):
-            for f in files:
-                if not f.endswith(".meta.json"):
-                    count += 1
-        return count
+
+        def _count_files() -> int:
+            total = 0
+            for _root, _dirs, files in os.walk(str(self._base)):
+                for f in files:
+                    if not f.endswith(".meta.json"):
+                        total += 1
+            return total
+
+        return await asyncio.to_thread(_count_files)
 
     async def list_records(self, username: str | None = None) -> list[QuarantineRecord]:
         """List quarantine records from metadata sidecar files."""
         records: list[QuarantineRecord] = []
         if not self._base.is_dir():
             return records
-        for root, _dirs, files in os.walk(str(self._base)):
-            for f in files:
-                if not f.endswith(".meta.json"):
-                    continue
-                meta_path = Path(root) / f
-                try:
-                    data = json.loads(meta_path.read_text(encoding="utf-8"))
-                    record = QuarantineRecord.model_validate(data)
-                    if username and record.username != username:
+
+        def _read_records() -> list[QuarantineRecord]:
+            result: list[QuarantineRecord] = []
+            for root, _dirs, files in os.walk(str(self._base)):
+                for f in files:
+                    if not f.endswith(".meta.json"):
                         continue
-                    records.append(record)
-                except (json.JSONDecodeError, OSError, ValueError):
-                    continue
+                    meta_path = Path(root) / f
+                    try:
+                        data = json.loads(meta_path.read_text(encoding="utf-8"))
+                        record = QuarantineRecord.model_validate(data)
+                        if username and record.username != username:
+                            continue
+                        result.append(record)
+                    except (json.JSONDecodeError, OSError, ValueError):
+                        continue
+            return result
+
+        records = await asyncio.to_thread(_read_records)
         return sorted(records, key=lambda r: r.timestamp, reverse=True)

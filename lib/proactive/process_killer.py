@@ -1,6 +1,7 @@
 """Proactive process killer -- kill suspicious processes above threshold."""
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 
@@ -51,7 +52,7 @@ class ProactiveProcessKiller:
             if not self._should_kill(threat):
                 continue
 
-            success = self._kill_process(threat.pid)
+            success = await self._kill_process(threat.pid)
             record = KillRecord(
                 pid=threat.pid,
                 ppid=threat.ppid,
@@ -106,10 +107,9 @@ class ProactiveProcessKiller:
         return True
 
     @staticmethod
-    def _kill_process(pid: int) -> bool:
+    async def _kill_process(pid: int) -> bool:
         """Send SIGTERM first, wait 5s, then SIGKILL if still alive."""
         import signal
-        import time
 
         try:
             os.kill(pid, signal.SIGTERM)
@@ -124,7 +124,7 @@ class ProactiveProcessKiller:
 
         # Wait up to 5 seconds for graceful exit
         for _ in range(10):
-            time.sleep(0.5)
+            await asyncio.sleep(0.5)
             try:
                 os.kill(pid, 0)  # Check if still alive
             except ProcessLookupError:

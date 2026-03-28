@@ -1,6 +1,7 @@
 """Flask dashboard routes."""
 from __future__ import annotations
 
+import hmac
 import logging
 import subprocess
 
@@ -83,7 +84,7 @@ def register_routes(app):
         if request.method == "POST":
             password = request.form.get("password", "")
             config = load_config()
-            if password and password == config.api_key:
+            if password and hmac.compare_digest(password, config.api_key):
                 session["logged_in"] = True
                 return redirect(url_for("dashboard"))
             flash("Invalid password.", "error")

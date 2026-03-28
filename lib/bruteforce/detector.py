@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 import time
 from collections import deque
 
@@ -41,69 +42,72 @@ class BruteForceDetector:
         # Already blocked IPs (avoid re-blocking)
         self._blocked: set[str] = set()
         self._last_cleanup = time.monotonic()
+        self._lock = threading.Lock()
 
     def record(self, event: AuthEvent) -> BlockDecision | None:
         """Record a failed auth event. Returns BlockDecision if threshold exceeded."""
-        if event.ip in self._whitelist:
-            return None
-        if event.ip in self._blocked:
-            return None
+        with self._lock:
+            if event.ip in self._whitelist:
+                return None
+            if event.ip in self._blocked:
+                return None
 
-        now = time.monotonic()
-        self._maybe_cleanup(now)
+            now = time.monotonic()
+            self._maybe_cleanup(now)
 
-        # Get threshold for this service
-        threshold, window = self._thresholds.get(
-            event.service, (10, 600)  # default: 10 attempts in 10 minutes
-        )
+            # Get threshold for this service
+            threshold, window = self._thresholds.get(
+                event.service, (10, 600)  # default: 10 attempts in 10 minutes
+            )
 
-        # Record attempt
-        attempts = self._attempts.setdefault(event.ip, deque())
-        attempts.append(now)
+            # Record attempt
+            attempts = self._attempts.setdefault(event.ip, deque())
+            attempts.append(now)
 
-        # Trim to window
-        cutoff = now - window
-        while attempts and attempts[0] < cutoff:
-            attempts.popleft()
+            # Trim to window
+            cutoff = now - window
+            while attempts and attempts[0] < cutoff:
+                attempts.popleft()
 
-        # Check threshold
-        if len(attempts) >= threshold:
-            offense = self._offenses.get(event.ip, 0) + 1
-            self._offenses[event.ip] = offense
-            self._blocked.add(event.ip)
-            del self._attempts[event.ip]  # Stop tracking
+            # Check threshold
+            if len(attempts) >= threshold:
+                offense = self._offenses.get(event.ip, 0) + 1
+                self._offenses[event.ip] = offense
+                self._blocked.add(event.ip)
+                del self._attempts[event.ip]  # Stop tracking
 
-            # Progressive duration
-            idx = min(offense - 1, len(self._block_durations) - 1)
-            duration = self._block_durations[idx]
+                # Progressive duration
+                idx = min(offense - 1, len(self._block_durations) - 1)
+                duration = self._block_durations[idx]
 
-            decision = BlockDecision(
-                ip=event.ip,
-                duration=duration,
-                reason="Brute-force: %d failed %s attempts in %ds (offense #%d)" % (
-                    threshold,
+                decision = BlockDecision(
+                    ip=event.ip,
+                    duration=duration,
+                    reason="Brute-force: %d failed %s attempts in %ds (offense #%d)" % (
+                        threshold,
+                        event.service,
+                        window,
+                        offense,
+                    ),
+                    service=event.service,
+                    attempt_count=threshold,
+                    offense_number=offense,
+                )
+                logger.warning(
+                    "BRUTE-FORCE: blocking %s for %s (%s, offense #%d)",
+                    event.ip,
+                    "%ds" % duration if duration else "permanent",
                     event.service,
-                    window,
                     offense,
-                ),
-                service=event.service,
-                attempt_count=threshold,
-                offense_number=offense,
-            )
-            logger.warning(
-                "BRUTE-FORCE: blocking %s for %s (%s, offense #%d)",
-                event.ip,
-                "%ds" % duration if duration else "permanent",
-                event.service,
-                offense,
-            )
-            return decision
+                )
+                return decision
 
-        return None
+            return None
 
     def unblock(self, ip: str) -> None:
         """Remove IP from blocked set (e.g., when block expires)."""
-        self._blocked.discard(ip)
+        with self._lock:
+            self._blocked.discard(ip)
 
     def load_offenses(self, offenses: dict[str, int]) -> None:
         """Load offense counts from database (for progressive blocking across restarts)."""

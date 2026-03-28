@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 import time
@@ -84,103 +85,105 @@ class BehaviorTracker:
         self._files: dict[str, _FileLifecycle] = {}  # path -> lifecycle
         self._users: dict[str, _UserActivity] = {}   # username -> activity
         self._last_cleanup = time.monotonic()
+        self._lock = asyncio.Lock()
 
     async def record_event(self, event: FileEvent) -> list[Finding]:
         """Record a file event and return any behavioral findings."""
-        self._maybe_cleanup()
+        async with self._lock:
+            self._maybe_cleanup()
 
-        # Track per-file lifecycle
-        lifecycle = self._files.get(event.path)
-        if lifecycle is None:
-            lifecycle = _FileLifecycle(path=event.path)
-            self._files[event.path] = lifecycle
-        lifecycle.record(event)
+            # Track per-file lifecycle
+            lifecycle = self._files.get(event.path)
+            if lifecycle is None:
+                lifecycle = _FileLifecycle(path=event.path)
+                self._files[event.path] = lifecycle
+            lifecycle.record(event)
 
-        # Track per-user activity
-        if event.username:
-            user_activity = self._users.get(event.username)
-            if user_activity is None:
-                user_activity = _UserActivity()
-                self._users[event.username] = user_activity
-            user_activity.record()
+            # Track per-user activity
+            if event.username:
+                user_activity = self._users.get(event.username)
+                if user_activity is None:
+                    user_activity = _UserActivity()
+                    self._users[event.username] = user_activity
+                user_activity.record()
 
-        findings: list[Finding] = []
+            findings: list[Finding] = []
 
-        # Check 1: Rapid create-then-modify
-        ctm = lifecycle.create_to_modify_seconds
-        if ctm is not None and ctm < 5.0:
-            findings.append(Finding(
-                scanner="behavior",
-                rule="rapid_create_modify",
-                score=25,
-                description="File created and modified within %.1fs" % ctm,
-                metadata={"path": event.path, "seconds": round(ctm, 1)},
-            ))
-
-        # Check 2: New file in uploads directory
-        if event.event_type == "create" and event.in_uploads_dir:
-            findings.append(Finding(
-                scanner="behavior",
-                rule="new_file_in_uploads",
-                score=20,
-                description="New file created in uploads directory",
-                metadata={"path": event.path},
-            ))
-
-        # Check 3: Random/hash-like filename
-        if event.event_type == "create":
-            stem = PurePosixPath(event.path).stem
-            if _RANDOM_NAME_RE.match(stem):
+            # Check 1: Rapid create-then-modify
+            ctm = lifecycle.create_to_modify_seconds
+            if ctm is not None and ctm < 5.0:
                 findings.append(Finding(
                     scanner="behavior",
-                    rule="random_filename",
-                    score=15,
-                    description="Random/hash-like filename: %s" % stem,
-                    metadata={"path": event.path, "stem": stem},
+                    rule="rapid_create_modify",
+                    score=25,
+                    description="File created and modified within %.1fs" % ctm,
+                    metadata={"path": event.path, "seconds": round(ctm, 1)},
                 ))
-            # Also check against known suspicious names
-            if stem.lower() in _SUSPICIOUS_NAMES:
+
+            # Check 2: New file in uploads directory
+            if event.event_type == "create" and event.in_uploads_dir:
                 findings.append(Finding(
                     scanner="behavior",
-                    rule="suspicious_filename",
+                    rule="new_file_in_uploads",
                     score=20,
-                    description="Suspicious filename: %s" % stem,
-                    metadata={"path": event.path, "stem": stem},
+                    description="New file created in uploads directory",
+                    metadata={"path": event.path},
                 ))
 
-        # Check 4: Burst file creation by same user (>20 files in 60s)
-        if event.username and event.event_type == "create":
-            ua = self._users.get(event.username)
-            if ua and ua.file_count > 20:
+            # Check 3: Random/hash-like filename
+            if event.event_type == "create":
+                stem = PurePosixPath(event.path).stem
+                if _RANDOM_NAME_RE.match(stem):
+                    findings.append(Finding(
+                        scanner="behavior",
+                        rule="random_filename",
+                        score=15,
+                        description="Random/hash-like filename: %s" % stem,
+                        metadata={"path": event.path, "stem": stem},
+                    ))
+                # Also check against known suspicious names
+                if stem.lower() in _SUSPICIOUS_NAMES:
+                    findings.append(Finding(
+                        scanner="behavior",
+                        rule="suspicious_filename",
+                        score=20,
+                        description="Suspicious filename: %s" % stem,
+                        metadata={"path": event.path, "stem": stem},
+                    ))
+
+            # Check 4: Burst file creation by same user (>20 files in 60s)
+            if event.username and event.event_type == "create":
+                ua = self._users.get(event.username)
+                if ua and ua.file_count > 20:
+                    findings.append(Finding(
+                        scanner="behavior",
+                        rule="burst_file_creation",
+                        score=30,
+                        description="User %s created %d files in 60s" % (
+                            event.username, ua.file_count,
+                        ),
+                        metadata={
+                            "username": event.username,
+                            "count": ua.file_count,
+                        },
+                    ))
+
+            # Check 5: Many events on same file (>5 in <30s = suspicious churn)
+            if lifecycle.event_count > 5 and lifecycle.age < 30:
                 findings.append(Finding(
                     scanner="behavior",
-                    rule="burst_file_creation",
-                    score=30,
-                    description="User %s created %d files in 60s" % (
-                        event.username, ua.file_count,
+                    rule="rapid_file_churn",
+                    score=15,
+                    description="File modified %d times in %.0fs" % (
+                        lifecycle.event_count, lifecycle.age,
                     ),
                     metadata={
-                        "username": event.username,
-                        "count": ua.file_count,
+                        "path": event.path,
+                        "count": lifecycle.event_count,
                     },
                 ))
 
-        # Check 5: Many events on same file (>5 in <30s = suspicious churn)
-        if lifecycle.event_count > 5 and lifecycle.age < 30:
-            findings.append(Finding(
-                scanner="behavior",
-                rule="rapid_file_churn",
-                score=15,
-                description="File modified %d times in %.0fs" % (
-                    lifecycle.event_count, lifecycle.age,
-                ),
-                metadata={
-                    "path": event.path,
-                    "count": lifecycle.event_count,
-                },
-            ))
-
-        return findings
+            return findings
 
     def _maybe_cleanup(self) -> None:
         """Evict stale entries older than TTL."""

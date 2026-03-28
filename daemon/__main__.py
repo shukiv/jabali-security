@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import dataclasses
+import fcntl
 import json
 import logging
 import os
@@ -48,7 +49,12 @@ def _pid_file() -> Path:
     return d / _PID_FILENAME
 
 
-def _write_pid() -> None:
+def _write_pid():
+    """Write PID and acquire an exclusive lock.
+
+    Returns the open file object -- the caller MUST keep it alive so the
+    ``fcntl.flock`` lock persists for the lifetime of the process.
+    """
     pf = _pid_file()
     # Use O_CREAT|O_WRONLY|O_TRUNC without following symlinks:
     # unlink first to avoid writing through a symlink
@@ -58,10 +64,16 @@ def _write_pid() -> None:
     except OSError:
         pass
     fd = os.open(str(pf), os.O_CREAT | os.O_WRONLY | os.O_TRUNC, 0o644)
+    f = os.fdopen(fd, "w")
     try:
-        os.write(fd, str(os.getpid()).encode())
-    finally:
-        os.close(fd)
+        fcntl.flock(f.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        f.close()
+        click.echo("Another instance of jabali-security is already running.", err=True)
+        sys.exit(1)
+    f.write(str(os.getpid()))
+    f.flush()
+    return f
 
 
 def _remove_pid() -> None:
@@ -270,10 +282,11 @@ def start(foreground: bool, config_path: str | None) -> None:
 
     daemon = SecurityDaemon(config)
 
-    _write_pid()
+    pid_fh = _write_pid()
     try:
         asyncio.run(daemon.run())
     finally:
+        pid_fh.close()
         _remove_pid()
 
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import re
 from pathlib import Path
 
@@ -53,7 +54,7 @@ async def post_scan(request: web.Request) -> web.Response:
     if not p.is_file():
         return _err("File or directory not found: %s" % path, 404)
 
-    content = p.read_bytes()
+    content = await asyncio.to_thread(p.read_bytes)
 
     scanner = request.app["scanner"]
     findings = await scanner.scan(path, content)

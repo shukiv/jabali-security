@@ -6,6 +6,7 @@ import hashlib
 import itertools
 import json
 import logging
+import threading
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -19,6 +20,7 @@ class HashCache:
         self._clean: set[str] = set()     # sha256 hashes known to be clean
         self._max_entries = max_entries
         self._persist_path = persist_path
+        self._lock = threading.Lock()
         if persist_path:
             self._load()
 
@@ -28,16 +30,19 @@ class HashCache:
 
     def is_known_clean(self, file_hash: str) -> bool:
         """Check if a hash is in the known-clean set."""
-        return file_hash in self._clean
+        with self._lock:
+            return file_hash in self._clean
 
     def mark_clean(self, file_hash: str) -> None:
         """Mark a hash as known-clean."""
-        self._clean.add(file_hash)
-        self._evict_if_needed()
+        with self._lock:
+            self._clean.add(file_hash)
+            self._evict_if_needed()
 
     def mark_dirty(self, file_hash: str) -> None:
         """Remove a hash from the known-clean set (file had findings)."""
-        self._clean.discard(file_hash)
+        with self._lock:
+            self._clean.discard(file_hash)
 
     def _evict_if_needed(self) -> None:
         """Evict oldest entries if cache exceeds max size."""
@@ -52,12 +57,13 @@ class HashCache:
         """Persist cache to disk."""
         if not self._persist_path:
             return
-        try:
-            self._persist_path.parent.mkdir(parents=True, exist_ok=True)
-            data = {"clean": list(self._clean)[:self._max_entries]}
-            self._persist_path.write_text(json.dumps(data), encoding="utf-8")
-        except OSError:
-            logger.warning("Failed to save hash cache to %s", self._persist_path)
+        with self._lock:
+            try:
+                self._persist_path.parent.mkdir(parents=True, exist_ok=True)
+                data = {"clean": list(self._clean)[:self._max_entries]}
+                self._persist_path.write_text(json.dumps(data), encoding="utf-8")
+            except OSError:
+                logger.warning("Failed to save hash cache to %s", self._persist_path)
 
     def _load(self) -> None:
         """Load cache from disk."""
@@ -73,4 +79,5 @@ class HashCache:
 
     @property
     def size(self) -> int:
-        return len(self._clean)
+        with self._lock:
+            return len(self._clean)
