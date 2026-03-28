@@ -14,7 +14,7 @@ class ProactiveStatsWidget extends BaseWidget
 
     protected function getColumns(): int
     {
-        return 3;
+        return 2;
     }
 
     protected function getStats(): array
@@ -30,10 +30,6 @@ class ProactiveStatsWidget extends BaseWidget
             Stat::make(__('Processes Killed'), (string) ($status['process_kill_count'] ?? 0))
                 ->icon('heroicon-o-x-circle')
                 ->color(($status['process_kill_count'] ?? 0) > 0 ? 'warning' : 'success')
-                ->extraAttributes(['class' => '!p-2 [&_dd]:!text-lg [&_p]:!text-xs']),
-            Stat::make(__('PHP Hardening'), ($status['php_hardening_enabled'] ?? false) ? __('Active') : __('Disabled'))
-                ->icon('heroicon-o-shield-check')
-                ->color(($status['php_hardening_enabled'] ?? false) ? 'success' : 'gray')
                 ->extraAttributes(['class' => '!p-2 [&_dd]:!text-lg [&_p]:!text-xs']),
         ];
     }

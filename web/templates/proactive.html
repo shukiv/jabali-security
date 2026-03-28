@@ -3,10 +3,9 @@
 {% block content %}
 {% from "macros.html" import protection_toggle %}
 <div class="page-header flex items-center" style="justify-content:space-between">
-    <div><h1>Proactive Defense</h1><p>Server hardening: PHP-FPM pool hardening (disable_functions, open_basedir) and suspicious process killer (reverse shells, crypto miners).</p></div>
+    <div><h1>Proactive Defense</h1><p>PHP-FPM pool scanning and suspicious process killer (reverse shells, crypto miners).</p></div>
     <div class="flex gap-2">
         {{ protection_toggle("process_kill", "Process Killer", config.get("PROCESS_KILL_ENABLED", "no") in ("yes", "true", "1")) }}
-        {{ protection_toggle("php_hardening", "PHP Hardening", config.get("PHP_HARDENING_ENABLED", "no") in ("yes", "true", "1")) }}
     </div>
 </div>
 
@@ -19,10 +18,6 @@
         <div class="stat-value">{{ status.get('process_kill_count', 0) }}</div>
         <div class="stat-label">Processes Killed</div>
     </div>
-    <div class="stat-card">
-        <div class="stat-value">{% if status.get('php_hardening_enabled') %}Active{% else %}Inactive{% endif %}</div>
-        <div class="stat-label">PHP Hardening</div>
-    </div>
 </div>
 
 {% if pools %}
@@ -30,7 +25,7 @@
     <h3>PHP-FPM Pools</h3>
     <table>
         <thead>
-            <tr><th>Pool</th><th>PHP</th><th>User</th><th>Hardened</th><th>Issues</th></tr>
+            <tr><th>Pool</th><th>PHP</th><th>User</th><th>Status</th><th>Issues</th></tr>
         </thead>
         <tbody>
             {% for pool in pools %}
@@ -38,7 +33,7 @@
                 <td>{{ pool.get('pool_name', '') }}</td>
                 <td>{{ pool.get('php_version', '?') }}</td>
                 <td>{{ pool.get('user', '') }}</td>
-                <td>{% if pool.get('hardened') %}<span class="badge badge-low">Yes</span>{% else %}<span class="badge badge-high">No</span>{% endif %}</td>
+                <td>{% if pool.get('hardened') %}<span class="badge badge-low">Hardened</span>{% else %}<span class="badge badge-high">Unhardened</span>{% endif %}</td>
                 <td class="text-sm">{{ pool.get('issues', [])|join(', ') or 'none' }}</td>
             </tr>
             {% endfor %}

@@ -33,7 +33,6 @@ _TOGGLE_KEYS = {
     "waf": "WAF_ENABLED",
     "bruteforce": "BRUTEFORCE_ENABLED",
     "proactive": "PROACTIVE_ENABLED",
-    "php_hardening": "PHP_HARDENING_ENABLED",
     "process_kill": "PROCESS_KILL_ENABLED",
     "cleanup": "CLEANUP_ENABLED",
     "cleanup_auto": "CLEANUP_AUTO",

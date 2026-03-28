@@ -162,12 +162,6 @@ WAF_NGINX_INCLUDE="/etc/nginx/jabali/includes/waf.conf"
 # Enable proactive defense subsystem (master switch)
 PROACTIVE_ENABLED="no"
 
-# Enable automatic PHP-FPM pool hardening (disable_functions, open_basedir)
-PHP_HARDENING_ENABLED="no"
-
-# Automatically harden new/unhardened pools at startup
-PHP_HARDENING_AUTO="no"
-
 # Enable proactive killing of suspicious processes above score threshold
 PROCESS_KILL_ENABLED="no"
 

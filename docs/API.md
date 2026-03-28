@@ -1,6 +1,6 @@
 # REST API Reference
 
-Jabali Security v0.1.0 -- 55 endpoints across 15 modules.
+Jabali Security v0.1.0 -- 53 endpoints across 15 modules.
 
 ## Connection
 
@@ -663,14 +663,13 @@ Update OWASP Core Rule Set. Returns 500 on failure.
 ```json
 {
   "process_kill_enabled": true,
-  "process_kill_count": 5,
-  "php_hardening_enabled": true
+  "process_kill_count": 5
 }
 ```
 
 ### `GET /proactive/php/pools`
 
-List all detected PHP-FPM pools and their hardening status. Works even if PHP hardening is disabled (uses a temporary scanner).
+List all detected PHP-FPM pools and their hardening status (read-only). PHP pool config management is handled by the hosting panel.
 
 **Response:**
 
@@ -689,52 +688,6 @@ List all detected PHP-FPM pools and their hardening status. Works even if PHP ha
     "socket_path": "/etc/php/8.3/fpm/pool.d/user1.conf"
   }
 ]
-```
-
-### `POST /proactive/php/harden`
-
-Harden PHP-FPM pools by injecting `disable_functions` and `open_basedir` directives.
-
-**Body (all unhardened pools):**
-
-```json
-{"all": true}
-```
-
-**Response:**
-
-```json
-{"hardened_count": 5}
-```
-
-**Body (single pool):**
-
-```json
-{"conf_path": "/etc/php/8.3/fpm/pool.d/user1.conf"}
-```
-
-`conf_path` must end with `.conf`.
-
-**Response:**
-
-```json
-{"hardened": true, "conf_path": "/etc/php/8.3/fpm/pool.d/user1.conf"}
-```
-
-### `POST /proactive/php/unharden`
-
-Remove jabali-security hardening block from a pool config. Returns 404 if no hardening block found.
-
-**Body:**
-
-```json
-{"conf_path": "/etc/php/8.3/fpm/pool.d/user1.conf"}
-```
-
-**Response:**
-
-```json
-{"unhardened": true, "conf_path": "/etc/php/8.3/fpm/pool.d/user1.conf"}
 ```
 
 ### `GET /proactive/kills`
@@ -1147,9 +1100,9 @@ Deny traffic for an application profile.
 | Rules | 2 | -- |
 | Brute-Force | 4 | `BRUTEFORCE_ENABLED` |
 | WAF | 6 | `WAF_ENABLED` |
-| Proactive Defense | 5 | `PROACTIVE_ENABLED` |
+| Proactive Defense | 3 | `PROACTIVE_ENABLED` |
 | Cleanup | 2 | `CLEANUP_ENABLED` |
 | Threat Intel | 4 | `THREAT_INTEL_ENABLED` |
 | WebShield | 5 | `WEBSHIELD_ENABLED` |
 | UFW Firewall | 11 | `UFW_ENABLED` |
-| **Total** | **59** | |
+| **Total** | **57** | |

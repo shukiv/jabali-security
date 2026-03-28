@@ -1,4 +1,4 @@
-"""PHP-FPM pool hardener -- auto-harden pools with disable_functions and open_basedir."""
+"""PHP-FPM pool scanner -- read-only discovery and status checking of PHP-FPM pools."""
 from __future__ import annotations
 
 import logging
@@ -9,12 +9,6 @@ from lib.proactive.models import PoolStatus
 
 logger = logging.getLogger(__name__)
 
-# Dangerous functions to disable in PHP-FPM pools
-_DANGEROUS_FUNCTIONS = (
-    "exec,passthru,shell_exec,system,proc_open,popen,pcntl_exec,"
-    "pcntl_fork,dl,putenv,show_source,posix_kill,posix_mkfifo"
-)
-
 # PHP-FPM pool config search paths
 _POOL_SEARCH_PATHS = [
     "/etc/php/*/fpm/pool.d/*.conf",
@@ -23,21 +17,13 @@ _POOL_SEARCH_PATHS = [
     "/etc/opt/remi/php*/php-fpm.d/*.conf",
 ]
 
-# Marker comments for jabali-managed hardening block
-_MARKER_START = "; JABALI-SECURITY-HARDENING-START"
-_MARKER_END = "; JABALI-SECURITY-HARDENING-END"
-
 # Regex to parse pool config values
 _POOL_NAME_RE = re.compile(r"^\[(\S+)\]")
 _KEY_VALUE_RE = re.compile(r"^(\S+)\s*=\s*(.*)")
 
 
-class PHPHardener:
-    """Discover and harden PHP-FPM pools."""
-
-    def __init__(self, enabled: bool = False, auto: bool = False) -> None:
-        self._enabled = enabled
-        self._auto = auto
+class PHPPoolScanner:
+    """Discover PHP-FPM pools and report their hardening status (read-only)."""
 
     async def scan_pools(self) -> list[PoolStatus]:
         """Discover all PHP-FPM pools and check their hardening status."""
@@ -80,7 +66,6 @@ class PHPHardener:
         listen = ""
         disable_functions = ""
         open_basedir = ""
-        _has_jabali_block = _MARKER_START in content  # noqa: F841
 
         for line in content.splitlines():
             line = line.strip()
@@ -143,98 +128,3 @@ class PHPHardener:
             issues=issues,
             socket_path=conf_path,
         )
-
-    async def harden_pool(self, conf_path: str) -> bool:
-        """Add hardening directives to a PHP-FPM pool config."""
-        p = Path(conf_path)
-        if not p.is_file():
-            logger.error("Pool config not found: %s", conf_path)
-            return False
-
-        try:
-            content = p.read_text(encoding="utf-8", errors="replace")
-        except OSError:
-            logger.error("Cannot read pool config: %s", conf_path)
-            return False
-
-        # Parse user for open_basedir
-        pool = self._parse_pool_config(conf_path)
-        if not pool:
-            return False
-
-        # Remove existing jabali block if present
-        content = self._remove_jabali_block(content)
-
-        # Build hardening block
-        open_basedir = "/home/%s:/tmp:/usr/share/php:/var/lib/php" % pool.user
-        block = "\n".join([
-            "",
-            _MARKER_START,
-            "php_admin_value[disable_functions] = %s" % _DANGEROUS_FUNCTIONS,
-            "php_admin_value[open_basedir] = %s" % open_basedir,
-            "php_admin_value[upload_tmp_dir] = /home/%s/tmp" % pool.user,
-            "php_admin_value[session.save_path] = /home/%s/tmp" % pool.user,
-            "php_admin_value[sys_temp_dir] = /home/%s/tmp" % pool.user,
-            _MARKER_END,
-            "",
-        ])
-
-        # Append block
-        content = content.rstrip() + block
-        p.write_text(content, encoding="utf-8")
-        logger.info("Hardened pool %s at %s", pool.pool_name, conf_path)
-        return True
-
-    async def unharden_pool(self, conf_path: str) -> bool:
-        """Remove jabali hardening from a pool config."""
-        p = Path(conf_path)
-        if not p.is_file():
-            return False
-
-        try:
-            content = p.read_text(encoding="utf-8", errors="replace")
-        except OSError:
-            return False
-
-        new_content = self._remove_jabali_block(content)
-        if new_content == content:
-            return False  # Nothing to remove
-
-        p.write_text(new_content, encoding="utf-8")
-        logger.info("Removed hardening from %s", conf_path)
-        return True
-
-    async def auto_harden_all(self) -> int:
-        """Harden all unhardened pools. Returns count of pools hardened."""
-        if not self._auto:
-            return 0
-        pools = await self.scan_pools()
-        count = 0
-        for pool in pools:
-            if not pool.hardened:
-                if await self.harden_pool(pool.socket_path):
-                    count += 1
-        if count:
-            logger.info("Auto-hardened %d PHP-FPM pools", count)
-        return count
-
-    @staticmethod
-    def _remove_jabali_block(content: str) -> str:
-        """Remove the JABALI-SECURITY-HARDENING block from content."""
-        lines = content.splitlines()
-        result: list[str] = []
-        in_block = False
-        for line in lines:
-            if line.strip() == _MARKER_START:
-                in_block = True
-                continue
-            if line.strip() == _MARKER_END:
-                in_block = False
-                continue
-            if not in_block:
-                result.append(line)
-        return "\n".join(result)
-
-    @property
-    def enabled(self) -> bool:
-        return self._enabled

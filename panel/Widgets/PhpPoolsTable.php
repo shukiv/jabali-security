@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace App\JabaliSecurity\Widgets;
 
 use App\JabaliSecurity\JabaliSecurityClient;
-use Filament\Actions\Action;
-use Filament\Notifications\Notification;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
@@ -46,38 +44,6 @@ class PhpPoolsTable extends Component implements HasActions, HasSchemas, HasTabl
                 TextColumn::make('issues')
                     ->label(__('Issues'))
                     ->state(fn (array $record): string => implode(', ', $record['issues'] ?? [])),
-            ])
-            ->recordActions([
-                Action::make('harden')
-                    ->label(__('Harden'))
-                    ->icon('heroicon-o-shield-check')
-                    ->visible(fn (array $record): bool => ! ($record['hardened'] ?? false))
-                    ->requiresConfirmation()
-                    ->action(function (array $record): void {
-                        $result = $this->client()->post('/proactive/php/harden', [
-                            'conf_path' => $record['socket_path'] ?? '',
-                        ]);
-
-                        Notification::make()
-                            ->title($result ? __('Pool hardened') : __('Failed to harden pool'))
-                            ->color($result ? 'success' : 'danger')
-                            ->send();
-                    }),
-                Action::make('unharden')
-                    ->label(__('Unharden'))
-                    ->icon('heroicon-o-shield-exclamation')
-                    ->visible(fn (array $record): bool => (bool) ($record['hardened'] ?? false))
-                    ->requiresConfirmation()
-                    ->action(function (array $record): void {
-                        $result = $this->client()->post('/proactive/php/unharden', [
-                            'conf_path' => $record['socket_path'] ?? '',
-                        ]);
-
-                        Notification::make()
-                            ->title($result ? __('Pool unhardened') : __('Failed to unharden pool'))
-                            ->color($result ? 'success' : 'danger')
-                            ->send();
-                    }),
             ])
             ->emptyStateHeading(__('No PHP pools'))
             ->striped();

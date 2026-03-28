@@ -1001,13 +1001,12 @@ def proactive_status(as_json: bool) -> None:
     click.echo("Proactive defense status:")
     click.echo("  Process kill enabled:  %s" % data.get("process_kill_enabled", False))
     click.echo("  Process kill count:    %s" % data.get("process_kill_count", 0))
-    click.echo("  PHP hardening enabled: %s" % data.get("php_hardening_enabled", False))
 
 
 @proactive.command("php-pools")
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON")
 def proactive_php_pools(as_json: bool) -> None:
-    """List PHP-FPM pools and their hardening status."""
+    """List PHP-FPM pools and their security status."""
     config = load_config()
     data = _api_call(config, "GET", "/api/v1/proactive/php/pools")
 
@@ -1030,34 +1029,6 @@ def proactive_php_pools(as_json: bool) -> None:
             "yes" if pool.get("hardened") else "NO",
             issues[:50],
         ))
-
-
-@proactive.command("harden")
-@click.option("--all", "harden_all", is_flag=True, help="Harden all unhardened pools")
-@click.option("--pool", "pool_path", default=None, help="Path to pool config file")
-def proactive_harden(harden_all: bool, pool_path: str | None) -> None:
-    """Harden PHP-FPM pools with disable_functions and open_basedir."""
-    if not harden_all and not pool_path:
-        click.echo("Specify --all or --pool PATH", err=True)
-        sys.exit(1)
-
-    config = load_config()
-
-    if harden_all:
-        data = _api_call(config, "POST", "/api/v1/proactive/php/harden", {"all": True})
-        click.echo("Hardened %d pools." % data.get("hardened_count", 0))
-    else:
-        data = _api_call(config, "POST", "/api/v1/proactive/php/harden", {"conf_path": pool_path})
-        click.echo("Hardened pool at %s." % pool_path)
-
-
-@proactive.command("unharden")
-@click.option("--pool", "pool_path", required=True, help="Path to pool config file")
-def proactive_unharden(pool_path: str) -> None:
-    """Remove Jabali hardening from a PHP-FPM pool."""
-    config = load_config()
-    _api_call(config, "POST", "/api/v1/proactive/php/unharden", {"conf_path": pool_path})
-    click.echo("Removed hardening from %s." % pool_path)
 
 
 @proactive.command("kills")

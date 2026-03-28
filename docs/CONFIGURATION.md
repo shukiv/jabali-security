@@ -173,8 +173,6 @@ Scoring determines the action for each detected threat:
 | Key | Type | Default | Description |
 |---|---|---|---|
 | `PROACTIVE_ENABLED` | bool | `no` | Enable proactive defense subsystem (master switch) |
-| `PHP_HARDENING_ENABLED` | bool | `no` | Enable PHP-FPM pool hardening. Disabled by default. Hosting panels (Jabali Panel, cPanel) typically manage per-user FPM hardening. Enable only if your environment does not set `disable_functions` and `open_basedir` per pool. |
-| `PHP_HARDENING_AUTO` | bool | `no` | Auto-harden new/unhardened pools at startup. When enabled, the hardener skips pools that already have `disable_functions` and `open_basedir` configured. |
 | `PROCESS_KILL_ENABLED` | bool | `no` | Enable proactive killing of suspicious processes |
 | `PROCESS_KILL_THRESHOLD` | int | `70` | Minimum threat score to kill a process (1-100) |
 | `PROCESS_KILL_MIN_UID` | int | `1000` | Minimum UID for killable processes (protects system processes) |
@@ -274,8 +272,6 @@ AUTO_QUARANTINE="yes"
 BRUTEFORCE_ENABLED="yes"
 WAF_ENABLED="yes"
 PROACTIVE_ENABLED="yes"
-PHP_HARDENING_ENABLED="yes"
-PHP_HARDENING_AUTO="yes"
 PROCESS_KILL_ENABLED="yes"
 CLEANUP_ENABLED="yes"
 CLEANUP_AUTO="yes"

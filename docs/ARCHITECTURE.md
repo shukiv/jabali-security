@@ -142,7 +142,7 @@ Progressive blocking: durations escalate per repeat offense (default: 10m, 1h, 1
 
 | File | Purpose |
 |---|---|
-| `php_hardener.py` | Scans PHP-FPM pool configs, adds `disable_functions` and `open_basedir`. Disabled by default; skips pools that already have disable_functions and open_basedir set (e.g. by hosting panels) |
+| `php_hardener.py` | Read-only PHP-FPM pool scanner. Discovers pools and reports their security status (disable_functions, open_basedir). Does not modify pool configs — hardening is managed by the hosting panel |
 | `process_killer.py` | Kills suspicious processes above score threshold (respects min UID + whitelist). Uses graceful shutdown: SIGTERM first, waits 5 seconds, then SIGKILL if still alive. |
 
 ### Malware Cleanup (`lib/cleanup/`)

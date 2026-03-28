@@ -29,7 +29,7 @@ Every feature available in the web dashboard must have an equivalent in the Jaba
 | Brute-Force stats + blocked IPs | Yes | Yes | Parity |
 | Brute-Force whitelist management | Yes | Yes | Parity |
 | Proactive Defense status | Yes | Yes | Parity |
-| PHP-FPM pool hardening status | Yes | Yes | Parity |
+| PHP-FPM pool status (read-only monitor) | Yes | Yes | Parity |
 | Process kills log | Yes | Yes | Parity |
 | WebShield status + bot rules | Yes | Yes | Parity |
 | WebShield install/uninstall | Yes | Yes | Parity |
@@ -55,7 +55,7 @@ Every feature available in the web dashboard must have an equivalent in the Jaba
 | Brute-Force Protection | Yes | Yes | Parity |
 | Proactive Defense | Yes | Yes | Parity |
 | Process Killer | Yes | Yes | Parity |
-| PHP Hardening | Yes | Yes | Parity |
+| PHP Pool Monitor | Yes | Yes | Parity (read-only) |
 | WebShield | Yes | Yes | Parity |
 | Threat Intelligence | Yes | Yes | Parity |
 | Auto Cleanup | Yes | Yes | Parity |
@@ -79,7 +79,7 @@ Every feature available in the web dashboard must have an equivalent in the Jaba
 | Reload YARA rules + freshclam | Yes | Yes | Parity |
 | Update threat intel feeds | Yes | Yes | Parity |
 | Install/uninstall WebShield | Yes | Yes | Parity |
-| Harden/unharden PHP pool | Yes | Yes | Parity |
+| View PHP pool status | Yes | Yes | Parity (read-only) |
 | WAF rule disable | Yes | Yes | Parity |
 | Update OWASP CRS | Yes | Yes | Parity |
 | Check IP reputation | Yes | Yes | Parity |
