@@ -138,9 +138,30 @@ class Security extends Page implements HasActions, HasForms
                 ->label(__('Save & Restart'))
                 ->icon('heroicon-o-check')
                 ->color('success')
-                ->requiresConfirmation()
-                ->modalDescription(__('Save all config changes and restart the daemon?'))
-                ->action(fn () => $this->saveAndRestart()),
+                ->action(function (): void {
+                    $payload = [];
+                    foreach (static::$configCategories as $keys) {
+                        foreach ($keys as $key) {
+                            $formKey = 'config_'.$key;
+                            if (! array_key_exists($formKey, $this->configData)) {
+                                continue;
+                            }
+                            $val = $this->configData[$formKey];
+                            if (in_array($key, static::$booleanKeys)) {
+                                $val = $val ? 'yes' : 'no';
+                            }
+                            $payload[$key] = (string) $val;
+                        }
+                    }
+                    if (! empty($payload)) {
+                        $this->client()->patch('/config', $payload);
+                    }
+                    $process = new \Symfony\Component\Process\Process(['/usr/bin/systemctl', 'restart', 'jabali-security']);
+                    $process->run();
+                    sleep(3);
+                    Notification::make()->title(__('Settings saved & daemon restarted'))->success()->send();
+                    $this->redirect(static::getUrl(['tab' => 'settings']));
+                }),
 
             Action::make('updateRules')
                 ->label(__('Update Rules'))
