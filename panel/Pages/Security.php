@@ -518,14 +518,11 @@ class Security extends Page implements HasActions, HasForms
         }
 
         return [
-            SchemaActions::make([
-                Action::make('toggleExpertMode')
-                    ->label($expert ? __('Basic Mode') : __('Expert Mode'))
-                    ->icon($expert ? 'heroicon-o-eye-slash' : 'heroicon-o-eye')
-                    ->color('gray')
-                    ->size('sm')
-                    ->action('toggleExpertMode'),
-            ]),
+            Toggle::make('expertMode')
+                ->label(__('Expert Mode'))
+                ->live()
+                ->columnSpanFull()
+                ->extraAttributes(['class' => 'flex justify-end']),
             Tabs::make(__('Configuration'))
                 ->contained()
                 ->tabs($tabs),
@@ -539,10 +536,6 @@ class Security extends Page implements HasActions, HasForms
         ];
     }
 
-    public function toggleExpertMode(): void
-    {
-        $this->expertMode = ! $this->expertMode;
-    }
 
     // ── Module Toggles ───────────────────────────────────────────────
 
