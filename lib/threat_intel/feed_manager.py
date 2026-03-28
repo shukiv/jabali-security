@@ -17,7 +17,6 @@ logger = logging.getLogger(__name__)
 # Built-in feed sources (all free, no API key required)
 _IP_FEEDS: dict[str, str] = {
     "spamhaus_drop": "https://www.spamhaus.org/drop/drop.txt",
-    "spamhaus_edrop": "https://www.spamhaus.org/drop/edrop.txt",
     "blocklist_de_all": "https://lists.blocklist.de/lists/all.txt",
     "tor_exit_nodes": "https://check.torproject.org/torbulkexitlist",
 }
