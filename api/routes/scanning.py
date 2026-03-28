@@ -136,6 +136,10 @@ async def post_scan_rapid(request: web.Request) -> web.Response:
     path = body.get("path")
     if not path or not isinstance(path, str):
         return _err("'path' is required")
+    if not _validate_path(path):
+        return _err("Path must be under /home/ or /var/www/")
+    if Path(path).is_symlink():
+        return _err("Symlinks not allowed")
     if not Path(path).is_dir():
         return _err("Directory not found", 404)
 

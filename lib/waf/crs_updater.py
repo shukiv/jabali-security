@@ -51,11 +51,7 @@ class CRSUpdater:
                 # Extract
                 import tarfile
                 with tarfile.open(tarball_path) as tf:
-                    # Security: validate paths
-                    for member in tf.getmembers():
-                        if member.name.startswith("/") or ".." in member.name:
-                            return {"success": False, "error": "Unsafe path in tarball"}
-                    tf.extractall(tmp_dir)  # noqa: S202
+                    tf.extractall(tmp_dir, filter="data")  # noqa: S202
 
                 # Find the extracted rules directory
                 extracted = [d for d in Path(tmp_dir).iterdir() if d.is_dir() and d.name != "__MACOSX"]

@@ -86,6 +86,7 @@ def register_routes(app):
             config = load_config()
             if password and hmac.compare_digest(password, config.api_key):
                 session["logged_in"] = True
+                session.permanent = True
                 return redirect(url_for("dashboard"))
             flash("Invalid password.", "error")
         return render_template("login.html")

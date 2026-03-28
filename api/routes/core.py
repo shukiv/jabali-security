@@ -27,8 +27,8 @@ async def get_health(request: web.Request) -> web.Response:
         try:
             await asyncio.wait_for(incidents._db.execute("SELECT 1"), timeout=2.0)
             components["database"] = "ok"
-        except Exception as exc:
-            components["database"] = f"error: {exc}"
+        except Exception:
+            components["database"] = "error"
     else:
         components["database"] = "unavailable"
 

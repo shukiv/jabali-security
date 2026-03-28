@@ -110,6 +110,12 @@ class NotificationEngine:
         """Send webhook POST with incident data."""
         import urllib.error
         import urllib.request
+        from urllib.parse import urlparse
+
+        parsed = urlparse(self._config.notify_webhook)
+        if parsed.scheme not in ("http", "https"):
+            logger.error("Invalid webhook scheme: %s (must be http or https)", parsed.scheme)
+            return
 
         payload = {
             "event": "security_incident",

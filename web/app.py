@@ -31,15 +31,15 @@ def create_app():
     )
 
     config = load_config()
-    if config.api_key:
-        app.secret_key = hashlib.sha256(config.api_key.encode() + b"flask-session").hexdigest()
-    else:
-        app.secret_key = secrets.token_urlsafe(32)
+    app.secret_key = secrets.token_urlsafe(32)
     app.config["API_URL"] = "http://%s:%d" % (config.api_bind, config.api_port)
     app.config["API_KEY"] = config.api_key
     app.config["VERSION"] = VERSION
     app.config["SESSION_COOKIE_HTTPONLY"] = True
     app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+    app.config["SESSION_COOKIE_SECURE"] = True
+    from datetime import timedelta
+    app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=8)
     app.config["TEMPLATES_AUTO_RELOAD"] = True
 
     # Security headers
