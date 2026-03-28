@@ -82,21 +82,7 @@ class WafRuleManager:
             })
         return rules
 
-    # Security headers and hardening rules always included regardless of WAF state
-    _HARDENING_BLOCK = """
-# Security headers
-add_header X-Frame-Options "SAMEORIGIN" always;
-add_header X-Content-Type-Options "nosniff" always;
-add_header X-XSS-Protection "1; mode=block" always;
-add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-add_header Content-Security-Policy "default-src 'self' https: data: 'unsafe-inline' 'unsafe-eval'" always;
-
-# Block XML-RPC (WordPress brute-force vector)
-location = /xmlrpc.php {
-    deny all;
-    return 403;
-}
-"""
+    _WEBSHIELD_SERVER_CONF = "/etc/nginx/jabali-security/jabali-webshield-server.conf"
 
     async def set_modsecurity_enabled(self, enabled: bool) -> bool:
         """Write modsecurity on/off to the nginx include file and reload."""
@@ -105,11 +91,45 @@ location = /xmlrpc.php {
             return False
         self._nginx_include.parent.mkdir(parents=True, exist_ok=True)
         state = "on" if enabled else "off"
-        self._nginx_include.write_text(
-            "# Managed by Jabali Security\nmodsecurity %s;\n%s" % (state, self._HARDENING_BLOCK)
-        )
+        self._nginx_include.write_text(self._build_waf_conf(state))
         logger.info("Set modsecurity %s in %s", state, self._nginx_include)
         return await self._reload_web_server()
+
+    def _build_waf_conf(self, modsec_state: str) -> str:
+        """Build the waf.conf include content with all hardening blocks."""
+        lines = ["# Managed by Jabali Security", "modsecurity %s;" % modsec_state, ""]
+
+        # Security headers
+        lines += [
+            "# Security headers",
+            'add_header X-Frame-Options "SAMEORIGIN" always;',
+            'add_header X-Content-Type-Options "nosniff" always;',
+            'add_header X-XSS-Protection "1; mode=block" always;',
+            'add_header Referrer-Policy "strict-origin-when-cross-origin" always;',
+            "add_header Content-Security-Policy \"default-src 'self' https: data:"
+            " 'unsafe-inline' 'unsafe-eval'\" always;",
+            "",
+        ]
+
+        # XML-RPC block
+        lines += [
+            "# Block XML-RPC (WordPress brute-force vector)",
+            "location = /xmlrpc.php {",
+            "    deny all;",
+            "    return 403;",
+            "}",
+            "",
+        ]
+
+        # WebShield server-level config (rate limiting + bot blocking)
+        ws_conf = Path(self._WEBSHIELD_SERVER_CONF)
+        if ws_conf.is_file():
+            lines += [
+                "# WebShield server-level protection",
+                "include %s;" % ws_conf,
+            ]
+
+        return "\n".join(lines) + "\n"
 
     def is_modsecurity_enabled(self) -> bool:
         """Check if modsecurity is on in the nginx include file."""
