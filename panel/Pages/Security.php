@@ -39,6 +39,7 @@ use Filament\Schemas\Schema;
 use Filament\Support\Enums\FontWeight;
 use Filament\Support\Enums\TextSize;
 use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Support\Facades\Log;
 use Livewire\Attributes\Url;
 
 class Security extends Page implements HasActions, HasForms
@@ -130,12 +131,6 @@ class Security extends Page implements HasActions, HasForms
                         Notification::make()->title(__('Scan failed'))->danger()->send();
                     }
                 }),
-
-            Action::make('saveAndRestart')
-                ->label(__('Save & Restart'))
-                ->icon('heroicon-o-check')
-                ->color('success')
-                ->action('saveAndRestart'),
 
             Action::make('updateRules')
                 ->label(__('Update Rules'))
@@ -452,6 +447,13 @@ class Security extends Page implements HasActions, HasForms
             Tabs::make(__('Configuration'))
                 ->contained()
                 ->tabs($tabs),
+            SchemaActions::make([
+                Action::make('saveAndRestart')
+                    ->label(__('Save & Restart'))
+                    ->icon('heroicon-o-check')
+                    ->color('success')
+                    ->action('saveAndRestart'),
+            ]),
         ];
     }
 
@@ -487,6 +489,13 @@ class Security extends Page implements HasActions, HasForms
 
     public function saveAndRestart(): void
     {
+        // Log what we have for debugging
+        Log::info('saveAndRestart configData sample', [
+            'LOG_LEVEL' => $this->configData['config_LOG_LEVEL'] ?? 'NOT SET',
+            'WAF_ENABLED' => $this->configData['config_WAF_ENABLED'] ?? 'NOT SET',
+            'keys_count' => count($this->configData),
+        ]);
+
         // Collect all form values
         $payload = [];
         foreach (static::$configCategories as $keys) {
@@ -502,9 +511,12 @@ class Security extends Page implements HasActions, HasForms
             }
         }
 
+        Log::info('saveAndRestart payload', ['count' => count($payload), 'LOG_LEVEL' => $payload['LOG_LEVEL'] ?? 'missing']);
+
         // Save via API
         if (! empty($payload)) {
-            $this->client()->patch('/config', $payload);
+            $result = $this->client()->patch('/config', $payload);
+            Log::info('saveAndRestart patch result', ['result' => $result]);
         }
 
         // Restart daemon
