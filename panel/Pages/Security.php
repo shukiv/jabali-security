@@ -338,9 +338,11 @@ class Security extends Page implements HasActions, HasForms
         }
 
         return [
-            Grid::make(5)->dense()->schema([
+            Grid::make(6)->dense()->schema([
                 $this->statCard('Incidents', (string) ($s['incidents_24h'] ?? 0), 'Last 24 hours',
                     ($s['incidents_24h'] ?? 0) > 0 ? 'danger' : 'success'),
+                $this->statCard('Attacks Blocked', (string) ($s['attacks_blocked_24h'] ?? 0), 'Last 24 hours',
+                    ($s['attacks_blocked_24h'] ?? 0) > 0 ? 'warning' : 'success'),
                 $this->statCard('Quarantine', (string) ($s['quarantined_count'] ?? 0), 'Files isolated',
                     ($s['quarantined_count'] ?? 0) > 0 ? 'warning' : 'success'),
                 $this->statCard('Watching', (string) ($s['watched_dirs'] ?? 0), 'Folders monitored', 'info'),
@@ -396,7 +398,7 @@ class Security extends Page implements HasActions, HasForms
     {
         $s = $this->client()->get('/webshield/status') ?? [];
         return [
-            Grid::make(4)->dense()->schema([
+            Grid::make(6)->dense()->schema([
                 $this->statCard('Installed', ($s['installed'] ?? false) ? __('Yes') : __('No'), '',
                     ($s['installed'] ?? false) ? 'success' : 'gray'),
                 $this->statCard('Rate Limiting', ($s['rate_limiting'] ?? false) ? __('On') : __('Off'), '',
@@ -405,6 +407,10 @@ class Security extends Page implements HasActions, HasForms
                     ($s['bot_filtering'] ?? false) ? 'success' : 'gray'),
                 $this->statCard('Blocked IPs', (string) ($s['blocked_ips_count'] ?? 0), '',
                     ($s['blocked_ips_count'] ?? 0) > 0 ? 'danger' : 'success'),
+                $this->statCard('Bots Blocked', (string) ($s['bot_blocked_24h'] ?? 0), 'Last 24 hours',
+                    ($s['bot_blocked_24h'] ?? 0) > 0 ? 'warning' : 'success'),
+                $this->statCard('Rate Limited', (string) ($s['rate_limited_24h'] ?? 0), 'Last 24 hours',
+                    ($s['rate_limited_24h'] ?? 0) > 0 ? 'warning' : 'success'),
             ]),
         ];
     }
@@ -678,6 +684,7 @@ class Security extends Page implements HasActions, HasForms
         'WEBSHIELD_CHALLENGE_ENABLED' => 'Serve JS challenge pages to suspicious clients',
         'WEBSHIELD_BOT_FILTERING' => 'Block known malicious user agents',
         'WEBSHIELD_NGINX_CONF_DIR' => 'Directory for WebShield nginx config snippets',
+        'NGINX_ACCESS_LOG' => 'Nginx access log path for counting blocked requests',
         'DB_SCANNER_ENABLED' => 'Enable database injection scanning',
         'RAPIDSCAN_WORKERS' => 'Parallel workers for rapid directory scans',
         'RAPIDSCAN_MTIME_CACHE' => 'Cache file modification times to skip unchanged files',
@@ -759,7 +766,7 @@ class Security extends Page implements HasActions, HasForms
         'Cleanup' => ['CLEANUP_ENABLED', 'CLEANUP_AUTO', 'CLEANUP_BACKUP_DIR', 'CLEANUP_CMS_CHECKSUMS'],
         'Scheduled Scan' => ['SCHEDULED_SCAN_ENABLED', 'SCHEDULED_SCAN_INTERVAL', 'SCHEDULED_SCAN_PATHS'],
         'Threat Intel' => ['THREAT_INTEL_ENABLED', 'THREAT_INTEL_UPDATE_INTERVAL', 'THREAT_INTEL_FEEDS', 'THREAT_INTEL_AUTO_BLOCK', 'THREAT_INTEL_AUTO_BLOCK_THRESHOLD'],
-        'WebShield' => ['WEBSHIELD_ENABLED', 'WEBSHIELD_RATE_LIMIT', 'WEBSHIELD_RATE_BURST', 'WEBSHIELD_CHALLENGE_ENABLED', 'WEBSHIELD_BOT_FILTERING', 'WEBSHIELD_NGINX_CONF_DIR'],
+        'WebShield' => ['WEBSHIELD_ENABLED', 'WEBSHIELD_RATE_LIMIT', 'WEBSHIELD_RATE_BURST', 'WEBSHIELD_CHALLENGE_ENABLED', 'WEBSHIELD_BOT_FILTERING', 'WEBSHIELD_NGINX_CONF_DIR', 'NGINX_ACCESS_LOG'],
         'Performance' => ['DB_SCANNER_ENABLED', 'RAPIDSCAN_WORKERS', 'RAPIDSCAN_MTIME_CACHE'],
         'Notifications' => ['NOTIFY_EMAIL', 'NOTIFY_WEBHOOK', 'NOTIFY_MIN_SEVERITY'],
         'Retention' => ['INCIDENT_RETAIN_DAYS'],

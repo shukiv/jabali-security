@@ -97,6 +97,7 @@ DEFAULTS: dict[str, str] = {
     "WEBSHIELD_CHALLENGE_ENABLED": "yes",
     "WEBSHIELD_BOT_FILTERING": "yes",
     "WEBSHIELD_NGINX_CONF_DIR": "/etc/nginx/jabali-security",
+    "NGINX_ACCESS_LOG": "/var/log/nginx/access.log",
     "DB_SCANNER_ENABLED": "no",
     "RAPIDSCAN_WORKERS": "4",
     "RAPIDSCAN_MTIME_CACHE": "yes",
@@ -293,6 +294,7 @@ class JabaliConfig:
     webshield_challenge_enabled: bool = True
     webshield_bot_filtering: bool = True
     webshield_nginx_conf_dir: str = "/etc/nginx/jabali-security"
+    nginx_access_log: str = "/var/log/nginx/access.log"
     db_scanner_enabled: bool = False
     rapidscan_workers: int = 4
     rapidscan_mtime_cache: bool = True
@@ -426,6 +428,7 @@ def load_config(filepath: Path | None = None) -> JabaliConfig:
         webshield_challenge_enabled=_bool(merged["WEBSHIELD_CHALLENGE_ENABLED"]),
         webshield_bot_filtering=_bool(merged["WEBSHIELD_BOT_FILTERING"]),
         webshield_nginx_conf_dir=merged["WEBSHIELD_NGINX_CONF_DIR"],
+        nginx_access_log=merged["NGINX_ACCESS_LOG"],
         db_scanner_enabled=_bool(merged["DB_SCANNER_ENABLED"]),
         rapidscan_workers=_safe_int(merged["RAPIDSCAN_WORKERS"], 4, min_val=1, max_val=32),
         rapidscan_mtime_cache=_bool(merged["RAPIDSCAN_MTIME_CACHE"]),

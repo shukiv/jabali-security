@@ -12,6 +12,9 @@ class WebShieldStatus(BaseModel):
     challenge_enabled: bool = False
     blocked_ips_count: int = 0
     config_dir: str = ""
+    bot_blocked_24h: int = 0
+    rate_limited_24h: int = 0
+    challenged_24h: int = 0
 
 
 class BotRule(BaseModel):

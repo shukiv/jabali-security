@@ -12,6 +12,10 @@
         <div class="stat-label">Incidents (24h)</div>
     </div>
     <div class="stat-card">
+        <div class="stat-value">{{ status.get('attacks_blocked_24h', 0) }}</div>
+        <div class="stat-label">Attacks Blocked (24h)</div>
+    </div>
+    <div class="stat-card">
         <div class="stat-value">{{ status.get('quarantined_count', 0) }}</div>
         <div class="stat-label">Quarantined Files</div>
     </div>

@@ -20,7 +20,9 @@ async def get_webshield_status(request: web.Request) -> web.Response:
     if not webshield:
         return _err("WebShield not enabled", 404)
 
-    status = webshield.get_status()
+    config = request.app.get("config")
+    access_log = config.nginx_access_log if config else "/var/log/nginx/access.log"
+    status = webshield.get_status(access_log=access_log)
     return _ok(status.model_dump())
 
 

@@ -3,7 +3,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 import shutil
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from lib.webshield.bot_rules import get_rules
@@ -11,6 +13,9 @@ from lib.webshield.config_generator import NginxConfigGenerator
 from lib.webshield.models import WebShieldStatus
 
 logger = logging.getLogger(__name__)
+
+_NGINX_DATE_RE = re.compile(r'\[(\d{2}/\w{3}/\d{4}:\d{2}:\d{2}:\d{2}) [+\-]\d{4}\]')
+_NGINX_STATUS_RE = re.compile(r'" (\d{3}) ')
 
 
 class WebShieldManager:
@@ -92,7 +97,7 @@ class WebShieldManager:
         except OSError:
             return False
 
-    def get_status(self) -> WebShieldStatus:
+    def get_status(self, access_log: str = "/var/log/nginx/access.log") -> WebShieldStatus:
         """Get current WebShield status."""
         http_conf = self._config_dir / "jabali-webshield-http.conf"
         server_conf = self._config_dir / "jabali-webshield-server.conf"
@@ -103,6 +108,8 @@ class WebShieldManager:
             blocked_count = sum(1 for line in blocked_conf.read_text().splitlines()
                                 if line.strip() and not line.startswith("#"))
 
+        counts = self._count_blocked_requests(access_log)
+
         return WebShieldStatus(
             installed=http_conf.is_file() and server_conf.is_file(),
             nginx_available=shutil.which("nginx") is not None,
@@ -111,7 +118,44 @@ class WebShieldManager:
             challenge_enabled=self._challenge_enabled,
             blocked_ips_count=blocked_count,
             config_dir=str(self._config_dir),
+            bot_blocked_24h=counts["bot_blocked"],
+            rate_limited_24h=counts["rate_limited"],
+            challenged_24h=counts["challenged"],
         )
+
+    def _count_blocked_requests(self, access_log: str = "/var/log/nginx/access.log") -> dict[str, int]:
+        """Count blocked/challenged requests from nginx access log in last 24h."""
+        counts = {"bot_blocked": 0, "rate_limited": 0, "challenged": 0}
+        log_path = Path(access_log)
+        if not log_path.is_file():
+            return counts
+
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+        try:
+            for line in log_path.read_text(errors="replace").splitlines():
+                dm = _NGINX_DATE_RE.search(line)
+                if not dm:
+                    continue
+                try:
+                    ts = datetime.strptime(dm.group(1), "%d/%b/%Y:%H:%M:%S").replace(tzinfo=timezone.utc)
+                except ValueError:
+                    continue
+                if ts < cutoff:
+                    continue
+
+                sm = _NGINX_STATUS_RE.search(line)
+                if not sm:
+                    continue
+                status = sm.group(1)
+                if status == "403":
+                    counts["bot_blocked"] += 1
+                elif status == "429":
+                    counts["rate_limited"] += 1
+                elif status == "503":
+                    counts["challenged"] += 1
+        except OSError:
+            pass
+        return counts
 
     def get_rules(self) -> list[dict]:
         """Get bot rules as dicts."""
