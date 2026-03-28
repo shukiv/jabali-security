@@ -578,8 +578,6 @@ class Security extends Page implements HasActions, HasForms
 
     public static array $configCategories = [
         'Daemon' => ['LOG_LEVEL', 'LOG_DIR', 'DATA_DIR', 'QUARANTINE_DIR', 'WORKERS'],
-        'API' => ['API_BIND', 'API_PORT', 'API_KEY'],
-        'Web Dashboard' => ['WEB_ENABLED', 'WEB_BIND', 'WEB_PORT'],
         'File Watcher' => ['WATCH_DIRS'],
         'Pre-Filter' => ['SCAN_EXTENSIONS', 'MAX_FILE_SIZE', 'SKIP_DIRS'],
         'Detection' => ['HEURISTIC_ENABLED', 'ENTROPY_ENABLED', 'ENTROPY_THRESHOLD', 'YARA_ENABLED', 'YARA_RULES_DIR'],
