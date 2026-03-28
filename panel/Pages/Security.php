@@ -134,6 +134,14 @@ class Security extends Page implements HasActions, HasForms
                     }
                 }),
 
+            Action::make('saveAndRestart')
+                ->label(__('Save & Restart'))
+                ->icon('heroicon-o-check')
+                ->color('success')
+                ->requiresConfirmation()
+                ->modalDescription(__('Save all config changes and restart the daemon?'))
+                ->action(fn () => $this->saveAndRestart()),
+
             Action::make('updateRules')
                 ->label(__('Update Rules'))
                 ->icon('heroicon-o-arrow-path')
@@ -341,16 +349,6 @@ class Security extends Page implements HasActions, HasForms
             Tabs::make(__('Configuration'))
                 ->contained()
                 ->tabs($tabs),
-            SchemaActions::make([
-                Action::make('saveAndRestart')
-                    ->label(__('Save & Restart'))
-                    ->icon('heroicon-o-check')
-                    ->color('success')
-                    ->size('lg')
-                    ->requiresConfirmation()
-                    ->modalDescription(__('This will save all changes and restart the security daemon.'))
-                    ->action(fn () => $this->saveAndRestart()),
-            ]),
         ];
     }
 
