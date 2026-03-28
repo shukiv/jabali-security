@@ -447,8 +447,8 @@ class Security extends Page implements HasActions, HasForms
         }
 
         return [
-            Section::make(__('Protection Modules'))->schema($coreToggles)->compact(),
-            Section::make(__('Advanced Protection'))->schema($advToggles)->compact(),
+            Section::make(__('Protection Modules'))->schema([Grid::make(3)->schema($coreToggles)])->compact(),
+            Section::make(__('Advanced Protection'))->schema([Grid::make(3)->schema($advToggles)])->compact(),
         ];
     }
 
