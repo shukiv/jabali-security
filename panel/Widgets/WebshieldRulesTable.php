@@ -26,7 +26,7 @@ class WebshieldRulesTable extends Component implements HasActions, HasSchemas, H
 
     protected function client(): JabaliSecurityClient
     {
-        return new JabaliSecurityClient;
+        return JabaliSecurityClient::getInstance();
     }
 
     public function table(Table $table): Table

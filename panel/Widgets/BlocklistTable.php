@@ -26,7 +26,7 @@ class BlocklistTable extends Component implements HasActions, HasSchemas, HasTab
 
     protected function client(): JabaliSecurityClient
     {
-        return new JabaliSecurityClient;
+        return JabaliSecurityClient::getInstance();
     }
 
     public function table(Table $table): Table
@@ -81,7 +81,7 @@ class BlocklistTable extends Component implements HasActions, HasSchemas, HasTab
                     ->icon('heroicon-o-lock-open')
                     ->requiresConfirmation()
                     ->action(function (array $record): void {
-                        $result = $this->client()->delete("/block/{$record['ip']}");
+                        $result = $this->client()->delete('/block/'.urlencode($record['ip']));
 
                         Notification::make()
                             ->title($result ? __('IP unblocked') : __('Failed to unblock IP'))

@@ -74,13 +74,13 @@ class Security extends Page implements HasActions, HasForms
 
     public function mount(): void
     {
-        $this->loadConfigData();
-        $this->loadModuleStates();
+        $config = $this->client()->get('/config') ?? [];
+        $this->loadConfigData($config);
+        $this->loadModuleStates($config);
     }
 
-    protected function loadModuleStates(): void
+    protected function loadModuleStates(array $config): void
     {
-        $config = $this->client()->get('/config') ?? [];
         foreach (static::getModuleToggles() as $group) {
             foreach ($group as $key => $mod) {
                 $this->moduleStates[$key] = in_array($config[$key] ?? 'no', ['yes', 'true', '1']);
@@ -103,9 +103,8 @@ class Security extends Page implements HasActions, HasForms
             ->send();
     }
 
-    protected function loadConfigData(): void
+    protected function loadConfigData(array $config): void
     {
-        $config = $this->client()->get('/config') ?? [];
         $data = [];
         foreach (static::$configCategories as $keys) {
             foreach ($keys as $key) {
@@ -132,7 +131,7 @@ class Security extends Page implements HasActions, HasForms
 
     protected function client(): JabaliSecurityClient
     {
-        return new JabaliSecurityClient;
+        return JabaliSecurityClient::getInstance();
     }
 
     // ── Header Actions ───────────────────────────────────────────────
@@ -604,12 +603,9 @@ class Security extends Page implements HasActions, HasForms
             }
         }
 
-        // Restart daemon to apply new config
-        \Illuminate\Support\Facades\Process::run('/usr/bin/systemctl restart jabali-security');
-
         Notification::make()
             ->title(__('Settings saved'))
-            ->body(count($payload).' '.__('settings applied, daemon restarted'))
+            ->body(count($payload).' '.__('settings applied'))
             ->success()
             ->send();
     }
@@ -618,15 +614,21 @@ class Security extends Page implements HasActions, HasForms
 
     public function enableFirewall(): void
     {
-        $this->client()->post('/firewall/ufw/enable');
-        Notification::make()->title(__('Firewall enabled'))->success()->send();
+        $result = $this->client()->post('/firewall/ufw/enable');
+        Notification::make()
+            ->title($result ? __('Firewall enabled') : __('Failed to enable firewall'))
+            ->color($result ? 'success' : 'danger')
+            ->send();
         $this->redirect(static::getUrl(['tab' => 'defense', 'defense' => 'firewall']));
     }
 
     public function disableFirewall(): void
     {
-        $this->client()->post('/firewall/ufw/disable');
-        Notification::make()->title(__('Firewall disabled'))->success()->send();
+        $result = $this->client()->post('/firewall/ufw/disable');
+        Notification::make()
+            ->title($result ? __('Firewall disabled') : __('Failed to disable firewall'))
+            ->color($result ? 'success' : 'danger')
+            ->send();
         $this->redirect(static::getUrl(['tab' => 'defense', 'defense' => 'firewall']));
     }
 
@@ -636,13 +638,6 @@ class Security extends Page implements HasActions, HasForms
         'DATA_DIR' => 'Directory for SQLite database and cached data',
         'QUARANTINE_DIR' => 'Where quarantined malicious files are moved to',
         'WORKERS' => 'Number of parallel scan workers (1-32)',
-        'API_BIND' => 'TCP bind address for API fallback. Empty = socket only (recommended)',
-        'API_PORT' => 'TCP port when API_BIND is set',
-        'API_KEY' => 'Authentication key for API access. Auto-generated on install',
-        'API_SOCKET' => 'Unix socket path for secure local API communication',
-        'WEB_ENABLED' => 'Enable the standalone web dashboard (port 8443)',
-        'WEB_BIND' => 'Web dashboard bind address',
-        'WEB_PORT' => 'Web dashboard port',
         'WATCH_DIRS' => 'Comma-separated directory globs to monitor for file changes',
         'SCAN_EXTENSIONS' => 'File extensions to scan (comma-separated)',
         'MAX_FILE_SIZE' => 'Maximum file size to scan in bytes (default 2MB)',

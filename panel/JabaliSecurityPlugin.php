@@ -63,7 +63,6 @@ class JabaliSecurityPlugin implements Plugin
         $data['security_notify_bruteforce'] = in_array($config['BRUTEFORCE_ENABLED'] ?? 'no', ['yes', 'true', '1']);
         $data['security_notify_waf'] = in_array($config['WAF_ENABLED'] ?? 'no', ['yes', 'true', '1']);
         $data['security_notify_quarantine'] = in_array($config['AUTO_QUARANTINE'] ?? 'no', ['yes', 'true', '1']);
-        $data['security_notify_webhook'] = $config['NOTIFY_WEBHOOK'] ?? '';
 
         return [
             Section::make(__('Security Alerts'))

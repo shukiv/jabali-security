@@ -25,7 +25,7 @@ class QuarantineTable extends Component implements HasActions, HasSchemas, HasTa
 
     protected function client(): JabaliSecurityClient
     {
-        return new JabaliSecurityClient;
+        return JabaliSecurityClient::getInstance();
     }
 
     public function table(Table $table): Table

@@ -23,7 +23,7 @@ class YaraRulesTable extends Component implements HasActions, HasSchemas, HasTab
 
     protected function client(): JabaliSecurityClient
     {
-        return new JabaliSecurityClient;
+        return JabaliSecurityClient::getInstance();
     }
 
     public function table(Table $table): Table

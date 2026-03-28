@@ -23,7 +23,7 @@ class UsersTable extends Component implements HasActions, HasSchemas, HasTable
 
     protected function client(): JabaliSecurityClient
     {
-        return new JabaliSecurityClient;
+        return JabaliSecurityClient::getInstance();
     }
 
     public function table(Table $table): Table

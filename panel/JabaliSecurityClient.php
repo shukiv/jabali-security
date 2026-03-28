@@ -15,10 +15,20 @@ class JabaliSecurityClient
 
     protected ?string $socketPath = null;
 
+    private static ?self $instance = null;
+
+    public static function getInstance(): self
+    {
+        if (self::$instance === null) {
+            self::$instance = new self;
+        }
+
+        return self::$instance;
+    }
+
     public function __construct()
     {
-        $this->apiKey = $this->loadApiKey();
-        $this->socketPath = $this->loadSocketPath();
+        $this->loadConfig();
         // If no socket, fall back to TCP URL
         if (! $this->socketPath || ! file_exists($this->socketPath)) {
             $this->baseUrl = 'http://127.0.0.1:9876/api/v1';
@@ -141,41 +151,26 @@ class JabaliSecurityClient
         return $headers;
     }
 
-    protected function loadApiKey(): ?string
+    protected function loadConfig(): void
     {
         $configFile = '/etc/jabali-security/jabali-security.conf';
         if (! file_exists($configFile)) {
-            return null;
+            return;
         }
 
         $content = file_get_contents($configFile);
         if ($content === false) {
-            return null;
+            return;
         }
 
         if (preg_match('/^API_KEY="([^"]*)"$/m', $content, $matches)) {
-            return $matches[1] !== '' ? $matches[1] : null;
-        }
-
-        return null;
-    }
-
-    protected function loadSocketPath(): ?string
-    {
-        $configFile = '/etc/jabali-security/jabali-security.conf';
-        if (! file_exists($configFile)) {
-            return null;
-        }
-
-        $content = file_get_contents($configFile);
-        if ($content === false) {
-            return null;
+            $this->apiKey = $matches[1] !== '' ? $matches[1] : null;
         }
 
         if (preg_match('/^API_SOCKET="([^"]*)"$/m', $content, $matches)) {
-            return $matches[1] !== '' ? $matches[1] : null;
+            $this->socketPath = $matches[1] !== '' ? $matches[1] : null;
+        } else {
+            $this->socketPath = '/run/jabali-security/jabali-security.sock';
         }
-
-        return '/run/jabali-security/jabali-security.sock';
     }
 }

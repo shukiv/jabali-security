@@ -28,7 +28,7 @@ class FirewallRulesTable extends Component implements HasActions, HasSchemas, Ha
 
     protected function client(): JabaliSecurityClient
     {
-        return new JabaliSecurityClient;
+        return JabaliSecurityClient::getInstance();
     }
 
     public function table(Table $table): Table
@@ -73,7 +73,10 @@ class FirewallRulesTable extends Component implements HasActions, HasSchemas, Ha
                             ->required(),
                         TextInput::make('port')
                             ->label(__('Port'))
-                            ->required(),
+                            ->required()
+                            ->numeric()
+                            ->minValue(1)
+                            ->maxValue(65535),
                         Select::make('protocol')
                             ->label(__('Protocol'))
                             ->options([
