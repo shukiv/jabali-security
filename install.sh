@@ -263,6 +263,8 @@ do_install() {
     cp "$tmp_dir"/lib/threat_intel/*.py "$INSTALL_DIR/lib/threat_intel/"
     cp "$tmp_dir"/lib/webshield/*.py "$INSTALL_DIR/lib/webshield/"
     cp "$tmp_dir"/lib/ufw/*.py "$INSTALL_DIR/lib/ufw/"
+    mkdir -p "$INSTALL_DIR/lib/sshjail"
+    cp "$tmp_dir"/lib/sshjail/*.py "$INSTALL_DIR/lib/sshjail/"
     cp "$tmp_dir"/api/*.py "$INSTALL_DIR/api/"
     mkdir -p "$INSTALL_DIR/api/routes"
     cp "$tmp_dir"/api/routes/*.py "$INSTALL_DIR/api/routes/"
@@ -738,7 +740,7 @@ do_update() {
     # -- Update application files (preserve config/data/venv) --
     cp "$tmp_dir"/daemon/*.py "$INSTALL_DIR/daemon/"
     cp "$tmp_dir"/lib/*.py "$INSTALL_DIR/lib/"
-    for subdir in watcher scanner bruteforce waf proactive cleanup threat_intel webshield ufw; do
+    for subdir in watcher scanner bruteforce waf proactive cleanup threat_intel webshield ufw sshjail; do
         mkdir -p "$INSTALL_DIR/lib/$subdir"
         cp "$tmp_dir"/lib/$subdir/*.py "$INSTALL_DIR/lib/$subdir/" 2>/dev/null || true
     done
