@@ -403,7 +403,7 @@ class Security extends Page implements HasActions, HasForms
         }
 
         // Restart daemon
-        process(['/usr/bin/systemctl', 'restart', 'jabali-security'])->run();
+        \Illuminate\Support\Facades\Process::run('/usr/bin/systemctl restart jabali-security');
 
         Notification::make()
             ->title(__('Settings saved'))
