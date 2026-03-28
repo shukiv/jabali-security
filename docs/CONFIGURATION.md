@@ -77,12 +77,11 @@ See also: `etc/jabali-security.conf.example` for a fully commented template.
 
 ## Detection
 
+Heuristic, entropy, and YARA-X scanners are always enabled (core detection engines).
+
 | Key | Type | Default | Description |
 |---|---|---|---|
-| `HEURISTIC_ENABLED` | bool | `yes` | Enable heuristic analysis (regex pattern matching) |
-| `ENTROPY_ENABLED` | bool | `yes` | Enable Shannon entropy analysis |
 | `ENTROPY_THRESHOLD` | float | `4.5` | Entropy threshold (0.0-8.0); content above this is flagged |
-| `YARA_ENABLED` | bool | `yes` | Enable YARA-X signature scanning |
 | `YARA_RULES_DIR` | path | `/usr/local/jabali-security/rules` | Directory containing YARA-X rule files (`.yar`) |
 
 ## ClamAV (Optional)
@@ -112,16 +111,18 @@ Scoring determines the action for each detected threat:
 
 ## Process Monitor
 
+Process monitoring is always enabled (core detection engine).
+
 | Key | Type | Default | Description |
 |---|---|---|---|
-| `PROCESS_MONITOR_ENABLED` | bool | `yes` | Enable monitoring of suspicious process trees |
 | `PROCESS_POLL_INTERVAL` | int | `2` | Poll interval in seconds for /proc scanning (1-300) |
 
 ## Behavior Tracking
 
+Behavior tracking is always enabled (core detection engine).
+
 | Key | Type | Default | Description |
 |---|---|---|---|
-| `BEHAVIOR_TRACKING_ENABLED` | bool | `yes` | Enable file lifecycle tracking (CREATE -> MODIFY -> EXECUTE) |
 | `BEHAVIOR_TTL` | int | `300` | Time-to-live in seconds for behavior records. Min: 10. |
 
 ## Response
@@ -168,11 +169,10 @@ Scoring determines the action for each detected threat:
 | `WAF_CRS_AUTO_UPDATE` | bool | `no` | Auto-update OWASP CRS on rules update |
 | `WAF_WEB_SERVER` | string | `auto` | Web server to reload: `auto`, `nginx`, `apache` |
 
-## Proactive Defense
+## Process Killer
 
 | Key | Type | Default | Description |
 |---|---|---|---|
-| `PROACTIVE_ENABLED` | bool | `no` | Enable proactive defense subsystem (master switch) |
 | `PROCESS_KILL_ENABLED` | bool | `no` | Enable proactive killing of suspicious processes |
 | `PROCESS_KILL_THRESHOLD` | int | `70` | Minimum threat score to kill a process (1-100) |
 | `PROCESS_KILL_MIN_UID` | int | `1000` | Minimum UID for killable processes (protects system processes) |
@@ -260,9 +260,6 @@ Available feeds: `spamhaus_drop`, `spamhaus_edrop`, `blocklist_de_all`, `tor_exi
 ```
 LOG_LEVEL="info"
 WATCH_DIRS="/home/*/public_html"
-HEURISTIC_ENABLED="yes"
-ENTROPY_ENABLED="yes"
-YARA_ENABLED="yes"
 AUTO_QUARANTINE="yes"
 ```
 
@@ -271,7 +268,6 @@ AUTO_QUARANTINE="yes"
 ```
 BRUTEFORCE_ENABLED="yes"
 WAF_ENABLED="yes"
-PROACTIVE_ENABLED="yes"
 PROCESS_KILL_ENABLED="yes"
 CLEANUP_ENABLED="yes"
 CLEANUP_AUTO="yes"

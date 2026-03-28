@@ -444,8 +444,6 @@ MODSECEOF
         sed -i 's|^WAF_ENABLED="no"|WAF_ENABLED="yes"|' "$CONFIG_DIR/jabali-security.conf"
         echo "  WAF (ModSecurity) ........ enabled"
     fi
-    sed -i 's|^PROACTIVE_ENABLED="no"|PROACTIVE_ENABLED="yes"|' "$CONFIG_DIR/jabali-security.conf" 2>/dev/null
-    echo "  Proactive Defense ........ enabled"
     sed -i 's|^PROCESS_KILL_ENABLED="no"|PROCESS_KILL_ENABLED="yes"|' "$CONFIG_DIR/jabali-security.conf" 2>/dev/null
     echo "  Process Killer ........... enabled"
     sed -i 's|^THREAT_INTEL_ENABLED="no"|THREAT_INTEL_ENABLED="yes"|' "$CONFIG_DIR/jabali-security.conf" 2>/dev/null

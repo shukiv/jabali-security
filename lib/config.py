@@ -30,17 +30,12 @@ DEFAULTS: dict[str, str] = {
     "SCAN_EXTENSIONS": ".php,.phtml,.js,.py,.sh,.cgi,.pl,.asp,.aspx,.jsp",
     "MAX_FILE_SIZE": "2097152",
     "SKIP_DIRS": ".git,node_modules,vendor,__pycache__,.cache",
-    "HEURISTIC_ENABLED": "yes",
-    "ENTROPY_ENABLED": "yes",
     "ENTROPY_THRESHOLD": "4.5",
-    "YARA_ENABLED": "yes",
     "YARA_RULES_DIR": "/usr/local/jabali-security/rules",
     "SCORE_LOG": "40",
     "SCORE_QUARANTINE": "70",
     "SCORE_SUSPEND": "100",
-    "PROCESS_MONITOR_ENABLED": "yes",
     "PROCESS_POLL_INTERVAL": "2",
-    "BEHAVIOR_TRACKING_ENABLED": "yes",
     "BEHAVIOR_TTL": "300",
     "AUTO_QUARANTINE": "yes",
     "AUTO_SUSPEND": "no",
@@ -72,7 +67,6 @@ DEFAULTS: dict[str, str] = {
     "WAF_CRS_AUTO_UPDATE": "no",
     "WAF_WEB_SERVER": "auto",
     "WAF_NGINX_INCLUDE": "/etc/nginx/jabali/includes/waf.conf",
-    "PROACTIVE_ENABLED": "no",
     "PROCESS_KILL_ENABLED": "no",
     "PROCESS_KILL_THRESHOLD": "70",
     "PROCESS_KILL_MIN_UID": "1000",
@@ -223,17 +217,12 @@ class JabaliConfig:
     )
     max_file_size: int = 2097152
     skip_dirs: list[str] = field(default_factory=lambda: [".git", "node_modules", "vendor", "__pycache__", ".cache"])
-    heuristic_enabled: bool = True
-    entropy_enabled: bool = True
     entropy_threshold: float = 4.5
-    yara_enabled: bool = True
     yara_rules_dir: str = "/usr/local/jabali-security/rules"
     score_log: int = 40
     score_quarantine: int = 70
     score_suspend: int = 100
-    process_monitor_enabled: bool = True
     process_poll_interval: int = 2
-    behavior_tracking_enabled: bool = True
     behavior_ttl: int = 300
     auto_quarantine: bool = True
     auto_suspend: bool = False
@@ -265,7 +254,6 @@ class JabaliConfig:
     waf_crs_auto_update: bool = False
     waf_web_server: str = "auto"
     waf_nginx_include: str = "/etc/nginx/jabali/includes/waf.conf"
-    proactive_enabled: bool = False
     process_kill_enabled: bool = False
     process_kill_threshold: int = 70
     process_kill_min_uid: int = 1000
@@ -354,17 +342,12 @@ def load_config(filepath: Path | None = None) -> JabaliConfig:
         scan_extensions=_csv_list(merged["SCAN_EXTENSIONS"]),
         max_file_size=_safe_int(merged["MAX_FILE_SIZE"], 2097152, min_val=1024),
         skip_dirs=_csv_list(merged["SKIP_DIRS"]),
-        heuristic_enabled=_bool(merged["HEURISTIC_ENABLED"]),
-        entropy_enabled=_bool(merged["ENTROPY_ENABLED"]),
         entropy_threshold=_safe_float(merged["ENTROPY_THRESHOLD"], 4.5, 0.0, 8.0),
-        yara_enabled=_bool(merged["YARA_ENABLED"]),
         yara_rules_dir=merged["YARA_RULES_DIR"],
         score_log=_safe_int(merged["SCORE_LOG"], 40, min_val=0),
         score_quarantine=_safe_int(merged["SCORE_QUARANTINE"], 70, min_val=0),
         score_suspend=_safe_int(merged["SCORE_SUSPEND"], 100, min_val=0),
-        process_monitor_enabled=_bool(merged["PROCESS_MONITOR_ENABLED"]),
         process_poll_interval=_safe_int(merged["PROCESS_POLL_INTERVAL"], 2, min_val=1, max_val=300),
-        behavior_tracking_enabled=_bool(merged["BEHAVIOR_TRACKING_ENABLED"]),
         behavior_ttl=_safe_int(merged["BEHAVIOR_TTL"], 300, min_val=10),
         auto_quarantine=_bool(merged["AUTO_QUARANTINE"]),
         auto_suspend=_bool(merged["AUTO_SUSPEND"]),
@@ -399,7 +382,6 @@ def load_config(filepath: Path | None = None) -> JabaliConfig:
         waf_crs_auto_update=_bool(merged["WAF_CRS_AUTO_UPDATE"]),
         waf_web_server=merged["WAF_WEB_SERVER"],
         waf_nginx_include=merged["WAF_NGINX_INCLUDE"],
-        proactive_enabled=_bool(merged["PROACTIVE_ENABLED"]),
         process_kill_enabled=_bool(merged["PROCESS_KILL_ENABLED"]),
         process_kill_threshold=_safe_int(merged["PROCESS_KILL_THRESHOLD"], 70, min_val=1, max_val=100),
         process_kill_min_uid=_safe_int(merged["PROCESS_KILL_MIN_UID"], 1000, min_val=0),

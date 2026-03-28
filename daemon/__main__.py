@@ -652,7 +652,6 @@ def config_test() -> None:
     click.echo("  Watch dirs:    %s" % ", ".join(config.watch_dirs))
     click.echo("  Scan ext:      %s" % ", ".join(config.scan_extensions))
     click.echo("  Max file size: %d bytes" % config.max_file_size)
-    click.echo("  YARA enabled:  %s" % config.yara_enabled)
     click.echo("  ClamAV:        %s" % config.clamav_enabled)
 
     warnings: list[str] = []

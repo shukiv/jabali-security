@@ -56,17 +56,8 @@ SKIP_DIRS=".git,node_modules,vendor,__pycache__,.cache"
 
 # -- Detection ---------------------------------------------------------------
 
-# Enable heuristic analysis (regex pattern matching)
-HEURISTIC_ENABLED="yes"
-
-# Enable Shannon entropy analysis
-ENTROPY_ENABLED="yes"
-
 # Entropy threshold (0.0 - 8.0); content above this is flagged
 ENTROPY_THRESHOLD="4.5"
-
-# Enable YARA-X signature scanning
-YARA_ENABLED="yes"
 
 # Directory containing YARA-X rule files (.yar)
 YARA_RULES_DIR="/usr/local/jabali-security/rules"
@@ -95,16 +86,10 @@ SCORE_SUSPEND="100"
 
 # -- Process Monitor ---------------------------------------------------------
 
-# Enable monitoring of suspicious process trees
-PROCESS_MONITOR_ENABLED="yes"
-
 # Poll interval in seconds for /proc scanning
 PROCESS_POLL_INTERVAL="2"
 
 # -- Behavior Tracking -------------------------------------------------------
-
-# Enable file lifecycle tracking (CREATE -> MODIFY -> EXECUTE patterns)
-BEHAVIOR_TRACKING_ENABLED="yes"
 
 # Time-to-live in seconds for behavior tracking records
 BEHAVIOR_TTL="300"
@@ -157,10 +142,7 @@ WAF_WEB_SERVER="auto"
 # Nginx include file for per-site modsecurity on/off toggle
 WAF_NGINX_INCLUDE="/etc/nginx/jabali/includes/waf.conf"
 
-# -- Proactive Defense -------------------------------------------------------
-
-# Enable proactive defense subsystem (master switch)
-PROACTIVE_ENABLED="no"
+# -- Process Killer ----------------------------------------------------------
 
 # Enable proactive killing of suspicious processes above score threshold
 PROCESS_KILL_ENABLED="no"

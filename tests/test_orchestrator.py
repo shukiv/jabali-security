@@ -11,9 +11,6 @@ from lib.scanner import ScanOrchestrator
 @pytest.fixture
 def config():
     return JabaliConfig(
-        heuristic_enabled=True,
-        entropy_enabled=True,
-        yara_enabled=False,  # skip for test speed
         clamav_enabled="no",
     )
 
@@ -41,19 +38,15 @@ class TestScanOrchestrator:
         findings = await orch.scan("/clean.php", _CLEAN_PHP)
         assert findings == []
 
-    async def test_disabled_scanners_excluded(self):
+    async def test_clamav_excluded_when_disabled(self):
         config = JabaliConfig(
-            heuristic_enabled=False,
-            entropy_enabled=False,
-            yara_enabled=False,
             clamav_enabled="no",
         )
         orch = ScanOrchestrator(config)
-        assert orch.scanner_names == []
-        # Even malicious content should produce no findings when all scanners disabled
-        test_content = b"<?php system('whoami'); ?>"
-        findings = await orch.scan("/test.php", test_content)
-        assert findings == []
+        # Core scanners (heuristic, entropy, yara) are always enabled
+        assert "heuristic" in orch.scanner_names
+        assert "entropy" in orch.scanner_names
+        assert "clamav" not in orch.scanner_names
 
     async def test_scanner_names_reflects_enabled(self, config):
         orch = ScanOrchestrator(config)

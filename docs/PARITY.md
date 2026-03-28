@@ -44,15 +44,9 @@ Every feature available in the web dashboard must have an equivalent in the Jaba
 
 | Toggle | Web Dashboard | Panel Plugin | Status |
 |--------|:---:|:---:|--------|
-| Heuristic Scanner | Yes | Yes | Parity |
-| Entropy Scanner | Yes | Yes | Parity |
-| YARA-X Rules | Yes | Yes | Parity |
-| Process Monitor | Yes | Yes | Parity |
-| Behavior Tracking | Yes | Yes | Parity |
 | Auto Quarantine | Yes | Yes | Parity |
 | WAF (ModSecurity) | Yes | Yes | Parity |
 | Brute-Force Protection | Yes | Yes | Parity |
-| Proactive Defense | Yes | Yes | Parity |
 | Process Killer | Yes | Yes | Parity |
 | WebShield | Yes | Yes | Parity |
 | Threat Intelligence | Yes | Yes | Parity |
@@ -60,6 +54,8 @@ Every feature available in the web dashboard must have an equivalent in the Jaba
 | UFW Firewall | Yes | Yes | Parity |
 | Scheduled Scans | Yes | Yes | Parity |
 | Auto Suspend | Yes | Yes | Parity |
+
+Note: Heuristic, Entropy, YARA-X, Process Monitor, and Behavior Tracking are always-on core engines (no toggle). Proactive Defense master switch was removed; use Process Killer toggle directly.
 
 ### Actions
 

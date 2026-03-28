@@ -22,12 +22,9 @@ class ScanOrchestrator:
     def __init__(self, config: JabaliConfig) -> None:
         self._scanners: list[ScannerBase] = []
 
-        if config.heuristic_enabled:
-            self._scanners.append(HeuristicScanner())
-        if config.entropy_enabled:
-            self._scanners.append(EntropyScanner(threshold=config.entropy_threshold))
-        if config.yara_enabled:
-            self._scanners.append(YaraEngine(rules_dir=config.yara_rules_dir))
+        self._scanners.append(HeuristicScanner())
+        self._scanners.append(EntropyScanner(threshold=config.entropy_threshold))
+        self._scanners.append(YaraEngine(rules_dir=config.yara_rules_dir))
 
         # ClamAV: auto-detect or explicit
         clamav = ClamavScanner(socket_path=config.clamav_socket, mode=config.clamav_enabled)

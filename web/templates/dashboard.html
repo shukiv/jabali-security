@@ -57,11 +57,6 @@
 <div class="card">
     <h3>Protection Modules</h3>
     <div class="protection-grid">
-        {{ toggle("heuristic", "Heuristic Scanner", config.get("HEURISTIC_ENABLED", "yes") in ("yes", "true", "1"), "Regex pattern matching for malicious code") }}
-        {{ toggle("entropy", "Entropy Scanner", config.get("ENTROPY_ENABLED", "yes") in ("yes", "true", "1"), "Detects encoded/obfuscated payloads via Shannon entropy") }}
-        {{ toggle("yara", "YARA-X Rules", config.get("YARA_ENABLED", "yes") in ("yes", "true", "1"), "Signature-based scanning with YARA-X rules") }}
-        {{ toggle("process_monitor", "Process Monitor", config.get("PROCESS_MONITOR_ENABLED", "yes") in ("yes", "true", "1"), "Monitors running processes for suspicious activity") }}
-        {{ toggle("behavior_tracking", "Behavior Tracking", config.get("BEHAVIOR_TRACKING_ENABLED", "yes") in ("yes", "true", "1"), "Tracks file lifecycle patterns (create, modify, execute)") }}
         {{ toggle("auto_quarantine", "Auto Quarantine", config.get("AUTO_QUARANTINE", "yes") in ("yes", "true", "1"), "Automatically quarantine files above score threshold") }}
     </div>
 </div>
@@ -71,7 +66,6 @@
     <div class="protection-grid">
         {{ toggle("waf", "WAF (ModSecurity)", config.get("WAF_ENABLED", "no") in ("yes", "true", "1"), "Web application firewall with OWASP Core Rule Set") }}
         {{ toggle("bruteforce", "Brute-Force Protection", config.get("BRUTEFORCE_ENABLED", "no") in ("yes", "true", "1"), "Blocks IPs after repeated failed login attempts") }}
-        {{ toggle("proactive", "Proactive Defense", config.get("PROACTIVE_ENABLED", "no") in ("yes", "true", "1"), "Master switch for process killer") }}
         {{ toggle("process_kill", "Process Killer", config.get("PROCESS_KILL_ENABLED", "no") in ("yes", "true", "1"), "Kills suspicious processes (reverse shells, miners)") }}
         {{ toggle("webshield", "WebShield", config.get("WEBSHIELD_ENABLED", "no") in ("yes", "true", "1"), "Nginx-level bot filtering, rate limiting, JS challenges") }}
         {{ toggle("threat_intel", "Threat Intelligence", config.get("THREAT_INTEL_ENABLED", "no") in ("yes", "true", "1"), "IP reputation and malware hash feeds") }}

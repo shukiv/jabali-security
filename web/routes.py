@@ -32,7 +32,6 @@ _FEATURE_DEPS: dict[str, list[str]] = {
 _TOGGLE_KEYS = {
     "waf": "WAF_ENABLED",
     "bruteforce": "BRUTEFORCE_ENABLED",
-    "proactive": "PROACTIVE_ENABLED",
     "process_kill": "PROCESS_KILL_ENABLED",
     "cleanup": "CLEANUP_ENABLED",
     "cleanup_auto": "CLEANUP_AUTO",
@@ -42,11 +41,6 @@ _TOGGLE_KEYS = {
     "ufw": "UFW_ENABLED",
     "auto_quarantine": "AUTO_QUARANTINE",
     "auto_suspend": "AUTO_SUSPEND",
-    "heuristic": "HEURISTIC_ENABLED",
-    "entropy": "ENTROPY_ENABLED",
-    "yara": "YARA_ENABLED",
-    "process_monitor": "PROCESS_MONITOR_ENABLED",
-    "behavior_tracking": "BEHAVIOR_TRACKING_ENABLED",
     "sshjail": "SSHJAIL_ENABLED",
 }
 

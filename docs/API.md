@@ -434,7 +434,7 @@ Get current configuration. All values are returned as strings. Booleans as `"yes
   "LOG_LEVEL": "info",
   "WORKERS": "4",
   "API_KEY": "set",
-  "YARA_ENABLED": "yes",
+  "ENTROPY_THRESHOLD": "4.5",
   "WATCH_DIRS": "/home/*/public_html,/home/*/domains/*/public_html,/home/*/tmp"
 }
 ```
@@ -1077,7 +1077,7 @@ Deny traffic for an application profile.
 | Rules | 2 | -- |
 | Brute-Force | 4 | `BRUTEFORCE_ENABLED` |
 | WAF | 6 | `WAF_ENABLED` |
-| Proactive Defense | 2 | `PROACTIVE_ENABLED` |
+| Process Killer | 2 | `PROCESS_KILL_ENABLED` |
 | Cleanup | 2 | `CLEANUP_ENABLED` |
 | Threat Intel | 4 | `THREAT_INTEL_ENABLED` |
 | WebShield | 5 | `WEBSHIELD_ENABLED` |

@@ -37,7 +37,7 @@ async def get_rules(request: web.Request) -> web.Response:
     return _ok({
         "yara_rules": yara_files,
         "yara_rules_dir": str(rules_dir),
-        "yara_enabled": config.yara_enabled,
+        "yara_enabled": True,
         "clamav_enabled": clamav_available,
         "scanners": scanner.scanner_names,
     })

@@ -93,7 +93,6 @@ class ComponentRegistry:
 
         proc_monitor = ProcessMonitor(
             poll_interval=config.process_poll_interval,
-            enabled=config.process_monitor_enabled,
         )
         proactive_killer = ProactiveProcessKiller(
             enabled=config.process_kill_enabled,

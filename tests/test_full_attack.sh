@@ -1218,7 +1218,7 @@ separator
 bold "PHASE 12: PROACTIVE DEFENSE"
 separator
 
-if feature_enabled "PROACTIVE_ENABLED"; then
+if feature_enabled "PROCESS_KILL_ENABLED"; then
     log ""
     log "12.1 Status"
 
@@ -1249,7 +1249,7 @@ if feature_enabled "PROACTIVE_ENABLED"; then
     fi
 
 else
-    skip_test "Proactive defense disabled (PROACTIVE_ENABLED=no)"
+    skip_test "Process killer disabled (PROCESS_KILL_ENABLED=no)"
 fi
 
 # ============================================================================
