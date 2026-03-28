@@ -3,7 +3,7 @@
 {% block content %}
 <div class="page-header">
     <h1>Security Incidents</h1>
-    <p>Security events detected by the scanning engines. Review threat scores, severity levels, and actions taken. Resolve incidents after investigation.</p>
+    <p>Security events detected by the scanning engines (heuristic, entropy, YARA-X, ClamAV). Each scanner assigns a score to its findings, which are aggregated into a total threat score. Scoring thresholds determine the action: below 40 = ignored, 40&ndash;70 = logged as incident (low/medium), 70&ndash;100 = file quarantined (high), 100+ = account suspended (critical). Thresholds are configurable in Settings.</p>
 </div>
 
 <div class="card">

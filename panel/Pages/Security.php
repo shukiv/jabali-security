@@ -179,7 +179,7 @@ class Security extends Page implements HasActions, HasForms
                                 ->tabs([
                                     'incidents' => Tab::make(__('Incidents'))
                                         ->schema([
-                                            Text::make(__('Security events detected by the scanning engines. Each incident shows the file path, threat score, severity, and action taken. You can review and resolve incidents here.'))
+                                            Text::make(__('Security events detected by the scanning engines (heuristic, entropy, YARA-X, ClamAV). Each scanner assigns a score to its findings, which are aggregated into a total threat score. Scoring thresholds determine the action: below 40 = ignored, 40-70 = logged as incident (low/medium), 70-100 = file quarantined (high), 100+ = account suspended (critical). These thresholds are configurable in Settings. You can review details and resolve incidents here.'))
                                                 ->size(TextSize::Small)
                                                 ->color('gray'),
                                             EmbeddedTable::make(IncidentsTable::class),
