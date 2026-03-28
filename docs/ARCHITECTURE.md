@@ -236,7 +236,7 @@ The web dashboard is a separate process (systemd service `jabali-security-web`).
 |---|---|
 | `JabaliSecurityPlugin.php` | Filament v5 plugin class |
 | `JabaliSecurityClient.php` | HTTP client for daemon API |
-| `Pages/Security.php` | Single page with tabs (Overview, Incidents, Quarantine, Blocklist, Firewall, Config) |
+| `Pages/Security.php` | Single page with 5 grouped tabs: Overview, Threats (Incidents, Quarantine, Cleanup), Defense (Blocklist, Firewall, WAF, Brute-Force, WebShield), Intelligence (Users, Threat Intel, Rules), Settings (Proactive, Config) |
 | `Widgets/SecurityStatsWidget.php` | Stats overview widget |
 | `views/security.blade.php` | Blade view template |
 

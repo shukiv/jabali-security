@@ -91,8 +91,15 @@ All features have reached parity as of 2026-03-28.
 
 ## Implementation Notes
 
-- Panel plugin uses **Filament Tabs** — new features = new tabs on the Security page
-- All data comes from the **REST API** (`127.0.0.1:9876`) — no direct database access
+- Both interfaces use **grouped navigation** — 14+ features are organized into 5 logical groups:
+  1. **Overview/Dashboard** — stats + module toggles
+  2. **Threats** — Incidents, Quarantine, Scan (web only), Cleanup
+  3. **Defense** — Blocklist, Firewall, WAF, Brute-Force, WebShield
+  4. **Intelligence** — Users, Threat Intel, Rules
+  5. **Settings** — Proactive, Config
+- Panel plugin uses **Filament Tabs** with grouped tab structure on the Security page
+- Web dashboard uses a **grouped sidebar** matching the same 5 groups
+- All data comes from the **REST API** (Unix socket) — no direct database access
 - API client: `panel/JabaliSecurityClient.php` wraps all HTTP calls
 - After updating panel plugin code, **restart `jabali-panel` service** (FrankenPHP caches PHP in worker mode)
 - Module toggles require writing to `/etc/jabali-security/jabali-security.conf` and restarting the daemon

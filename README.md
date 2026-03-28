@@ -149,7 +149,7 @@ Full reference: [docs/API.md](docs/API.md)
 
 Served by Waitress on port 8443 (configurable). Login uses the API key as the password.
 
-Pages: Dashboard overview, Incidents, Quarantine, Scan, Users, Blocklist, WAF, Brute-force, Proactive Defense, Cleanup, Threat Intel, WebShield, Config, Rules.
+Navigation is organized into 5 groups: **Overview** (stats + module toggles), **Threats** (Incidents, Quarantine, Scan, Cleanup), **Defense** (Blocklist, Firewall, WAF, Brute-Force, WebShield), **Intelligence** (Users, Threat Intel, Rules), and **Settings** (Proactive, Config).
 
 Features: real-time stats, feature enable/disable toggles, incident drill-down, one-click quarantine restore, config editor with tabs and reset button.
 

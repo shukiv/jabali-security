@@ -60,6 +60,18 @@ class Security extends Page implements HasActions, HasForms
     #[Url(as: 'tab')]
     public string $activeTab = 'overview';
 
+    #[Url(as: 'threats')]
+    public string $threatsTab = 'incidents';
+
+    #[Url(as: 'defense')]
+    public string $defenseTab = 'firewall';
+
+    #[Url(as: 'intelligence')]
+    public string $intelligenceTab = 'rules';
+
+    #[Url(as: 'settings')]
+    public string $settingsTab = 'proactive';
+
     public function getTitle(): string|Htmlable
     {
         return __('Security');
@@ -139,45 +151,68 @@ class Security extends Page implements HasActions, HasForms
                             [Livewire::make(SecurityStatsWidget::class)],
                             $this->overviewTab(),
                         )),
-                    'incidents' => Tab::make(__('Incidents'))
+                    'threats' => Tab::make(__('Threats'))
                         ->icon('heroicon-o-exclamation-triangle')
-                        ->schema([EmbeddedTable::make(IncidentsTable::class)]),
-                    'quarantine' => Tab::make(__('Quarantine'))
-                        ->icon('heroicon-o-lock-closed')
-                        ->schema([EmbeddedTable::make(QuarantineTable::class)]),
-                    'blocklist' => Tab::make(__('Blocklist'))
-                        ->icon('heroicon-o-no-symbol')
-                        ->schema([EmbeddedTable::make(BlocklistTable::class)]),
-                    'waf' => Tab::make(__('WAF'))
-                        ->icon('heroicon-o-shield-exclamation')
-                        ->schema([Livewire::make(WafStatsWidget::class), EmbeddedTable::make(WafEventsTable::class)]),
-                    'firewall' => Tab::make(__('Firewall'))
-                        ->icon('heroicon-o-fire')
-                        ->schema($this->firewallTab()),
-                    'bruteforce' => Tab::make(__('Brute-Force'))
-                        ->icon('heroicon-o-key')
-                        ->schema([Livewire::make(BruteforceStatsWidget::class), EmbeddedTable::make(BruteforceBlockedTable::class)]),
-                    'proactive' => Tab::make(__('Proactive'))
-                        ->icon('heroicon-o-bolt')
-                        ->schema([Livewire::make(ProactiveStatsWidget::class), EmbeddedTable::make(PhpPoolsTable::class)]),
-                    'webshield' => Tab::make(__('WebShield'))
-                        ->icon('heroicon-o-globe-alt')
-                        ->schema([Livewire::make(WebshieldStatsWidget::class), EmbeddedTable::make(WebshieldRulesTable::class)]),
-                    'threatintel' => Tab::make(__('Threat Intel'))
-                        ->icon('heroicon-o-globe-americas')
-                        ->schema([EmbeddedTable::make(ThreatFeedsTable::class)]),
-                    'users' => Tab::make(__('Users'))
-                        ->icon('heroicon-o-users')
-                        ->schema([EmbeddedTable::make(UsersTable::class)]),
-                    'cleanup' => Tab::make(__('Cleanup'))
-                        ->icon('heroicon-o-sparkles')
-                        ->schema([EmbeddedTable::make(CleanupRecordsTable::class)]),
-                    'rules' => Tab::make(__('Rules'))
-                        ->icon('heroicon-o-document-text')
-                        ->schema([Livewire::make(RulesStatsWidget::class), EmbeddedTable::make(YaraRulesTable::class)]),
-                    'config' => Tab::make(__('Configuration'))
+                        ->schema([
+                            Tabs::make(__('Threats'))
+                                ->contained(false)
+                                ->livewireProperty('threatsTab')
+                                ->tabs([
+                                    'incidents' => Tab::make(__('Incidents'))
+                                        ->schema([EmbeddedTable::make(IncidentsTable::class)]),
+                                    'quarantine' => Tab::make(__('Quarantine'))
+                                        ->schema([EmbeddedTable::make(QuarantineTable::class)]),
+                                    'cleanup' => Tab::make(__('Cleanup'))
+                                        ->schema([EmbeddedTable::make(CleanupRecordsTable::class)]),
+                                ]),
+                        ]),
+                    'defense' => Tab::make(__('Defense'))
+                        ->icon('heroicon-o-shield-check')
+                        ->schema([
+                            Tabs::make(__('Defense'))
+                                ->contained(false)
+                                ->livewireProperty('defenseTab')
+                                ->tabs([
+                                    'firewall' => Tab::make(__('Firewall'))
+                                        ->schema($this->firewallTab()),
+                                    'blocklist' => Tab::make(__('Blocklist'))
+                                        ->schema([EmbeddedTable::make(BlocklistTable::class)]),
+                                    'waf' => Tab::make(__('WAF'))
+                                        ->schema([Livewire::make(WafStatsWidget::class), EmbeddedTable::make(WafEventsTable::class)]),
+                                    'bruteforce' => Tab::make(__('Brute-Force'))
+                                        ->schema([Livewire::make(BruteforceStatsWidget::class), EmbeddedTable::make(BruteforceBlockedTable::class)]),
+                                    'webshield' => Tab::make(__('WebShield'))
+                                        ->schema([Livewire::make(WebshieldStatsWidget::class), EmbeddedTable::make(WebshieldRulesTable::class)]),
+                                ]),
+                        ]),
+                    'intelligence' => Tab::make(__('Intelligence'))
+                        ->icon('heroicon-o-light-bulb')
+                        ->schema([
+                            Tabs::make(__('Intelligence'))
+                                ->contained(false)
+                                ->livewireProperty('intelligenceTab')
+                                ->tabs([
+                                    'rules' => Tab::make(__('Rules'))
+                                        ->schema([Livewire::make(RulesStatsWidget::class), EmbeddedTable::make(YaraRulesTable::class)]),
+                                    'threatintel' => Tab::make(__('Threat Intel'))
+                                        ->schema([EmbeddedTable::make(ThreatFeedsTable::class)]),
+                                    'users' => Tab::make(__('Users'))
+                                        ->schema([EmbeddedTable::make(UsersTable::class)]),
+                                ]),
+                        ]),
+                    'settings' => Tab::make(__('Settings'))
                         ->icon('heroicon-o-cog-6-tooth')
-                        ->schema($this->configTab()),
+                        ->schema([
+                            Tabs::make(__('Settings'))
+                                ->contained(false)
+                                ->livewireProperty('settingsTab')
+                                ->tabs([
+                                    'proactive' => Tab::make(__('Proactive'))
+                                        ->schema([Livewire::make(ProactiveStatsWidget::class), EmbeddedTable::make(PhpPoolsTable::class)]),
+                                    'config' => Tab::make(__('Config'))
+                                        ->schema($this->configTab()),
+                                ]),
+                        ]),
                 ]),
         ]);
     }
@@ -253,7 +288,7 @@ class Security extends Page implements HasActions, HasForms
                                 $active
                                     ? $this->client()->post('/firewall/ufw/disable')
                                     : $this->client()->post('/firewall/ufw/enable');
-                                $this->redirect(static::getUrl(['tab' => 'firewall']));
+                                $this->redirect(static::getUrl(['tab' => 'defense', 'defense' => 'firewall']));
                             }),
                     ]),
                 ]),
