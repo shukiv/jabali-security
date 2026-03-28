@@ -77,16 +77,18 @@ class Security extends Page implements HasActions, HasForms
     protected function loadConfigData(): void
     {
         $config = $this->client()->get('/config') ?? [];
+        $data = [];
         foreach (static::$configCategories as $keys) {
             foreach ($keys as $key) {
                 $val = $config[$key] ?? '';
                 if (in_array($key, static::$booleanKeys)) {
-                    $this->configData['config_'.$key] = in_array($val, ['yes', 'true', '1']);
+                    $data['config_'.$key] = in_array($val, ['yes', 'true', '1']);
                 } else {
-                    $this->configData['config_'.$key] = $val;
+                    $data['config_'.$key] = $val;
                 }
             }
         }
+        $this->configData = $data;
     }
 
     public function getTitle(): string|Htmlable
@@ -421,22 +423,19 @@ class Security extends Page implements HasActions, HasForms
             foreach ($keys as $key) {
                 $help = static::$configHelp[$key] ?? '';
                 if (in_array($key, static::$booleanKeys)) {
-                    $fields[] = Toggle::make('configData.config_'.$key)
+                    $fields[] = Toggle::make('config_'.$key)
                         ->label($key)
-                        ->helperText($help)
-                        ->live();
+                        ->helperText($help);
                 } elseif (isset(static::$selectKeys[$key])) {
                     $opts = array_combine(static::$selectKeys[$key], static::$selectKeys[$key]);
-                    $fields[] = Select::make('configData.config_'.$key)
+                    $fields[] = Select::make('config_'.$key)
                         ->label($key)
                         ->options($opts)
-                        ->helperText($help)
-                        ->live();
+                        ->helperText($help);
                 } else {
-                    $fields[] = TextInput::make('configData.config_'.$key)
+                    $fields[] = TextInput::make('config_'.$key)
                         ->label($key)
-                        ->helperText($help)
-                        ->lazy();
+                        ->helperText($help);
                 }
             }
 
@@ -446,6 +445,7 @@ class Security extends Page implements HasActions, HasForms
         return [
             Tabs::make(__('Configuration'))
                 ->contained()
+                ->statePath('configData')
                 ->tabs($tabs),
             SchemaActions::make([
                 Action::make('saveAndRestart')
@@ -489,14 +489,6 @@ class Security extends Page implements HasActions, HasForms
 
     public function saveAndRestart(): void
     {
-        // Log what we have for debugging
-        Log::info('saveAndRestart configData sample', [
-            'LOG_LEVEL' => $this->configData['config_LOG_LEVEL'] ?? 'NOT SET',
-            'WAF_ENABLED' => $this->configData['config_WAF_ENABLED'] ?? 'NOT SET',
-            'keys_count' => count($this->configData),
-        ]);
-
-        // Collect all form values
         $payload = [];
         foreach (static::$configCategories as $keys) {
             foreach ($keys as $key) {
@@ -511,15 +503,10 @@ class Security extends Page implements HasActions, HasForms
             }
         }
 
-        Log::info('saveAndRestart payload', ['count' => count($payload), 'LOG_LEVEL' => $payload['LOG_LEVEL'] ?? 'missing']);
-
-        // Save via API
         if (! empty($payload)) {
-            $result = $this->client()->patch('/config', $payload);
-            Log::info('saveAndRestart patch result', ['result' => $result]);
+            $this->client()->patch('/config', $payload);
         }
 
-        // Restart daemon
         \Illuminate\Support\Facades\Process::run('/usr/bin/systemctl restart jabali-security');
 
         Notification::make()
