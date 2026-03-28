@@ -3,7 +3,7 @@
 {% block content %}
 {% from "macros.html" import protection_toggle %}
 <div class="page-header flex items-center" style="justify-content:space-between">
-    <div><h1>UFW Firewall</h1><p>Manage system firewall rules</p></div>
+    <div><h1>UFW Firewall</h1><p>UFW (Uncomplicated Firewall) rule management. Control inbound/outbound traffic with port rules, IP-based allow/deny rules, and application profiles.</p></div>
     <div class="flex gap-2">
         <form method="post" action="{{ url_for('firewall_toggle') }}" {% if ufw_enabled %}onsubmit="return confirm('Disable the firewall?')"{% endif %}>
             <button type="submit" class="toggle-btn {{ 'toggle-btn-on' if ufw_enabled else 'toggle-btn-off' }}">

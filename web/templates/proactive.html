@@ -3,7 +3,7 @@
 {% block content %}
 {% from "macros.html" import protection_toggle %}
 <div class="page-header flex items-center" style="justify-content:space-between">
-    <div><h1>Proactive Defense</h1><p>PHP hardening and suspicious process management</p></div>
+    <div><h1>Proactive Defense</h1><p>Server hardening: PHP-FPM pool hardening (disable_functions, open_basedir) and suspicious process killer (reverse shells, crypto miners).</p></div>
     <div class="flex gap-2">
         {{ protection_toggle("process_kill", "Process Killer", config.get("PROCESS_KILL_ENABLED", "no") in ("yes", "true", "1")) }}
         {{ protection_toggle("php_hardening", "PHP Hardening", config.get("PHP_HARDENING_ENABLED", "no") in ("yes", "true", "1")) }}

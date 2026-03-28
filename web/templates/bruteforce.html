@@ -3,7 +3,7 @@
 {% block content %}
 {% from "macros.html" import protection_toggle %}
 <div class="page-header flex items-center" style="justify-content:space-between">
-    <div><h1>Brute-Force Protection</h1><p>SSH and mail login attack detection</p></div>
+    <div><h1>Brute-Force Protection</h1><p>Monitors SSH and mail service logs for repeated failed login attempts. IPs exceeding the threshold are automatically blocked with progressive ban durations.</p></div>
     {{ protection_toggle("bruteforce", "Brute-Force", config.get("BRUTEFORCE_ENABLED", "no") in ("yes", "true", "1")) }}
 </div>
 

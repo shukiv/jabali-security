@@ -178,11 +178,26 @@ class Security extends Page implements HasActions, HasForms
                                 ->livewireProperty('threatsTab')
                                 ->tabs([
                                     'incidents' => Tab::make(__('Incidents'))
-                                        ->schema([EmbeddedTable::make(IncidentsTable::class)]),
+                                        ->schema([
+                                            Text::make(__('Security events detected by the scanning engines. Each incident shows the file path, threat score, severity, and action taken. You can review and resolve incidents here.'))
+                                                ->size(TextSize::Small)
+                                                ->color('gray'),
+                                            EmbeddedTable::make(IncidentsTable::class),
+                                        ]),
                                     'quarantine' => Tab::make(__('Quarantine'))
-                                        ->schema([EmbeddedTable::make(QuarantineTable::class)]),
+                                        ->schema([
+                                            Text::make(__('Files that exceeded the quarantine score threshold have been moved here for safe isolation. You can restore false positives or permanently delete confirmed threats.'))
+                                                ->size(TextSize::Small)
+                                                ->color('gray'),
+                                            EmbeddedTable::make(QuarantineTable::class),
+                                        ]),
                                     'cleanup' => Tab::make(__('Cleanup'))
-                                        ->schema([EmbeddedTable::make(CleanupRecordsTable::class)]),
+                                        ->schema([
+                                            Text::make(__('Records of automated and manual malware cleanup operations. Shows which files were cleaned, what injection patterns were removed, and where backups are stored.'))
+                                                ->size(TextSize::Small)
+                                                ->color('gray'),
+                                            EmbeddedTable::make(CleanupRecordsTable::class),
+                                        ]),
                                 ]),
                         ]),
                     'defense' => Tab::make(__('Defense'))
@@ -193,19 +208,48 @@ class Security extends Page implements HasActions, HasForms
                                 ->livewireProperty('defenseTab')
                                 ->tabs([
                                     'firewall' => Tab::make(__('Firewall'))
-                                        ->schema($this->firewallTab()),
+                                        ->schema(array_merge(
+                                            [Text::make(__('Manage UFW (Uncomplicated Firewall) rules to control inbound and outbound traffic. Add port rules, IP-based allow/deny rules, and manage application profiles.'))->size(TextSize::Small)->color('gray')],
+                                            $this->firewallTab(),
+                                        )),
                                     'blocklist' => Tab::make(__('Blocklist'))
-                                        ->schema([EmbeddedTable::make(BlocklistTable::class)]),
+                                        ->schema([
+                                            Text::make(__('IP addresses blocked by manual action, brute-force detection, or threat intelligence feeds. You can manually block or unblock IPs with optional expiry times.'))
+                                                ->size(TextSize::Small)
+                                                ->color('gray'),
+                                            EmbeddedTable::make(BlocklistTable::class),
+                                        ]),
                                     'waf' => Tab::make(__('WAF'))
-                                        ->schema(array_merge($this->wafStats(), [EmbeddedTable::make(WafEventsTable::class)])),
+                                        ->schema(array_merge(
+                                            [Text::make(__('Web Application Firewall events from ModSecurity with OWASP Core Rule Set. Shows blocked attacks (SQLi, XSS, path traversal) and lets you manage CRS rules.'))->size(TextSize::Small)->color('gray')],
+                                            $this->wafStats(),
+                                            [EmbeddedTable::make(WafEventsTable::class)],
+                                        )),
                                     'bruteforce' => Tab::make(__('Brute-Force'))
-                                        ->schema(array_merge($this->bruteforceStats(), [EmbeddedTable::make(BruteforceBlockedTable::class)])),
+                                        ->schema(array_merge(
+                                            [Text::make(__('Monitors SSH and mail service logs for repeated failed login attempts. IPs exceeding the threshold are automatically blocked with progressive ban durations.'))->size(TextSize::Small)->color('gray')],
+                                            $this->bruteforceStats(),
+                                            [EmbeddedTable::make(BruteforceBlockedTable::class)],
+                                        )),
                                     'proactive' => Tab::make(__('Proactive'))
-                                        ->schema(array_merge($this->proactiveStats(), [EmbeddedTable::make(PhpPoolsTable::class)])),
+                                        ->schema(array_merge(
+                                            [Text::make(__('Server hardening features: PHP-FPM pool hardening (disable_functions, open_basedir) and suspicious process killer (reverse shells, crypto miners).'))->size(TextSize::Small)->color('gray')],
+                                            $this->proactiveStats(),
+                                            [EmbeddedTable::make(PhpPoolsTable::class)],
+                                        )),
                                     'webshield' => Tab::make(__('WebShield'))
-                                        ->schema(array_merge($this->webshieldStats(), [EmbeddedTable::make(WebshieldRulesTable::class)])),
+                                        ->schema(array_merge(
+                                            [Text::make(__('Nginx-level protection: rate limiting, bot user-agent filtering, and JavaScript challenge pages for suspicious clients. Requires nginx include after install.'))->size(TextSize::Small)->color('gray')],
+                                            $this->webshieldStats(),
+                                            [EmbeddedTable::make(WebshieldRulesTable::class)],
+                                        )),
                                     'ssh' => Tab::make(__('SSH Jail'))
-                                        ->schema([EmbeddedTable::make(SshKeysTable::class)]),
+                                        ->schema([
+                                            Text::make(__('SSH/SFTP access management with chroot jailshell. Users get SFTP-only access by default. Shell access provides a jailed environment with wp-cli and basic commands.'))
+                                                ->size(TextSize::Small)
+                                                ->color('gray'),
+                                            EmbeddedTable::make(SshKeysTable::class),
+                                        ]),
                                 ]),
                         ]),
                     'intelligence' => Tab::make(__('Intelligence'))
@@ -216,16 +260,33 @@ class Security extends Page implements HasActions, HasForms
                                 ->livewireProperty('intelligenceTab')
                                 ->tabs([
                                     'rules' => Tab::make(__('Rules'))
-                                        ->schema(array_merge($this->rulesStats(), [EmbeddedTable::make(YaraRulesTable::class)])),
+                                        ->schema(array_merge(
+                                            [Text::make(__('Detection engine status and YARA-X rule files used for signature-based malware scanning. Shows active scanners (heuristic, entropy, YARA, ClamAV) and rule file details.'))->size(TextSize::Small)->color('gray')],
+                                            $this->rulesStats(),
+                                            [EmbeddedTable::make(YaraRulesTable::class)],
+                                        )),
                                     'threatintel' => Tab::make(__('Threat Intel'))
-                                        ->schema([EmbeddedTable::make(ThreatFeedsTable::class)]),
+                                        ->schema([
+                                            Text::make(__('Threat intelligence feeds providing IP reputation and malware hash databases. Feeds update automatically and can be used to auto-block known malicious IPs.'))
+                                                ->size(TextSize::Small)
+                                                ->color('gray'),
+                                            EmbeddedTable::make(ThreatFeedsTable::class),
+                                        ]),
                                     'users' => Tab::make(__('Users'))
-                                        ->schema([EmbeddedTable::make(UsersTable::class)]),
+                                        ->schema([
+                                            Text::make(__('Per-user risk profiles showing incident counts and threat scores. Helps identify compromised hosting accounts that need attention.'))
+                                                ->size(TextSize::Small)
+                                                ->color('gray'),
+                                            EmbeddedTable::make(UsersTable::class),
+                                        ]),
                                 ]),
                         ]),
                     'settings' => Tab::make(__('Settings'))
                         ->icon('heroicon-o-cog-6-tooth')
-                        ->schema($this->configTab()),
+                        ->schema(array_merge(
+                            [Text::make(__('Daemon configuration for all security modules. Changes are saved to /etc/jabali-security/jabali-security.conf. Click Save & Restart to apply.'))->size(TextSize::Small)->color('gray')],
+                            $this->configTab(),
+                        )),
                 ]),
         ]);
     }

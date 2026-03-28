@@ -3,7 +3,7 @@
 {% block content %}
 {% from "macros.html" import protection_toggle %}
 <div class="page-header flex items-center" style="justify-content:space-between">
-    <div><h1>WebShield</h1><p>Bot filtering and rate limiting via nginx</p></div>
+    <div><h1>WebShield</h1><p>Nginx-level protection with rate limiting, bot user-agent filtering, and JavaScript challenge pages for suspicious clients.</p></div>
     {{ protection_toggle("webshield", "WebShield", config.get("WEBSHIELD_ENABLED", "no") in ("yes", "true", "1")) }}
 </div>
 

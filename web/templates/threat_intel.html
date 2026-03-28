@@ -3,7 +3,7 @@
 {% block content %}
 {% from "macros.html" import protection_toggle %}
 <div class="page-header flex items-center" style="justify-content:space-between">
-    <div><h1>Threat Intelligence</h1><p>IP reputation and malware hash feeds</p></div>
+    <div><h1>Threat Intelligence</h1><p>Threat intelligence feeds for IP reputation and malware hash databases. Feeds update automatically and can auto-block known malicious IPs.</p></div>
     {{ protection_toggle("threat_intel", "Threat Intel", config.get("THREAT_INTEL_ENABLED", "no") in ("yes", "true", "1")) }}
 </div>
 
