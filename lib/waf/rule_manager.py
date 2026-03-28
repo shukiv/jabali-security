@@ -82,6 +82,22 @@ class WafRuleManager:
             })
         return rules
 
+    # Security headers and hardening rules always included regardless of WAF state
+    _HARDENING_BLOCK = """
+# Security headers
+add_header X-Frame-Options "SAMEORIGIN" always;
+add_header X-Content-Type-Options "nosniff" always;
+add_header X-XSS-Protection "1; mode=block" always;
+add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+add_header Content-Security-Policy "default-src 'self' https: data: 'unsafe-inline' 'unsafe-eval'" always;
+
+# Block XML-RPC (WordPress brute-force vector)
+location = /xmlrpc.php {
+    deny all;
+    return 403;
+}
+"""
+
     async def set_modsecurity_enabled(self, enabled: bool) -> bool:
         """Write modsecurity on/off to the nginx include file and reload."""
         if not self._nginx_include:
@@ -90,7 +106,7 @@ class WafRuleManager:
         self._nginx_include.parent.mkdir(parents=True, exist_ok=True)
         state = "on" if enabled else "off"
         self._nginx_include.write_text(
-            "# Managed by Jabali Security\nmodsecurity %s;\n" % state
+            "# Managed by Jabali Security\nmodsecurity %s;\n%s" % (state, self._HARDENING_BLOCK)
         )
         logger.info("Set modsecurity %s in %s", state, self._nginx_include)
         return await self._reload_web_server()
