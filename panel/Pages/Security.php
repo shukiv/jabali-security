@@ -581,9 +581,12 @@ class Security extends Page implements HasActions, HasForms
             }
         }
 
+        // Restart daemon to apply new config
+        \Illuminate\Support\Facades\Process::run('/usr/bin/systemctl restart jabali-security');
+
         Notification::make()
             ->title(__('Settings saved'))
-            ->body(count($payload).' '.__('settings applied'))
+            ->body(count($payload).' '.__('settings applied, daemon restarted'))
             ->success()
             ->send();
     }
