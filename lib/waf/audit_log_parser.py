@@ -27,6 +27,7 @@ _RULE_ID_RE = re.compile(r'\[id "(\d+)"\]')
 _RULE_MSG_RE = re.compile(r'\[msg "([^"]+)"\]')
 _SEVERITY_RE = re.compile(r'\[severity "([^"]+)"\]')
 _ACTION_RE = re.compile(r"^Action:\s*(\S+)")
+_ACCESS_DENIED_RE = re.compile(r"Access denied with code (\d+)")
 
 # Section boundary: supports both --ID-LETTER-- (v2) and ---ID---LETTER-- (v3)
 _SECTION_RE = re.compile(r"^-{2,3}[a-zA-Z0-9]+-{1,3}([A-Z])-{2,3}$")
@@ -148,6 +149,8 @@ class ModSecAuditLogParser:
             act_m = _ACTION_RE.match(hline)
             if act_m:
                 action = act_m.group(1)
+            if not action and _ACCESS_DENIED_RE.search(hline):
+                action = "deny"
             if "Matched Data:" in hline:
                 matched_data = hline.split("Matched Data:", 1)[-1].strip()[:200]
 
