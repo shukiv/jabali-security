@@ -25,16 +25,20 @@ class WebshieldStatsWidget extends BaseWidget
         return [
             Stat::make(__('Installed'), ($status['installed'] ?? false) ? __('Yes') : __('No'))
                 ->icon('heroicon-o-globe-alt')
-                ->color(($status['installed'] ?? false) ? 'success' : 'gray'),
+                ->color(($status['installed'] ?? false) ? 'success' : 'gray')
+                ->extraAttributes(['class' => '!p-2 [&_dd]:!text-lg [&_p]:!text-xs']),
             Stat::make(__('Rate Limiting'), ($status['rate_limiting'] ?? false) ? __('On') : __('Off'))
                 ->icon('heroicon-o-clock')
-                ->color(($status['rate_limiting'] ?? false) ? 'success' : 'gray'),
+                ->color(($status['rate_limiting'] ?? false) ? 'success' : 'gray')
+                ->extraAttributes(['class' => '!p-2 [&_dd]:!text-lg [&_p]:!text-xs']),
             Stat::make(__('Bot Filtering'), ($status['bot_filtering'] ?? false) ? __('On') : __('Off'))
                 ->icon('heroicon-o-funnel')
-                ->color(($status['bot_filtering'] ?? false) ? 'success' : 'gray'),
+                ->color(($status['bot_filtering'] ?? false) ? 'success' : 'gray')
+                ->extraAttributes(['class' => '!p-2 [&_dd]:!text-lg [&_p]:!text-xs']),
             Stat::make(__('Blocked IPs'), (string) ($status['blocked_ips_count'] ?? 0))
                 ->icon('heroicon-o-no-symbol')
-                ->color(($status['blocked_ips_count'] ?? 0) > 0 ? 'danger' : 'success'),
+                ->color(($status['blocked_ips_count'] ?? 0) > 0 ? 'danger' : 'success')
+                ->extraAttributes(['class' => '!p-2 [&_dd]:!text-lg [&_p]:!text-xs']),
         ];
     }
 }

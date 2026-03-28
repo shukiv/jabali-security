@@ -30,7 +30,7 @@ class SecurityStatsWidget extends BaseWidget
                     ->description(__('Not responding'))
                     ->icon('heroicon-o-exclamation-circle')
                     ->color('danger')
-                    ->extraAttributes(['class' => '!p-3']),
+                    ->extraAttributes(['class' => '!p-2 [&_dd]:!text-lg [&_p]:!text-xs']),
             ];
         }
 
@@ -39,31 +39,31 @@ class SecurityStatsWidget extends BaseWidget
                 ->description(__('Last 24 hours'))
                 ->icon('heroicon-o-exclamation-triangle')
                 ->color(($status['incidents_24h'] ?? 0) > 0 ? 'danger' : 'success')
-                ->extraAttributes(['class' => '!p-3']),
+                ->extraAttributes(['class' => '!p-2 [&_dd]:!text-lg [&_p]:!text-xs']),
 
             Stat::make(__('Quarantine'), (string) ($status['quarantined_count'] ?? 0))
                 ->description(__('Files isolated'))
                 ->icon('heroicon-o-lock-closed')
                 ->color(($status['quarantined_count'] ?? 0) > 0 ? 'warning' : 'success')
-                ->extraAttributes(['class' => '!p-3']),
+                ->extraAttributes(['class' => '!p-2 [&_dd]:!text-lg [&_p]:!text-xs']),
 
             Stat::make(__('Watching'), (string) ($status['watched_dirs'] ?? 0))
                 ->description(__('Folders monitored'))
                 ->icon('heroicon-o-eye')
                 ->color('info')
-                ->extraAttributes(['class' => '!p-3']),
+                ->extraAttributes(['class' => '!p-2 [&_dd]:!text-lg [&_p]:!text-xs']),
 
             Stat::make(__('Memory'), round($status['memory_mb'] ?? 0, 1).' MB')
                 ->description(($status['workers'] ?? 0).' '.__('workers'))
                 ->icon('heroicon-o-cpu-chip')
                 ->color('gray')
-                ->extraAttributes(['class' => '!p-3']),
+                ->extraAttributes(['class' => '!p-2 [&_dd]:!text-lg [&_p]:!text-xs']),
 
             Stat::make(__('Daemon'), ($status['running'] ?? false) ? __('Online') : __('Offline'))
                 ->description(($status['running'] ?? false) ? __('All systems go') : __('Service down'))
                 ->icon(($status['running'] ?? false) ? 'heroicon-o-check-circle' : 'heroicon-o-x-circle')
                 ->color(($status['running'] ?? false) ? 'success' : 'danger')
-                ->extraAttributes(['class' => '!p-3']),
+                ->extraAttributes(['class' => '!p-2 [&_dd]:!text-lg [&_p]:!text-xs']),
         ];
     }
 }

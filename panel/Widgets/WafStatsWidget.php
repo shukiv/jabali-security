@@ -25,10 +25,12 @@ class WafStatsWidget extends BaseWidget
         return [
             Stat::make(__('Events (24h)'), (string) ($stats['total_events_24h'] ?? 0))
                 ->icon('heroicon-o-shield-exclamation')
-                ->color(($stats['total_events_24h'] ?? 0) > 0 ? 'warning' : 'success'),
+                ->color(($stats['total_events_24h'] ?? 0) > 0 ? 'warning' : 'success')
+                ->extraAttributes(['class' => '!p-2 [&_dd]:!text-lg [&_p]:!text-xs']),
             Stat::make(__('Blocked (24h)'), (string) ($stats['blocked_24h'] ?? 0))
                 ->icon('heroicon-o-no-symbol')
-                ->color(($stats['blocked_24h'] ?? 0) > 0 ? 'danger' : 'success'),
+                ->color(($stats['blocked_24h'] ?? 0) > 0 ? 'danger' : 'success')
+                ->extraAttributes(['class' => '!p-2 [&_dd]:!text-lg [&_p]:!text-xs']),
         ];
     }
 }

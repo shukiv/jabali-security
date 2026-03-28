@@ -25,17 +25,19 @@ class RulesStatsWidget extends BaseWidget
         return [
             Stat::make(__('YARA'), ($rules['yara_enabled'] ?? false) ? __('Enabled') : __('Disabled'))
                 ->icon('heroicon-o-document-text')
-                ->color(($rules['yara_enabled'] ?? false) ? 'success' : 'gray'),
+                ->color(($rules['yara_enabled'] ?? false) ? 'success' : 'gray')
+                ->extraAttributes(['class' => '!p-2 [&_dd]:!text-lg [&_p]:!text-xs']),
             Stat::make(__('ClamAV'), ($rules['clamav_enabled'] ?? false) ? __('Enabled') : __('Disabled'))
                 ->icon('heroicon-o-shield-check')
-                ->color(($rules['clamav_enabled'] ?? false) ? 'success' : 'gray'),
+                ->color(($rules['clamav_enabled'] ?? false) ? 'success' : 'gray')
+                ->extraAttributes(['class' => '!p-2 [&_dd]:!text-lg [&_p]:!text-xs']),
             Stat::make(__('Scanners'), implode(', ', $rules['scanners'] ?? []))
                 ->icon('heroicon-o-magnifying-glass')
-                ->extraAttributes(['class' => '!p-3'])
+                ->extraAttributes(['class' => '!p-2 [&_dd]:!text-lg [&_p]:!text-xs'])
                 ->color('info'),
             Stat::make(__('Rules Dir'), $rules['yara_rules_dir'] ?? '?')
                 ->icon('heroicon-o-folder')
-                ->extraAttributes(['class' => '!p-3'])
+                ->extraAttributes(['class' => '!p-2 [&_dd]:!text-lg [&_p]:!text-xs'])
                 ->color('gray'),
         ];
     }

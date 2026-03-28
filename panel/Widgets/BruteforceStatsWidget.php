@@ -25,11 +25,12 @@ class BruteforceStatsWidget extends BaseWidget
         return [
             Stat::make(__('Tracked IPs'), (string) ($stats['tracked_ips'] ?? 0))
                 ->icon('heroicon-o-eye')
-                ->extraAttributes(['class' => '!p-3'])
+                ->extraAttributes(['class' => '!p-2 [&_dd]:!text-lg [&_p]:!text-xs'])
                 ->color('info'),
             Stat::make(__('Blocked'), (string) ($stats['blocked_count'] ?? 0))
                 ->icon('heroicon-o-no-symbol')
-                ->color(($stats['blocked_count'] ?? 0) > 0 ? 'danger' : 'success'),
+                ->color(($stats['blocked_count'] ?? 0) > 0 ? 'danger' : 'success')
+                ->extraAttributes(['class' => '!p-2 [&_dd]:!text-lg [&_p]:!text-xs']),
         ];
     }
 }
