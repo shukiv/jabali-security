@@ -31,7 +31,6 @@ use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Actions as SchemaActions;
 use Filament\Schemas\Components\EmbeddedTable;
-use Filament\Schemas\Components\Form;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Text;
@@ -426,18 +425,19 @@ class Security extends Page implements HasActions, HasForms
             $fields = [];
             foreach ($keys as $key) {
                 $help = static::$configHelp[$key] ?? '';
+                $fieldName = 'configData.config_'.$key;
                 if (in_array($key, static::$booleanKeys)) {
-                    $fields[] = Toggle::make('config_'.$key)
+                    $fields[] = Toggle::make($fieldName)
                         ->label($key)
                         ->helperText($help);
                 } elseif (isset(static::$selectKeys[$key])) {
                     $opts = array_combine(static::$selectKeys[$key], static::$selectKeys[$key]);
-                    $fields[] = Select::make('config_'.$key)
+                    $fields[] = Select::make($fieldName)
                         ->label($key)
                         ->options($opts)
                         ->helperText($help);
                 } else {
-                    $fields[] = TextInput::make('config_'.$key)
+                    $fields[] = TextInput::make($fieldName)
                         ->label($key)
                         ->helperText($help);
                 }
@@ -447,22 +447,16 @@ class Security extends Page implements HasActions, HasForms
         }
 
         return [
-            Form::make([
-                Tabs::make(__('Configuration'))
-                    ->contained()
-                    ->tabs($tabs),
-            ])
-                ->statePath('configData')
-                ->livewireSubmitHandler('saveAndRestart')
-                ->footer([
-                    SchemaActions::make([
-                        Action::make('saveAndRestart')
-                            ->label(__('Save & Restart'))
-                            ->icon('heroicon-o-check')
-                            ->color('success')
-                            ->submit('saveAndRestart'),
-                    ]),
-                ]),
+            Tabs::make(__('Configuration'))
+                ->contained()
+                ->tabs($tabs),
+            SchemaActions::make([
+                Action::make('saveAndRestart')
+                    ->label(__('Save & Restart'))
+                    ->icon('heroicon-o-check')
+                    ->color('success')
+                    ->action('saveAndRestart'),
+            ]),
         ];
     }
 
@@ -498,6 +492,11 @@ class Security extends Page implements HasActions, HasForms
 
     public function saveAndRestart(): void
     {
+        // Debug: show what Livewire has in configData
+        $debugLevel = $this->configData['config_LOG_LEVEL'] ?? 'MISSING';
+        $debugWorkers = $this->configData['config_WORKERS'] ?? 'MISSING';
+        $debugCount = count($this->configData);
+
         $payload = [];
         foreach (static::$configCategories as $keys) {
             foreach ($keys as $key) {
@@ -513,14 +512,23 @@ class Security extends Page implements HasActions, HasForms
         }
 
         if (! empty($payload)) {
-            $this->client()->patch('/config', $payload);
+            $result = $this->client()->patch('/config', $payload);
+            if (! $result) {
+                Notification::make()
+                    ->title(__('API call failed'))
+                    ->body("configData has {$debugCount} keys. LOG_LEVEL={$debugLevel}, WORKERS={$debugWorkers}")
+                    ->danger()
+                    ->send();
+
+                return;
+            }
         }
 
         \Illuminate\Support\Facades\Process::run('/usr/bin/systemctl restart jabali-security');
 
         Notification::make()
             ->title(__('Settings saved'))
-            ->body(count($payload).' settings applied, daemon restarting...')
+            ->body("LOG_LEVEL={$debugLevel}, WORKERS={$debugWorkers} ({$debugCount} keys, ".count($payload).' sent)')
             ->success()
             ->send();
     }
