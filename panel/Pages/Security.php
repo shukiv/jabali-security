@@ -69,9 +69,37 @@ class Security extends Page implements HasActions, HasForms
 
     public array $configData = [];
 
+    public array $moduleStates = [];
+
     public function mount(): void
     {
         $this->loadConfigData();
+        $this->loadModuleStates();
+    }
+
+    protected function loadModuleStates(): void
+    {
+        $config = $this->client()->get('/config') ?? [];
+        foreach (static::getModuleToggles() as $group) {
+            foreach ($group as $key => $mod) {
+                $this->moduleStates[$key] = in_array($config[$key] ?? 'no', ['yes', 'true', '1']);
+            }
+        }
+    }
+
+    public function updatedModuleStates($value, string $key): void
+    {
+        $newValue = $value ? 'yes' : 'no';
+        $this->client()->patch('/config', [$key => $newValue]);
+
+        $label = str_replace('_', ' ', str_replace('_ENABLED', '', $key));
+        Notification::make()
+            ->title(__(':feature :action', [
+                'feature' => $label,
+                'action' => $value ? __('enabled') : __('disabled'),
+            ]))
+            ->color($value ? 'success' : 'warning')
+            ->send();
     }
 
     protected function loadConfigData(): void
@@ -400,51 +428,28 @@ class Security extends Page implements HasActions, HasForms
 
     protected function overviewTab(): array
     {
-        $config = $this->client()->get('/config') ?? [];
         $modules = static::getModuleToggles();
-        $schema = [];
 
-        // Protection Modules
-        $coreSchema = [];
+        $coreToggles = [];
         foreach ($modules['core'] as $key => $mod) {
-            $enabled = in_array($config[$key] ?? 'no', ['yes', 'true', '1']);
-            $coreSchema[] = Section::make(__($mod['label']))
-                ->description(__($mod['desc']))
-                ->aside()
-                ->compact()
-                ->schema([
-                    SchemaActions::make([
-                        Action::make('toggle_'.$key)
-                            ->label($enabled ? __('Enabled') : __('Disabled'))
-                            ->color($enabled ? 'success' : 'gray')
-                            ->size('xs')
-                            ->action(fn () => $this->toggleModule($key)),
-                    ]),
-                ]);
+            $coreToggles[] = Toggle::make('moduleStates.'.$key)
+                ->label(__($mod['label']))
+                ->helperText(__($mod['desc']))
+                ->live();
         }
-        $schema[] = Section::make(__('Protection Modules'))->schema($coreSchema);
 
-        // Advanced Protection
-        $advSchema = [];
+        $advToggles = [];
         foreach ($modules['advanced'] as $key => $mod) {
-            $enabled = in_array($config[$key] ?? 'no', ['yes', 'true', '1']);
-            $advSchema[] = Section::make(__($mod['label']))
-                ->description(__($mod['desc']))
-                ->aside()
-                ->compact()
-                ->schema([
-                    SchemaActions::make([
-                        Action::make('toggle_'.$key)
-                            ->label($enabled ? __('Enabled') : __('Disabled'))
-                            ->color($enabled ? 'success' : 'gray')
-                            ->size('xs')
-                            ->action(fn () => $this->toggleModule($key)),
-                    ]),
-                ]);
+            $advToggles[] = Toggle::make('moduleStates.'.$key)
+                ->label(__($mod['label']))
+                ->helperText(__($mod['desc']))
+                ->live();
         }
-        $schema[] = Section::make(__('Advanced Protection'))->schema($advSchema);
 
-        return $schema;
+        return [
+            Section::make(__('Protection Modules'))->schema($coreToggles)->compact(),
+            Section::make(__('Advanced Protection'))->schema($advToggles)->compact(),
+        ];
     }
 
     // ── Firewall Tab ─────────────────────────────────────────────────
@@ -463,12 +468,7 @@ class Security extends Page implements HasActions, HasForms
                             ->color($active ? 'danger' : 'success')
                             ->size('sm')
                             ->requiresConfirmation()
-                            ->action(function () use ($active) {
-                                $active
-                                    ? $this->client()->post('/firewall/ufw/disable')
-                                    : $this->client()->post('/firewall/ufw/enable');
-                                $this->redirect(static::getUrl(['tab' => 'defense', 'defense' => 'firewall']));
-                            }),
+                            ->action($active ? 'disableFirewall' : 'enableFirewall'),
                     ]),
                 ]),
             EmbeddedTable::make(FirewallRulesTable::class),
@@ -588,12 +588,14 @@ class Security extends Page implements HasActions, HasForms
     {
         $this->client()->post('/firewall/ufw/enable');
         Notification::make()->title(__('Firewall enabled'))->success()->send();
+        $this->redirect(static::getUrl(['tab' => 'defense', 'defense' => 'firewall']));
     }
 
     public function disableFirewall(): void
     {
         $this->client()->post('/firewall/ufw/disable');
         Notification::make()->title(__('Firewall disabled'))->success()->send();
+        $this->redirect(static::getUrl(['tab' => 'defense', 'defense' => 'firewall']));
     }
 
     public static array $configHelp = [
