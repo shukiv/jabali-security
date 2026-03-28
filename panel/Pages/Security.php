@@ -17,12 +17,6 @@ use App\JabaliSecurity\Widgets\UsersTable;
 use App\JabaliSecurity\Widgets\WafEventsTable;
 use App\JabaliSecurity\Widgets\WebshieldRulesTable;
 use App\JabaliSecurity\Widgets\YaraRulesTable;
-use App\JabaliSecurity\Widgets\BruteforceStatsWidget;
-use App\JabaliSecurity\Widgets\ProactiveStatsWidget;
-use App\JabaliSecurity\Widgets\RulesStatsWidget;
-use App\JabaliSecurity\Widgets\SecurityStatsWidget;
-use App\JabaliSecurity\Widgets\WafStatsWidget;
-use App\JabaliSecurity\Widgets\WebshieldStatsWidget;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\Concerns\InteractsWithActions;
@@ -36,11 +30,14 @@ use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Actions as SchemaActions;
 use Filament\Schemas\Components\EmbeddedTable;
-use Filament\Schemas\Components\Livewire;
+use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Text;
 use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Schema;
+use Filament\Support\Enums\FontWeight;
+use Filament\Support\Enums\TextSize;
 use Illuminate\Contracts\Support\Htmlable;
 use Livewire\Attributes\Url;
 
@@ -173,7 +170,7 @@ class Security extends Page implements HasActions, HasForms
                     'overview' => Tab::make(__('Overview'))
                         ->icon('heroicon-o-home')
                         ->schema(array_merge(
-                            [Livewire::make(SecurityStatsWidget::class)],
+                            $this->overviewStats(),
                             $this->overviewTab(),
                         )),
                     'threats' => Tab::make(__('Threats'))
@@ -203,13 +200,13 @@ class Security extends Page implements HasActions, HasForms
                                     'blocklist' => Tab::make(__('Blocklist'))
                                         ->schema([EmbeddedTable::make(BlocklistTable::class)]),
                                     'waf' => Tab::make(__('WAF'))
-                                        ->schema([Livewire::make(WafStatsWidget::class), EmbeddedTable::make(WafEventsTable::class)]),
+                                        ->schema(array_merge($this->wafStats(), [EmbeddedTable::make(WafEventsTable::class)])),
                                     'bruteforce' => Tab::make(__('Brute-Force'))
-                                        ->schema([Livewire::make(BruteforceStatsWidget::class), EmbeddedTable::make(BruteforceBlockedTable::class)]),
+                                        ->schema(array_merge($this->bruteforceStats(), [EmbeddedTable::make(BruteforceBlockedTable::class)])),
                                     'proactive' => Tab::make(__('Proactive'))
-                                        ->schema([Livewire::make(ProactiveStatsWidget::class), EmbeddedTable::make(PhpPoolsTable::class)]),
+                                        ->schema(array_merge($this->proactiveStats(), [EmbeddedTable::make(PhpPoolsTable::class)])),
                                     'webshield' => Tab::make(__('WebShield'))
-                                        ->schema([Livewire::make(WebshieldStatsWidget::class), EmbeddedTable::make(WebshieldRulesTable::class)]),
+                                        ->schema(array_merge($this->webshieldStats(), [EmbeddedTable::make(WebshieldRulesTable::class)])),
                                 ]),
                         ]),
                     'intelligence' => Tab::make(__('Intelligence'))
@@ -220,7 +217,7 @@ class Security extends Page implements HasActions, HasForms
                                 ->livewireProperty('intelligenceTab')
                                 ->tabs([
                                     'rules' => Tab::make(__('Rules'))
-                                        ->schema([Livewire::make(RulesStatsWidget::class), EmbeddedTable::make(YaraRulesTable::class)]),
+                                        ->schema(array_merge($this->rulesStats(), [EmbeddedTable::make(YaraRulesTable::class)])),
                                     'threatintel' => Tab::make(__('Threat Intel'))
                                         ->schema([EmbeddedTable::make(ThreatFeedsTable::class)]),
                                     'users' => Tab::make(__('Users'))
@@ -232,6 +229,111 @@ class Security extends Page implements HasActions, HasForms
                         ->schema($this->configTab()),
                 ]),
         ]);
+    }
+
+    // ── Stat Cards (schema-based, compact) ─────────────────────────
+
+    private function statCard(string $label, string $value, string $desc, string $color = 'gray'): Section
+    {
+        return Section::make()->compact()->schema([
+            Text::make(__($label))->size(TextSize::ExtraSmall)->weight(FontWeight::Medium)->color('gray'),
+            Text::make($value)->size(TextSize::Large)->weight(FontWeight::Bold)->color($color),
+            Text::make(__($desc))->size(TextSize::ExtraSmall)->color('gray'),
+        ]);
+    }
+
+    protected function overviewStats(): array
+    {
+        $s = $this->client()->get('/status');
+        if (! $s) {
+            return [$this->statCard('Daemon', __('Offline'), __('Not responding'), 'danger')];
+        }
+
+        return [
+            Grid::make(5)->dense()->schema([
+                $this->statCard('Incidents', (string) ($s['incidents_24h'] ?? 0), 'Last 24 hours',
+                    ($s['incidents_24h'] ?? 0) > 0 ? 'danger' : 'success'),
+                $this->statCard('Quarantine', (string) ($s['quarantined_count'] ?? 0), 'Files isolated',
+                    ($s['quarantined_count'] ?? 0) > 0 ? 'warning' : 'success'),
+                $this->statCard('Watching', (string) ($s['watched_dirs'] ?? 0), 'Folders monitored', 'info'),
+                $this->statCard('Memory', round($s['memory_mb'] ?? 0, 1).' MB', ($s['workers'] ?? 0).' workers', 'gray'),
+                $this->statCard('Daemon', ($s['running'] ?? false) ? __('Online') : __('Offline'),
+                    ($s['running'] ?? false) ? 'All systems go' : 'Service down',
+                    ($s['running'] ?? false) ? 'success' : 'danger'),
+            ]),
+        ];
+    }
+
+    protected function wafStats(): array
+    {
+        $s = $this->client()->get('/waf/stats') ?? [];
+        return [
+            Grid::make(2)->dense()->schema([
+                $this->statCard('Events (24h)', (string) ($s['total_events_24h'] ?? 0), '',
+                    ($s['total_events_24h'] ?? 0) > 0 ? 'warning' : 'success'),
+                $this->statCard('Blocked (24h)', (string) ($s['blocked_24h'] ?? 0), '',
+                    ($s['blocked_24h'] ?? 0) > 0 ? 'danger' : 'success'),
+            ]),
+        ];
+    }
+
+    protected function bruteforceStats(): array
+    {
+        $s = $this->client()->get('/bruteforce/stats') ?? [];
+        return [
+            Grid::make(2)->dense()->schema([
+                $this->statCard('Tracked IPs', (string) ($s['tracked_ips'] ?? 0), '', 'info'),
+                $this->statCard('Blocked', (string) ($s['blocked_count'] ?? 0), '',
+                    ($s['blocked_count'] ?? 0) > 0 ? 'danger' : 'success'),
+            ]),
+        ];
+    }
+
+    protected function proactiveStats(): array
+    {
+        $s = $this->client()->get('/proactive/status') ?? [];
+        return [
+            Grid::make(3)->dense()->schema([
+                $this->statCard('Process Killer', ($s['process_kill_enabled'] ?? false) ? __('Active') : __('Disabled'), '',
+                    ($s['process_kill_enabled'] ?? false) ? 'success' : 'gray'),
+                $this->statCard('Processes Killed', (string) ($s['process_kill_count'] ?? 0), '',
+                    ($s['process_kill_count'] ?? 0) > 0 ? 'warning' : 'success'),
+                $this->statCard('PHP Hardening', ($s['php_hardening_enabled'] ?? false) ? __('Active') : __('Disabled'), '',
+                    ($s['php_hardening_enabled'] ?? false) ? 'success' : 'gray'),
+            ]),
+        ];
+    }
+
+    protected function webshieldStats(): array
+    {
+        $s = $this->client()->get('/webshield/status') ?? [];
+        return [
+            Grid::make(4)->dense()->schema([
+                $this->statCard('Installed', ($s['installed'] ?? false) ? __('Yes') : __('No'), '',
+                    ($s['installed'] ?? false) ? 'success' : 'gray'),
+                $this->statCard('Rate Limiting', ($s['rate_limiting'] ?? false) ? __('On') : __('Off'), '',
+                    ($s['rate_limiting'] ?? false) ? 'success' : 'gray'),
+                $this->statCard('Bot Filtering', ($s['bot_filtering'] ?? false) ? __('On') : __('Off'), '',
+                    ($s['bot_filtering'] ?? false) ? 'success' : 'gray'),
+                $this->statCard('Blocked IPs', (string) ($s['blocked_ips_count'] ?? 0), '',
+                    ($s['blocked_ips_count'] ?? 0) > 0 ? 'danger' : 'success'),
+            ]),
+        ];
+    }
+
+    protected function rulesStats(): array
+    {
+        $r = $this->client()->get('/rules') ?? [];
+        return [
+            Grid::make(4)->dense()->schema([
+                $this->statCard('YARA', ($r['yara_enabled'] ?? false) ? __('Enabled') : __('Disabled'), '',
+                    ($r['yara_enabled'] ?? false) ? 'success' : 'gray'),
+                $this->statCard('ClamAV', ($r['clamav_enabled'] ?? false) ? __('Enabled') : __('Disabled'), '',
+                    ($r['clamav_enabled'] ?? false) ? 'success' : 'gray'),
+                $this->statCard('Scanners', implode(', ', $r['scanners'] ?? []), '', 'info'),
+                $this->statCard('Rules Dir', $r['yara_rules_dir'] ?? '?', '', 'gray'),
+            ]),
+        ];
     }
 
     // ── Overview Tab ─────────────────────────────────────────────────
