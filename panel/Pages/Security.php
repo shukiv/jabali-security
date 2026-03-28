@@ -70,6 +70,8 @@ class Security extends Page implements HasActions, HasForms
 
     public array $moduleStates = [];
 
+    public bool $expertMode = false;
+
     public function mount(): void
     {
         $this->loadConfigData();
@@ -481,11 +483,16 @@ class Security extends Page implements HasActions, HasForms
 
     protected function configTab(): array
     {
+        $expert = $this->expertMode;
         $tabs = [];
+        $categoriesToShow = $expert ? static::$configCategories : static::$basicCategories;
 
-        foreach (static::$configCategories as $category => $keys) {
+        foreach ($categoriesToShow as $category => $keys) {
             $fields = [];
             foreach ($keys as $key) {
+                if (! $expert && in_array($key, static::$expertKeys)) {
+                    continue;
+                }
                 $help = static::$configHelp[$key] ?? '';
                 $fieldName = 'configData.config_'.$key;
                 if (in_array($key, static::$booleanKeys)) {
@@ -505,10 +512,20 @@ class Security extends Page implements HasActions, HasForms
                 }
             }
 
-            $tabs[$category] = Tab::make(__($category))->schema($fields);
+            if (! empty($fields)) {
+                $tabs[$category] = Tab::make(__($category))->schema($fields);
+            }
         }
 
         return [
+            SchemaActions::make([
+                Action::make('toggleExpertMode')
+                    ->label($expert ? __('Basic Mode') : __('Expert Mode'))
+                    ->icon($expert ? 'heroicon-o-eye-slash' : 'heroicon-o-eye')
+                    ->color('gray')
+                    ->size('sm')
+                    ->action('toggleExpertMode'),
+            ]),
             Tabs::make(__('Configuration'))
                 ->contained()
                 ->tabs($tabs),
@@ -520,6 +537,11 @@ class Security extends Page implements HasActions, HasForms
                     ->action('saveAndRestart'),
             ]),
         ];
+    }
+
+    public function toggleExpertMode(): void
+    {
+        $this->expertMode = ! $this->expertMode;
     }
 
     // ── Module Toggles ───────────────────────────────────────────────
@@ -744,6 +766,23 @@ class Security extends Page implements HasActions, HasForms
         'NOTIFY_MIN_SEVERITY' => ['low', 'medium', 'high', 'critical'],
     ];
 
+    /** Basic mode: only these categories shown, expert keys hidden within them. */
+    public static array $basicCategories = [
+        'Daemon' => ['LOG_LEVEL', 'LOG_DIR', 'DATA_DIR', 'QUARANTINE_DIR', 'WORKERS'],
+        'Scoring' => ['SCORE_LOG', 'SCORE_QUARANTINE', 'SCORE_SUSPEND'],
+        'Response' => ['AUTO_QUARANTINE', 'AUTO_SUSPEND', 'AUTO_BLOCK_IP'],
+        'Brute-Force' => ['BRUTEFORCE_ENABLED', 'BRUTEFORCE_SSH_THRESHOLD', 'BRUTEFORCE_SSH_WINDOW', 'BRUTEFORCE_MAIL_THRESHOLD', 'BRUTEFORCE_MAIL_WINDOW', 'BRUTEFORCE_BLOCK_DURATIONS', 'BRUTEFORCE_WHITELIST_IPS'],
+        'WAF' => ['WAF_ENABLED', 'WAF_CRS_AUTO_UPDATE'],
+        'Proactive' => ['PROACTIVE_ENABLED', 'PROCESS_KILL_ENABLED', 'PROCESS_KILL_THRESHOLD'],
+        'Cleanup' => ['CLEANUP_ENABLED', 'CLEANUP_AUTO'],
+        'Scheduled Scan' => ['SCHEDULED_SCAN_ENABLED', 'SCHEDULED_SCAN_INTERVAL', 'SCHEDULED_SCAN_PATHS'],
+        'Threat Intel' => ['THREAT_INTEL_ENABLED', 'THREAT_INTEL_AUTO_BLOCK'],
+        'WebShield' => ['WEBSHIELD_ENABLED', 'WEBSHIELD_RATE_LIMIT', 'WEBSHIELD_RATE_BURST'],
+        'Notifications' => ['NOTIFY_EMAIL', 'NOTIFY_WEBHOOK', 'NOTIFY_MIN_SEVERITY'],
+        'Retention' => ['INCIDENT_RETAIN_DAYS'],
+    ];
+
+    /** Expert mode: all categories with every key. */
     public static array $configCategories = [
         'Daemon' => ['LOG_LEVEL', 'LOG_DIR', 'DATA_DIR', 'QUARANTINE_DIR', 'WORKERS'],
         'File Watcher' => ['WATCH_DIRS'],
@@ -766,5 +805,23 @@ class Security extends Page implements HasActions, HasForms
         'Performance' => ['DB_SCANNER_ENABLED', 'RAPIDSCAN_WORKERS', 'RAPIDSCAN_MTIME_CACHE'],
         'Notifications' => ['NOTIFY_EMAIL', 'NOTIFY_WEBHOOK', 'NOTIFY_MIN_SEVERITY'],
         'Retention' => ['INCIDENT_RETAIN_DAYS'],
+    ];
+
+    /** Keys hidden in basic mode (file paths, internal tuning, advanced options). */
+    public static array $expertKeys = [
+        'LOG_DIR', 'DATA_DIR', 'QUARANTINE_DIR',
+        'WATCH_DIRS', 'SCAN_EXTENSIONS', 'MAX_FILE_SIZE', 'SKIP_DIRS',
+        'ENTROPY_THRESHOLD', 'YARA_RULES_DIR',
+        'CLAMAV_SOCKET', 'FRESHCLAM_ON_UPDATE',
+        'PROCESS_POLL_INTERVAL',
+        'BEHAVIOR_TTL',
+        'WAF_AUDIT_LOG', 'WAF_AUDIT_LOG_TYPE', 'WAF_RULES_DIR', 'WAF_OVERRIDES_FILE', 'WAF_WEB_SERVER', 'WAF_NGINX_INCLUDE',
+        'BRUTEFORCE_SSH_LOG', 'BRUTEFORCE_MAIL_LOG', 'BRUTEFORCE_STALWART_LOG', 'FIREWALL_BACKEND',
+        'SSHJAIL_JAIL_DIR',
+        'PROCESS_KILL_MIN_UID', 'PROCESS_KILL_WHITELIST',
+        'CLEANUP_BACKUP_DIR', 'CLEANUP_CMS_CHECKSUMS',
+        'THREAT_INTEL_UPDATE_INTERVAL', 'THREAT_INTEL_FEEDS', 'THREAT_INTEL_AUTO_BLOCK_THRESHOLD',
+        'WEBSHIELD_CHALLENGE_ENABLED', 'WEBSHIELD_BOT_FILTERING', 'WEBSHIELD_NGINX_CONF_DIR', 'NGINX_ACCESS_LOG',
+        'DB_SCANNER_ENABLED', 'RAPIDSCAN_WORKERS', 'RAPIDSCAN_MTIME_CACHE',
     ];
 }
