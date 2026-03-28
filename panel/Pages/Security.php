@@ -69,6 +69,27 @@ class Security extends Page implements HasActions, HasForms
     #[Url(as: 'intelligence')]
     public string $intelligenceTab = 'rules';
 
+    public array $configData = [];
+
+    public function mount(): void
+    {
+        $this->loadConfigData();
+    }
+
+    protected function loadConfigData(): void
+    {
+        $config = $this->client()->get('/config') ?? [];
+        foreach (static::$configCategories as $keys) {
+            foreach ($keys as $key) {
+                $val = $config[$key] ?? '';
+                if (in_array($key, static::$booleanKeys)) {
+                    $this->configData['config_'.$key] = in_array($val, ['yes', 'true', '1']);
+                } else {
+                    $this->configData['config_'.$key] = $val;
+                }
+            }
+        }
+    }
 
     public function getTitle(): string|Htmlable
     {
@@ -290,32 +311,34 @@ class Security extends Page implements HasActions, HasForms
 
     protected function configTab(): array
     {
-        $config = $this->client()->get('/config') ?? [];
         $tabs = [];
 
         foreach (static::$configCategories as $category => $keys) {
             $fields = [];
             foreach ($keys as $key) {
-                $val = $config[$key] ?? '';
-
                 if (in_array($key, static::$booleanKeys)) {
-                    $fields[] = Toggle::make('config_'.$key)
+                    $fields[] = Toggle::make('configData.config_'.$key)
                         ->label($key)
-                        ->default(in_array($val, ['yes', 'true', '1']))
                         ->live()
                         ->afterStateUpdated(fn ($state) => $this->updateConfigValue($key, $state ? 'yes' : 'no'));
                 } elseif (isset(static::$selectKeys[$key])) {
                     $opts = array_combine(static::$selectKeys[$key], static::$selectKeys[$key]);
-                    $fields[] = Select::make('config_'.$key)
+                    $fields[] = Select::make('configData.config_'.$key)
                         ->label($key)
                         ->options($opts)
-                        ->default($val)
                         ->live()
                         ->afterStateUpdated(fn ($state) => $this->updateConfigValue($key, $state ?? ''));
                 } else {
-                    $fields[] = TextInput::make('config_'.$key)
+                    $fields[] = TextInput::make('configData.config_'.$key)
                         ->label($key)
-                        ->default($val);
+                        ->suffixAction(
+                            Action::make('save_'.$key)
+                                ->icon('heroicon-o-check')
+                                ->action(function () use ($key) {
+                                    $val = $this->configData['config_'.$key] ?? '';
+                                    $this->updateConfigValue($key, $val);
+                                })
+                        );
                 }
             }
 
