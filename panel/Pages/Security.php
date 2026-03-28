@@ -69,8 +69,6 @@ class Security extends Page implements HasActions, HasForms
     #[Url(as: 'intelligence')]
     public string $intelligenceTab = 'rules';
 
-    #[Url(as: 'settings')]
-    public string $settingsTab = 'proactive';
 
     public function getTitle(): string|Htmlable
     {
@@ -181,6 +179,8 @@ class Security extends Page implements HasActions, HasForms
                                         ->schema([Livewire::make(WafStatsWidget::class), EmbeddedTable::make(WafEventsTable::class)]),
                                     'bruteforce' => Tab::make(__('Brute-Force'))
                                         ->schema([Livewire::make(BruteforceStatsWidget::class), EmbeddedTable::make(BruteforceBlockedTable::class)]),
+                                    'proactive' => Tab::make(__('Proactive'))
+                                        ->schema([Livewire::make(ProactiveStatsWidget::class), EmbeddedTable::make(PhpPoolsTable::class)]),
                                     'webshield' => Tab::make(__('WebShield'))
                                         ->schema([Livewire::make(WebshieldStatsWidget::class), EmbeddedTable::make(WebshieldRulesTable::class)]),
                                 ]),
@@ -202,17 +202,7 @@ class Security extends Page implements HasActions, HasForms
                         ]),
                     'settings' => Tab::make(__('Settings'))
                         ->icon('heroicon-o-cog-6-tooth')
-                        ->schema([
-                            Tabs::make(__('Settings'))
-                                ->contained(false)
-                                ->livewireProperty('settingsTab')
-                                ->tabs([
-                                    'proactive' => Tab::make(__('Proactive'))
-                                        ->schema([Livewire::make(ProactiveStatsWidget::class), EmbeddedTable::make(PhpPoolsTable::class)]),
-                                    'config' => Tab::make(__('Config'))
-                                        ->schema($this->configTab()),
-                                ]),
-                        ]),
+                        ->schema($this->configTab()),
                 ]),
         ]);
     }

@@ -25,13 +25,13 @@
             <li><a href="{{ url_for('firewall') }}" class="{% if request.endpoint == 'firewall' %}active{% endif %}">Firewall</a></li>
             <li><a href="{{ url_for('waf') }}" class="{% if request.endpoint == 'waf' %}active{% endif %}">WAF</a></li>
             <li><a href="{{ url_for('bruteforce') }}" class="{% if request.endpoint == 'bruteforce' %}active{% endif %}">Brute-Force</a></li>
+            <li><a href="{{ url_for('proactive') }}" class="{% if request.endpoint == 'proactive' %}active{% endif %}">Proactive</a></li>
             <li><a href="{{ url_for('webshield') }}" class="{% if request.endpoint == 'webshield' %}active{% endif %}">WebShield</a></li>
             <li class="nav-separator">Intelligence</li>
             <li><a href="{{ url_for('users') }}" class="{% if request.endpoint in ('users', 'user_detail') %}active{% endif %}">Users</a></li>
             <li><a href="{{ url_for('threat_intel') }}" class="{% if request.endpoint == 'threat_intel' %}active{% endif %}">Threat Intel</a></li>
             <li><a href="{{ url_for('rules_page') }}" class="{% if request.endpoint == 'rules_page' %}active{% endif %}">Rules</a></li>
             <li class="nav-separator">Settings</li>
-            <li><a href="{{ url_for('proactive') }}" class="{% if request.endpoint == 'proactive' %}active{% endif %}">Proactive</a></li>
             <li><a href="{{ url_for('config_page') }}" class="{% if request.endpoint == 'config_page' %}active{% endif %}">Config</a></li>
             <li class="nav-separator"></li>
             <li><a href="{{ url_for('logout') }}">Logout</a></li>
