@@ -316,29 +316,21 @@ class Security extends Page implements HasActions, HasForms
         foreach (static::$configCategories as $category => $keys) {
             $fields = [];
             foreach ($keys as $key) {
+                $help = static::$configHelp[$key] ?? '';
                 if (in_array($key, static::$booleanKeys)) {
                     $fields[] = Toggle::make('configData.config_'.$key)
                         ->label($key)
-                        ->live()
-                        ->afterStateUpdated(fn ($state) => $this->updateConfigValue($key, $state ? 'yes' : 'no'));
+                        ->helperText($help);
                 } elseif (isset(static::$selectKeys[$key])) {
                     $opts = array_combine(static::$selectKeys[$key], static::$selectKeys[$key]);
                     $fields[] = Select::make('configData.config_'.$key)
                         ->label($key)
                         ->options($opts)
-                        ->live()
-                        ->afterStateUpdated(fn ($state) => $this->updateConfigValue($key, $state ?? ''));
+                        ->helperText($help);
                 } else {
                     $fields[] = TextInput::make('configData.config_'.$key)
                         ->label($key)
-                        ->suffixAction(
-                            Action::make('save_'.$key)
-                                ->icon('heroicon-o-check')
-                                ->action(function () use ($key) {
-                                    $val = $this->configData['config_'.$key] ?? '';
-                                    $this->updateConfigValue($key, $val);
-                                })
-                        );
+                        ->helperText($help);
                 }
             }
 
@@ -349,6 +341,16 @@ class Security extends Page implements HasActions, HasForms
             Tabs::make(__('Configuration'))
                 ->contained()
                 ->tabs($tabs),
+            SchemaActions::make([
+                Action::make('saveAndRestart')
+                    ->label(__('Save & Restart'))
+                    ->icon('heroicon-o-check')
+                    ->color('success')
+                    ->size('lg')
+                    ->requiresConfirmation()
+                    ->modalDescription(__('This will save all changes and restart the security daemon.'))
+                    ->action(fn () => $this->saveAndRestart()),
+            ]),
         ];
     }
 
@@ -379,12 +381,47 @@ class Security extends Page implements HasActions, HasForms
 
     public function updateConfigValue(string $key, string $value): void
     {
-        $result = $this->client()->patch('/config', [$key => $value]);
+        $this->client()->patch('/config', [$key => $value]);
+    }
+
+    public function saveAndRestart(): void
+    {
+        $config = $this->client()->get('/config') ?? [];
+        $changes = [];
+
+        foreach (static::$configCategories as $keys) {
+            foreach ($keys as $key) {
+                $formKey = 'config_'.$key;
+                if (! array_key_exists($formKey, $this->configData)) {
+                    continue;
+                }
+                $newVal = $this->configData[$formKey];
+                if (in_array($key, static::$booleanKeys)) {
+                    $newVal = $newVal ? 'yes' : 'no';
+                }
+                $oldVal = $config[$key] ?? '';
+                if ((string) $newVal !== (string) $oldVal) {
+                    $changes[$key] = (string) $newVal;
+                }
+            }
+        }
+
+        if (! empty($changes)) {
+            $this->client()->patch('/config', $changes);
+        }
+
+        // Restart daemon via systemctl (no user input in command)
+        $process = new \Symfony\Component\Process\Process(['/usr/bin/systemctl', 'restart', 'jabali-security']);
+        $process->run();
+        sleep(2);
+
         Notification::make()
-            ->title($result ? __('Config updated') : __('Update failed'))
-            ->body($result ? __('Restart daemon to apply changes') : '')
-            ->color($result ? 'success' : 'danger')
+            ->title(__('Settings saved'))
+            ->body(count($changes).' '.__('changes applied, daemon restarted'))
+            ->success()
             ->send();
+
+        $this->redirect(static::getUrl(['tab' => 'settings']));
     }
 
     // ── Firewall Actions ─────────────────────────────────────────────
@@ -400,6 +437,94 @@ class Security extends Page implements HasActions, HasForms
         $this->client()->post('/firewall/ufw/disable');
         Notification::make()->title(__('Firewall disabled'))->success()->send();
     }
+
+    public static array $configHelp = [
+        'LOG_LEVEL' => 'Logging verbosity: debug shows everything, error shows only errors',
+        'LOG_DIR' => 'Directory for daemon log files',
+        'DATA_DIR' => 'Directory for SQLite database and cached data',
+        'QUARANTINE_DIR' => 'Where quarantined malicious files are moved to',
+        'WORKERS' => 'Number of parallel scan workers (1-32)',
+        'API_BIND' => 'TCP bind address for API fallback. Empty = socket only (recommended)',
+        'API_PORT' => 'TCP port when API_BIND is set',
+        'API_KEY' => 'Authentication key for API access. Auto-generated on install',
+        'API_SOCKET' => 'Unix socket path for secure local API communication',
+        'WEB_ENABLED' => 'Enable the standalone web dashboard (port 8443)',
+        'WEB_BIND' => 'Web dashboard bind address',
+        'WEB_PORT' => 'Web dashboard port',
+        'WATCH_DIRS' => 'Comma-separated directory globs to monitor for file changes',
+        'SCAN_EXTENSIONS' => 'File extensions to scan (comma-separated)',
+        'MAX_FILE_SIZE' => 'Maximum file size to scan in bytes (default 2MB)',
+        'SKIP_DIRS' => 'Directory names to skip during scanning',
+        'HEURISTIC_ENABLED' => 'Enable regex-based pattern matching for malicious code',
+        'ENTROPY_ENABLED' => 'Enable Shannon entropy analysis for encoded payloads',
+        'ENTROPY_THRESHOLD' => 'Entropy score threshold (0.0-8.0, default 4.5)',
+        'YARA_ENABLED' => 'Enable YARA-X signature-based scanning',
+        'YARA_RULES_DIR' => 'Directory containing .yar rule files',
+        'CLAMAV_ENABLED' => 'ClamAV scanning: auto (detect), yes (require), no (disable)',
+        'CLAMAV_SOCKET' => 'Path to clamd Unix socket',
+        'FRESHCLAM_ON_UPDATE' => 'Run freshclam when reloading rules',
+        'SCORE_LOG' => 'Minimum score to log an incident',
+        'SCORE_QUARANTINE' => 'Minimum score to auto-quarantine a file',
+        'SCORE_SUSPEND' => 'Minimum score to auto-suspend a hosting account',
+        'PROCESS_MONITOR_ENABLED' => 'Monitor running processes for suspicious activity',
+        'PROCESS_POLL_INTERVAL' => 'Seconds between process scans',
+        'BEHAVIOR_TRACKING_ENABLED' => 'Track file creation patterns for behavioral analysis',
+        'BEHAVIOR_TTL' => 'Seconds to keep behavioral tracking data',
+        'AUTO_QUARANTINE' => 'Automatically quarantine files exceeding score threshold',
+        'AUTO_SUSPEND' => 'Automatically suspend accounts exceeding score threshold',
+        'AUTO_BLOCK_IP' => 'Automatically block IP addresses associated with attacks',
+        'WAF_ENABLED' => 'Enable ModSecurity WAF event monitoring',
+        'WAF_AUDIT_LOG' => 'Path to ModSecurity audit log file',
+        'WAF_AUDIT_LOG_TYPE' => 'Audit log format: serial (single file) or concurrent',
+        'WAF_RULES_DIR' => 'Directory containing OWASP CRS rule files',
+        'WAF_OVERRIDES_FILE' => 'File for custom ModSecurity rule overrides',
+        'WAF_CRS_AUTO_UPDATE' => 'Automatically update OWASP Core Rule Set',
+        'WAF_WEB_SERVER' => 'Web server type: auto, nginx, or apache',
+        'BRUTEFORCE_ENABLED' => 'Enable brute-force detection on auth logs',
+        'BRUTEFORCE_SSH_LOG' => 'Path to SSH auth log (auth.log)',
+        'BRUTEFORCE_MAIL_LOG' => 'Path to mail auth log (mail.log)',
+        'BRUTEFORCE_STALWART_LOG' => 'Directory for Stalwart mail server logs',
+        'BRUTEFORCE_SSH_THRESHOLD' => 'Failed SSH attempts before blocking',
+        'BRUTEFORCE_SSH_WINDOW' => 'Time window in seconds for SSH threshold',
+        'BRUTEFORCE_MAIL_THRESHOLD' => 'Failed mail login attempts before blocking',
+        'BRUTEFORCE_MAIL_WINDOW' => 'Time window in seconds for mail threshold',
+        'BRUTEFORCE_BLOCK_DURATIONS' => 'Progressive block durations in seconds (comma-separated, 0=permanent)',
+        'FIREWALL_BACKEND' => 'IP blocking backend: auto, nftables, iptables, or none',
+        'BRUTEFORCE_WHITELIST_IPS' => 'IPs that are never blocked (comma-separated)',
+        'UFW_ENABLED' => 'Enable UFW firewall rule management via the API',
+        'PROACTIVE_ENABLED' => 'Master switch for proactive defense features',
+        'PHP_HARDENING_ENABLED' => 'Harden PHP-FPM pools with disable_functions and open_basedir',
+        'PHP_HARDENING_AUTO' => 'Automatically harden new PHP-FPM pools',
+        'PROCESS_KILL_ENABLED' => 'Kill suspicious processes (reverse shells, crypto miners)',
+        'PROCESS_KILL_THRESHOLD' => 'Suspicion score threshold to kill a process (1-100)',
+        'PROCESS_KILL_MIN_UID' => 'Minimum UID to consider for process killing',
+        'PROCESS_KILL_WHITELIST' => 'Process names to never kill (comma-separated)',
+        'CLEANUP_ENABLED' => 'Enable malware cleanup engine',
+        'CLEANUP_AUTO' => 'Automatically clean detected malware',
+        'CLEANUP_BACKUP_DIR' => 'Directory for cleanup backups before modification',
+        'CLEANUP_CMS_CHECKSUMS' => 'Verify CMS file integrity using official checksums',
+        'SCHEDULED_SCAN_ENABLED' => 'Enable periodic full-directory scanning',
+        'SCHEDULED_SCAN_INTERVAL' => 'Hours between scheduled scans (1-8760)',
+        'SCHEDULED_SCAN_PATHS' => 'Paths to scan on schedule (comma-separated globs)',
+        'THREAT_INTEL_ENABLED' => 'Enable threat intelligence feed downloads',
+        'THREAT_INTEL_UPDATE_INTERVAL' => 'Hours between feed updates (1-168)',
+        'THREAT_INTEL_FEEDS' => 'Enabled feed names (comma-separated)',
+        'THREAT_INTEL_AUTO_BLOCK' => 'Automatically block IPs found in threat feeds',
+        'THREAT_INTEL_AUTO_BLOCK_THRESHOLD' => 'Number of feeds an IP must appear in before auto-blocking',
+        'WEBSHIELD_ENABLED' => 'Enable nginx-level bot filtering and rate limiting',
+        'WEBSHIELD_RATE_LIMIT' => 'Requests per second before rate limiting kicks in',
+        'WEBSHIELD_RATE_BURST' => 'Maximum burst of requests allowed',
+        'WEBSHIELD_CHALLENGE_ENABLED' => 'Serve JS challenge pages to suspicious clients',
+        'WEBSHIELD_BOT_FILTERING' => 'Block known malicious user agents',
+        'WEBSHIELD_NGINX_CONF_DIR' => 'Directory for WebShield nginx config snippets',
+        'DB_SCANNER_ENABLED' => 'Enable database injection scanning',
+        'RAPIDSCAN_WORKERS' => 'Parallel workers for rapid directory scans',
+        'RAPIDSCAN_MTIME_CACHE' => 'Cache file modification times to skip unchanged files',
+        'NOTIFY_EMAIL' => 'Email address for high-severity notifications',
+        'NOTIFY_WEBHOOK' => 'Webhook URL for incident notifications',
+        'NOTIFY_MIN_SEVERITY' => 'Minimum severity to trigger notifications',
+        'INCIDENT_RETAIN_DAYS' => 'Days to keep incident records before cleanup',
+    ];
 
     // ── Static Data ──────────────────────────────────────────────────
 
