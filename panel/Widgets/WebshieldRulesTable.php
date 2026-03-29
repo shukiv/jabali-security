@@ -57,28 +57,28 @@ class WebshieldRulesTable extends Component implements HasActions, HasSchemas, H
                     ->boolean(),
             ])
             ->headerActions([
-                Action::make('install')
-                    ->label(__('Install'))
+                Action::make('enable')
+                    ->label(__('Enable'))
                     ->icon('heroicon-o-arrow-down-on-square')
                     ->requiresConfirmation()
                     ->action(function (): void {
                         $result = $this->client()->post('/webshield/install');
 
                         Notification::make()
-                            ->title($result ? __('WebShield installed') : __('Failed to install WebShield'))
+                            ->title($result ? __('WebShield enabled') : __('Failed to enable WebShield'))
                             ->{($result ? "success" : "danger")}()
                             ->send();
                     }),
-                Action::make('uninstall')
-                    ->label(__('Uninstall'))
-                    ->icon('heroicon-o-trash')
+                Action::make('disable')
+                    ->label(__('Disable'))
+                    ->icon('heroicon-o-x-circle')
                     ->color('danger')
                     ->requiresConfirmation()
                     ->action(function (): void {
                         $result = $this->client()->post('/webshield/uninstall');
 
                         Notification::make()
-                            ->title($result ? __('WebShield uninstalled') : __('Failed to uninstall WebShield'))
+                            ->title($result ? __('WebShield disabled') : __('Failed to disable WebShield'))
                             ->{($result ? "success" : "danger")}()
                             ->send();
                     }),

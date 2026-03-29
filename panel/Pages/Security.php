@@ -398,7 +398,7 @@ class Security extends Page implements HasActions, HasForms
         $s = $this->client()->get('/webshield/status') ?? [];
         return [
             Grid::make(6)->dense()->schema([
-                $this->statCard('Installed', ($s['installed'] ?? false) ? __('Yes') : __('No'), '',
+                $this->statCard('Enabled', ($s['installed'] ?? false) ? __('Yes') : __('No'), '',
                     ($s['installed'] ?? false) ? 'success' : 'gray'),
                 $this->statCard('Rate Limiting', ($s['rate_limiting'] ?? false) ? __('On') : __('Off'), '',
                     ($s['rate_limiting'] ?? false) ? 'success' : 'gray'),
