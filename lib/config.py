@@ -44,7 +44,7 @@ DEFAULTS: dict[str, str] = {
     "NOTIFY_WEBHOOK": "",
     "NOTIFY_MIN_SEVERITY": "high",
     "INCIDENT_RETAIN_DAYS": "90",
-    "CLAMAV_ENABLED": "auto",
+    "CLAMAV_ENABLED": "no",
     "CLAMAV_SOCKET": "/var/run/clamav/clamd.ctl",
     "FRESHCLAM_ON_UPDATE": "yes",
     "BRUTEFORCE_ENABLED": "yes",

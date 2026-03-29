@@ -64,8 +64,9 @@ YARA_RULES_DIR="/usr/local/jabali-security/rules"
 
 # -- ClamAV (optional) ------------------------------------------------------
 
-# Enable ClamAV scanning: "auto" (detect clamd), "yes" (require), "no" (disable)
-CLAMAV_ENABLED="auto"
+# Enable ClamAV scanning: "no" (disabled), "auto" (detect clamd), "yes" (require)
+# Disabled by default to save resources. Enabled automatically in Under Attack mode.
+CLAMAV_ENABLED="no"
 
 # Path to clamd Unix socket
 CLAMAV_SOCKET="/var/run/clamav/clamd.ctl"

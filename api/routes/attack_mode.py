@@ -30,6 +30,7 @@ _STATE_FILE = Path(DATA_DIR) / "attack_mode.json"
 
 # Config settings applied when Under Attack mode is enabled.
 _ATTACK_SETTINGS: dict[str, str] = {
+    "CLAMAV_ENABLED": "auto",
     "PROCESS_KILL_ENABLED": "yes",
     "PROCESS_KILL_THRESHOLD": "50",
     "AUTO_BLOCK_IP": "yes",
