@@ -330,21 +330,20 @@ class Security extends Page implements HasActions, HasForms
     {
         $s = $this->client()->get('/status');
         if (! $s) {
-            return [$this->statCard('Daemon', __('Offline'), __('Not responding'), 'danger')];
+            return [$this->inlineStatCard('Daemon', __('Offline'), 'danger')];
         }
 
         return [
             Grid::make(6)->dense()->schema([
-                $this->statCard('Incidents', (string) ($s['incidents_24h'] ?? 0), 'Last 24 hours',
+                $this->inlineStatCard('Incidents', (string) ($s['incidents_24h'] ?? 0),
                     ($s['incidents_24h'] ?? 0) > 0 ? 'danger' : 'success'),
-                $this->statCard('Attacks Blocked', (string) ($s['attacks_blocked_24h'] ?? 0), 'Last 24 hours',
+                $this->inlineStatCard('Attacks Blocked', (string) ($s['attacks_blocked_24h'] ?? 0),
                     ($s['attacks_blocked_24h'] ?? 0) > 0 ? 'warning' : 'success'),
-                $this->statCard('Quarantine', (string) ($s['quarantined_count'] ?? 0), 'Files isolated',
+                $this->inlineStatCard('Quarantine', (string) ($s['quarantined_count'] ?? 0),
                     ($s['quarantined_count'] ?? 0) > 0 ? 'warning' : 'success'),
-                $this->statCard('Watching', (string) ($s['watched_dirs'] ?? 0), 'Folders monitored', 'info'),
-                $this->statCard('Memory', round($s['memory_mb'] ?? 0, 1).' MB', ($s['workers'] ?? 0).' workers', 'gray'),
-                $this->statCard('Daemon', ($s['running'] ?? false) ? __('Online') : __('Offline'),
-                    ($s['running'] ?? false) ? 'All systems go' : 'Service down',
+                $this->inlineStatCard('Watching', (string) ($s['watched_dirs'] ?? 0), 'info'),
+                $this->inlineStatCard('Memory', round($s['memory_mb'] ?? 0, 1).' MB', 'gray'),
+                $this->inlineStatCard('Daemon', ($s['running'] ?? false) ? __('Online') : __('Offline'),
                     ($s['running'] ?? false) ? 'success' : 'danger'),
             ]),
         ];
