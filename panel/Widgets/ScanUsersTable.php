@@ -55,7 +55,7 @@ class ScanUsersTable extends Component implements HasActions, HasSchemas, HasTab
                         'incident_count' => $incidents['incident_count'] ?? 0,
                         'max_score' => $incidents['max_score'] ?? 0,
                         'quarantine_count' => $incidents['quarantine_count'] ?? 0,
-                        'path' => '/home/' . $username . '/public_html',
+                        'path' => '/home/' . $username',
                     ];
                 }
 
@@ -78,7 +78,7 @@ class ScanUsersTable extends Component implements HasActions, HasSchemas, HasTab
                             'incident_count' => $u['incident_count'] ?? 0,
                             'max_score' => $u['max_score'] ?? 0,
                             'quarantine_count' => $u['quarantine_count'] ?? 0,
-                            'path' => '/home/' . $username . '/public_html',
+                            'path' => '/home/' . $username',
                         ];
                     }
                 }
@@ -120,7 +120,7 @@ class ScanUsersTable extends Component implements HasActions, HasSchemas, HasTab
                     ->requiresConfirmation()
                     ->action(function (array $record): void {
                         $username = $record['username'] ?? '';
-                        $path = '/home/' . $username . '/public_html';
+                        $path = '/home/' . $username';
                         $result = $this->client()->post('/scan', ['path' => $path]);
 
                         if ($result) {
@@ -179,7 +179,7 @@ class ScanUsersTable extends Component implements HasActions, HasSchemas, HasTab
                         $threats = 0;
                         foreach ($records as $record) {
                             $username = $record['username'] ?? '';
-                            $path = '/home/' . $username . '/public_html';
+                            $path = '/home/' . $username';
                             $result = $this->client()->post('/scan', ['path' => $path]);
                             if ($result) {
                                 $total += $result['files_scanned'] ?? 0;
