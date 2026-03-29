@@ -38,4 +38,7 @@ def _validate_path(path: str, allowed_roots: list[str] | None = None) -> bool:
     if allowed_roots is None:
         allowed_roots = ["/home/", "/var/www/"]
 
-    return any(resolved.startswith(root) for root in allowed_roots)
+    return any(
+        resolved.startswith(root) or resolved.rstrip("/") == root.rstrip("/")
+        for root in allowed_roots
+    )

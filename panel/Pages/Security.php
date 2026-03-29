@@ -212,21 +212,12 @@ class Security extends Page implements HasActions, HasForms
                                     ->icon('heroicon-o-magnifying-glass')
                                     ->color('warning')
                                     ->form([
-                                        Select::make('username')
-                                            ->label(__('User'))
-                                            ->options(function () {
-                                                $users = $this->client()->get('/users') ?? [];
-                                                $options = [];
-                                                foreach ($users as $user) {
-                                                    $name = $user['username'] ?? '';
-                                                    if ($name) {
-                                                        $options[$name] = $name;
-                                                    }
-                                                }
-                                                return $options;
-                                            })
-                                            ->searchable()
-                                            ->required(),
+                                        TextInput::make('username')
+                                            ->label(__('Username'))
+                                            ->placeholder('e.g. shuki')
+                                            ->required()
+                                            ->rules(['regex:/^[a-zA-Z0-9._-]+$/'])
+                                            ->validationMessages(['regex' => __('Invalid username')]),
                                     ])
                                     ->action('scanUser'),
                             ]),
