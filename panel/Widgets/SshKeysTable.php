@@ -98,7 +98,7 @@ class SshKeysTable extends Component implements HasActions, HasSchemas, HasTable
                             ->title($result !== null
                                 ? ($enabled ? __('Shell disabled for :user', ['user' => $username]) : __('Shell enabled for :user', ['user' => $username]))
                                 : __('Failed'))
-                            ->color($result !== null ? 'success' : 'danger')
+                            ->{$result !== null ? 'success' : 'danger'}()
                             ->send();
                     }),
             ])
@@ -125,7 +125,7 @@ class SshKeysTable extends Component implements HasActions, HasSchemas, HasTable
 
                         Notification::make()
                             ->title($result ? __('SSH key added') : __('Failed to add key'))
-                            ->color($result ? 'success' : 'danger')
+                            ->{($result ? "success" : "danger")}()
                             ->send();
                     }),
                 Action::make('generateKey')

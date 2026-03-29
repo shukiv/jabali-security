@@ -59,7 +59,7 @@ class ThreatFeedsTable extends Component implements HasActions, HasSchemas, HasT
 
                         Notification::make()
                             ->title($result ? __('Feeds updated') : __('Failed to update feeds'))
-                            ->color($result ? 'success' : 'danger')
+                            ->{($result ? "success" : "danger")}()
                             ->send();
                     }),
                 Action::make('check_ip')

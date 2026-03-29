@@ -55,7 +55,7 @@ class QuarantineTable extends Component implements HasActions, HasSchemas, HasTa
 
                         Notification::make()
                             ->title($result ? __('File restored') : __('Failed to restore file'))
-                            ->color($result ? 'success' : 'danger')
+                            ->{($result ? "success" : "danger")}()
                             ->send();
                     }),
                 Action::make('delete')
@@ -68,7 +68,7 @@ class QuarantineTable extends Component implements HasActions, HasSchemas, HasTa
 
                         Notification::make()
                             ->title($result ? __('File deleted') : __('Failed to delete file'))
-                            ->color($result ? 'success' : 'danger')
+                            ->{($result ? "success" : "danger")}()
                             ->send();
                     }),
             ])

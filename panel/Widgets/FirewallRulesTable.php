@@ -95,7 +95,7 @@ class FirewallRulesTable extends Component implements HasActions, HasSchemas, Ha
 
                         Notification::make()
                             ->title($result ? __('Rule added') : __('Failed to add rule'))
-                            ->color($result ? 'success' : 'danger')
+                            ->{($result ? "success" : "danger")}()
                             ->send();
                     }),
             ])
@@ -110,7 +110,7 @@ class FirewallRulesTable extends Component implements HasActions, HasSchemas, Ha
 
                         Notification::make()
                             ->title($result ? __('Rule deleted') : __('Failed to delete rule'))
-                            ->color($result ? 'success' : 'danger')
+                            ->{($result ? "success" : "danger")}()
                             ->send();
                     }),
             ])

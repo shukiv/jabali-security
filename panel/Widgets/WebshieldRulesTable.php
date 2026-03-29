@@ -66,7 +66,7 @@ class WebshieldRulesTable extends Component implements HasActions, HasSchemas, H
 
                         Notification::make()
                             ->title($result ? __('WebShield installed') : __('Failed to install WebShield'))
-                            ->color($result ? 'success' : 'danger')
+                            ->{($result ? "success" : "danger")}()
                             ->send();
                     }),
                 Action::make('uninstall')
@@ -79,7 +79,7 @@ class WebshieldRulesTable extends Component implements HasActions, HasSchemas, H
 
                         Notification::make()
                             ->title($result ? __('WebShield uninstalled') : __('Failed to uninstall WebShield'))
-                            ->color($result ? 'success' : 'danger')
+                            ->{($result ? "success" : "danger")}()
                             ->send();
                     }),
             ])

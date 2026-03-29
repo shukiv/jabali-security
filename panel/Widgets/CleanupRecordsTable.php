@@ -68,7 +68,7 @@ class CleanupRecordsTable extends Component implements HasActions, HasSchemas, H
 
                         Notification::make()
                             ->title($result ? __('File cleaned') : __('Failed to clean file'))
-                            ->color($result ? 'success' : 'danger')
+                            ->{($result ? "success" : "danger")}()
                             ->send();
                     }),
             ])

@@ -74,7 +74,7 @@ class IncidentsTable extends Component implements HasActions, HasSchemas, HasTab
 
                         Notification::make()
                             ->title($result ? __('Incident resolved') : __('Failed to resolve incident'))
-                            ->color($result ? 'success' : 'danger')
+                            ->{($result ? "success" : "danger")}()
                             ->send();
                     }),
             ])

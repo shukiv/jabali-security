@@ -65,7 +65,7 @@ class WafEventsTable extends Component implements HasActions, HasSchemas, HasTab
 
                         Notification::make()
                             ->title($result ? __('CRS updated') : __('Failed to update CRS'))
-                            ->color($result ? 'success' : 'danger')
+                            ->{($result ? "success" : "danger")}()
                             ->send();
                     }),
             ])
@@ -80,7 +80,7 @@ class WafEventsTable extends Component implements HasActions, HasSchemas, HasTab
 
                         Notification::make()
                             ->title($result ? __('Rule disabled') : __('Failed to disable rule'))
-                            ->color($result ? 'success' : 'danger')
+                            ->{($result ? "success" : "danger")}()
                             ->send();
                     }),
             ])

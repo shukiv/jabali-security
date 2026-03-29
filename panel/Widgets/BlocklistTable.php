@@ -71,7 +71,7 @@ class BlocklistTable extends Component implements HasActions, HasSchemas, HasTab
 
                         Notification::make()
                             ->title($result ? __('IP blocked') : __('Failed to block IP'))
-                            ->color($result ? 'success' : 'danger')
+                            ->{($result ? "success" : "danger")}()
                             ->send();
                     }),
             ])
@@ -85,7 +85,7 @@ class BlocklistTable extends Component implements HasActions, HasSchemas, HasTab
 
                         Notification::make()
                             ->title($result ? __('IP unblocked') : __('Failed to unblock IP'))
-                            ->color($result ? 'success' : 'danger')
+                            ->{($result ? "success" : "danger")}()
                             ->send();
                     }),
             ])

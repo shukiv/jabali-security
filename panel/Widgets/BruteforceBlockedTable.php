@@ -53,7 +53,7 @@ class BruteforceBlockedTable extends Component implements HasActions, HasSchemas
 
                         Notification::make()
                             ->title($result ? __('IP whitelisted') : __('Failed to whitelist IP'))
-                            ->color($result ? 'success' : 'danger')
+                            ->{($result ? "success" : "danger")}()
                             ->send();
                     }),
             ])

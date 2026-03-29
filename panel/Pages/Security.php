@@ -640,7 +640,7 @@ class Security extends Page implements HasActions, HasForms
         Notification::make()
             ->title($result ? __('Under Attack mode ENABLED') : __('Failed to enable attack mode'))
             ->body($result ? __('Aggressive defenses activated. Process killer, auto-block, low thresholds.') : '')
-            ->color($result ? 'danger' : 'gray')
+            ->{$result ? 'danger' : 'warning'}()
             ->send();
         $this->redirect(static::getUrl(['tab' => 'overview']));
     }
@@ -651,7 +651,7 @@ class Security extends Page implements HasActions, HasForms
         Notification::make()
             ->title($result ? __('Under Attack mode disabled') : __('Failed to disable attack mode'))
             ->body($result ? __('Normal defense settings restored.') : '')
-            ->color($result ? 'success' : 'gray')
+            ->{$result ? 'success' : 'danger'}()
             ->send();
         $this->redirect(static::getUrl(['tab' => 'overview']));
     }
@@ -663,7 +663,7 @@ class Security extends Page implements HasActions, HasForms
         $result = $this->client()->post('/firewall/ufw/enable');
         Notification::make()
             ->title($result ? __('Firewall enabled') : __('Failed to enable firewall'))
-            ->color($result ? 'success' : 'danger')
+            ->{($result ? "success" : "danger")}()
             ->send();
         $this->redirect(static::getUrl(['tab' => 'defense', 'defense' => 'firewall']));
     }
@@ -673,7 +673,7 @@ class Security extends Page implements HasActions, HasForms
         $result = $this->client()->post('/firewall/ufw/disable');
         Notification::make()
             ->title($result ? __('Firewall disabled') : __('Failed to disable firewall'))
-            ->color($result ? 'success' : 'danger')
+            ->{($result ? "success" : "danger")}()
             ->send();
         $this->redirect(static::getUrl(['tab' => 'defense', 'defense' => 'firewall']));
     }
