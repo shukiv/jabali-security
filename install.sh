@@ -330,6 +330,12 @@ if 'JabaliSecurityPlugin' not in c and '->middleware([' in c:
     done_ok "Directories created"
 
     section "Configuring Security Daemon"
+    # Always ensure correct permissions (even on reinstall)
+    if id www-data &>/dev/null; then
+        chown root:www-data "$CONFIG_DIR" 2>/dev/null
+        chmod 750 "$CONFIG_DIR" 2>/dev/null
+    fi
+
     if [ ! -f "$CONFIG_DIR/jabali-security.conf" ]; then
         cp "$INSTALL_DIR/etc/jabali-security.conf.example" "$CONFIG_DIR/jabali-security.conf"
         if id www-data &>/dev/null; then
@@ -341,6 +347,11 @@ if 'JabaliSecurityPlugin' not in c and '->middleware([' in c:
         echo "  Config: $CONFIG_DIR/jabali-security.conf"
     else
         echo "  Config already exists, keeping current."
+        # Fix permissions on existing config
+        if id www-data &>/dev/null; then
+            chown root:www-data "$CONFIG_DIR/jabali-security.conf" 2>/dev/null
+            chmod 640 "$CONFIG_DIR/jabali-security.conf" 2>/dev/null
+        fi
     fi
 
     # -- Generate API_KEY if not set --
