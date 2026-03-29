@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
+import shutil
 from pathlib import Path
 from typing import Awaitable, Callable
 
@@ -73,21 +74,38 @@ class AuthLogParser:
         """Tail all configured logs concurrently. Calls callback for each failed login."""
         self._running = True
         tasks = []
+        journald_services: list[tuple[str, list[tuple[str, re.Pattern[str]]]]] = []
+
         for service, log_path in self._log_configs.items():
-            if not Path(log_path).exists():
-                logger.warning("Log file not found for %s: %s", service, log_path)
-                continue
             patterns = _LOG_PATTERNS.get(service, [])
             if not patterns:
                 logger.warning("No patterns defined for service: %s", service)
                 continue
-            tasks.append(self._tail_log(service, log_path, patterns, callback))
+            if Path(log_path).exists():
+                tasks.append(self._tail_log(service, log_path, patterns, callback))
+            else:
+                # Log file missing — queue for journald fallback
+                journald_services.append((service, patterns))
+
+        # Fallback: use journalctl for services whose log files don't exist
+        if journald_services and shutil.which("journalctl"):
+            unit_map = {"ssh": "ssh.service", "sshd": "ssh.service",
+                        "dovecot": "dovecot.service", "postfix": "postfix.service",
+                        "exim": "exim4.service", "stalwart": "stalwart-mail.service"}
+            units = []
+            all_patterns: list[tuple[str, re.Pattern[str]]] = []
+            for svc, pats in journald_services:
+                unit = unit_map.get(svc, f"{svc}.service")
+                units.append(unit)
+                all_patterns.extend(pats)
+                logger.info("Log file missing for %s, using journald (%s)", svc, unit)
+            tasks.append(self._tail_journald(units, all_patterns, callback))
 
         if not tasks:
             logger.warning("No log files to monitor for brute-force detection")
             return
 
-        logger.info("Brute-force log parser started: monitoring %d log files", len(tasks))
+        logger.info("Brute-force log parser started: monitoring %d sources", len(tasks))
         await asyncio.gather(*tasks)
 
     async def stop(self) -> None:
@@ -113,6 +131,40 @@ class AuthLogParser:
 
         logger.info("Tailing %s for %s events", log_path, service)
         await tailer.tail(_on_line)
+
+    async def _tail_journald(
+        self,
+        units: list[str],
+        patterns: list[tuple[str, re.Pattern[str]]],
+        callback: Callable[[AuthEvent], Awaitable[None]],
+    ) -> None:
+        """Follow journald output for specified units, matching brute-force patterns."""
+        cmd = ["journalctl", "--follow", "--no-pager", "-o", "short", "-n", "0"]
+        for unit in units:
+            cmd.extend(["-u", unit])
+
+        logger.info("Tailing journald for units: %s", ", ".join(units))
+        proc = await asyncio.create_subprocess_exec(
+            *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL,
+        )
+        try:
+            while self._running and proc.stdout:
+                line_bytes = await proc.stdout.readline()
+                if not line_bytes:
+                    break
+                line = line_bytes.decode("utf-8", errors="replace").strip()
+                if line:
+                    service = "ssh"
+                    if "dovecot" in line.lower():
+                        service = "dovecot"
+                    elif "postfix" in line.lower():
+                        service = "postfix"
+                    elif "exim" in line.lower():
+                        service = "exim"
+                    await self._process_line(service, line, patterns, callback)
+        finally:
+            proc.terminate()
+            await proc.wait()
 
     async def _process_line(
         self,
