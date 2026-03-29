@@ -7,6 +7,7 @@ import logging
 from aiohttp import web
 
 from api.routes.helpers import _err, _ok
+from lib.sshjail.manager import SSHJailManager
 from lib.sshjail.validators import (
     validate_key_id,
     validate_key_name,
@@ -16,6 +17,20 @@ from lib.sshjail.validators import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Shared instance for sshd_config operations when sshjail module is not enabled
+_sshd_manager: SSHJailManager | None = None
+
+
+def _get_sshd_manager(request: web.Request) -> SSHJailManager:
+    """Get sshjail manager, or a minimal instance for sshd_config operations."""
+    mgr = request.app.get("sshjail")
+    if mgr:
+        return mgr
+    global _sshd_manager
+    if _sshd_manager is None:
+        _sshd_manager = SSHJailManager()
+    return _sshd_manager
 
 
 def setup_routes(app: web.Application) -> None:
@@ -282,12 +297,10 @@ async def post_shell_disable(request: web.Request) -> web.Response:
 
 async def get_password_auth(request: web.Request) -> web.Response:
     """Legacy endpoint -- returns password_auth from sshd settings."""
-    sshjail = request.app.get("sshjail")
-    if not sshjail:
-        return _err("SSH jail management not enabled", 404)
+    mgr = _get_sshd_manager(request)
 
     try:
-        settings = await sshjail.get_sshd_settings()
+        settings = await mgr.get_sshd_settings()
     except Exception:
         logger.exception("Failed to read SSH password auth status")
         return _err("Failed to read SSH password auth status", 500)
@@ -297,9 +310,7 @@ async def get_password_auth(request: web.Request) -> web.Response:
 
 async def post_password_auth(request: web.Request) -> web.Response:
     """Legacy endpoint -- updates only password_auth in sshd settings."""
-    sshjail = request.app.get("sshjail")
-    if not sshjail:
-        return _err("SSH jail management not enabled", 404)
+    mgr = _get_sshd_manager(request)
 
     try:
         body = await request.json()
@@ -315,7 +326,7 @@ async def post_password_auth(request: web.Request) -> web.Response:
 
     logger.info("SSH password auth: setting to %s", "enabled" if enabled else "disabled")
     try:
-        success = await sshjail.set_sshd_settings({"password_auth": enabled})
+        success = await mgr.set_sshd_settings({"password_auth": enabled})
     except Exception:
         logger.exception("Failed to set SSH password auth")
         return _err("Failed to update SSH password authentication", 500)
@@ -328,12 +339,10 @@ async def post_password_auth(request: web.Request) -> web.Response:
 
 async def get_sshd_settings(request: web.Request) -> web.Response:
     """Get sshd_config settings: password_auth, pubkey_auth, port."""
-    sshjail = request.app.get("sshjail")
-    if not sshjail:
-        return _err("SSH jail management not enabled", 404)
+    mgr = _get_sshd_manager(request)
 
     try:
-        settings = await sshjail.get_sshd_settings()
+        settings = await mgr.get_sshd_settings()
     except Exception:
         logger.exception("Failed to read sshd settings")
         return _err("Failed to read sshd settings", 500)
@@ -343,9 +352,7 @@ async def get_sshd_settings(request: web.Request) -> web.Response:
 
 async def post_sshd_settings(request: web.Request) -> web.Response:
     """Update sshd_config settings. Accepts: password_auth, pubkey_auth, port."""
-    sshjail = request.app.get("sshjail")
-    if not sshjail:
-        return _err("SSH jail management not enabled", 404)
+    mgr = _get_sshd_manager(request)
 
     try:
         body = await request.json()
@@ -377,7 +384,7 @@ async def post_sshd_settings(request: web.Request) -> web.Response:
 
     logger.info("Updating sshd settings: %s", updates)
     try:
-        success = await sshjail.set_sshd_settings(updates)
+        success = await mgr.set_sshd_settings(updates)
     except Exception:
         logger.exception("Failed to update sshd settings")
         return _err("Failed to update sshd settings", 500)
@@ -387,7 +394,7 @@ async def post_sshd_settings(request: web.Request) -> web.Response:
 
     # Return current state after update
     try:
-        current = await sshjail.get_sshd_settings()
+        current = await mgr.get_sshd_settings()
     except Exception:
         current = updates
 
