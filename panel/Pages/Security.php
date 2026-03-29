@@ -326,29 +326,27 @@ class Security extends Page implements HasActions, HasForms
         ]);
     }
 
-    protected function overviewStats(): array
+    public function getOverviewStatsDataProperty(): array
     {
         $s = $this->client()->get('/status');
         if (! $s) {
-            return [$this->inlineStatCard('Daemon', __('Offline'), 'danger')];
+            return [['value' => __('Offline'), 'label' => __('Daemon'), 'icon' => 'heroicon-o-server', 'color' => 'danger']];
         }
 
         return [
-            Grid::make(3)->dense()->schema([
-                $this->inlineStatCard('Incidents', (string) ($s['incidents_24h'] ?? 0),
-                    ($s['incidents_24h'] ?? 0) > 0 ? 'danger' : 'success'),
-                $this->inlineStatCard('Blocked', (string) ($s['attacks_blocked_24h'] ?? 0),
-                    ($s['attacks_blocked_24h'] ?? 0) > 0 ? 'warning' : 'success'),
-                $this->inlineStatCard('Quarantine', (string) ($s['quarantined_count'] ?? 0),
-                    ($s['quarantined_count'] ?? 0) > 0 ? 'warning' : 'success'),
-            ]),
-            Grid::make(3)->dense()->schema([
-                $this->inlineStatCard('Watching', (string) ($s['watched_dirs'] ?? 0), 'info'),
-                $this->inlineStatCard('Memory', round($s['memory_mb'] ?? 0, 1).' MB', 'gray'),
-                $this->inlineStatCard('Daemon', ($s['running'] ?? false) ? __('Online') : __('Offline'),
-                    ($s['running'] ?? false) ? 'success' : 'danger'),
-            ]),
+            ['value' => (string) ($s['incidents_24h'] ?? 0), 'label' => __('Incidents'), 'icon' => 'heroicon-o-exclamation-triangle', 'color' => ($s['incidents_24h'] ?? 0) > 0 ? 'danger' : 'success'],
+            ['value' => (string) ($s['attacks_blocked_24h'] ?? 0), 'label' => __('Blocked'), 'icon' => 'heroicon-o-shield-check', 'color' => ($s['attacks_blocked_24h'] ?? 0) > 0 ? 'warning' : 'success'],
+            ['value' => (string) ($s['quarantined_count'] ?? 0), 'label' => __('Quarantine'), 'icon' => 'heroicon-o-lock-closed', 'color' => ($s['quarantined_count'] ?? 0) > 0 ? 'warning' : 'success'],
+            ['value' => (string) ($s['watched_dirs'] ?? 0), 'label' => __('Watching'), 'icon' => 'heroicon-o-eye', 'color' => 'info'],
+            ['value' => round($s['memory_mb'] ?? 0, 1).' MB', 'label' => __('Memory'), 'icon' => 'heroicon-o-cpu-chip', 'color' => 'gray'],
+            ['value' => ($s['running'] ?? false) ? __('Online') : __('Offline'), 'label' => __('Daemon'), 'icon' => 'heroicon-o-server', 'color' => ($s['running'] ?? false) ? 'success' : 'danger'],
         ];
+    }
+
+    protected function overviewStats(): array
+    {
+        // Stats are now rendered in the Blade view directly
+        return [];
     }
 
     private static array $statIcons = [
