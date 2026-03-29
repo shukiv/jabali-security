@@ -390,11 +390,11 @@ class SSHJailManager:
         await self._verify_user(username)
 
         async with self._lock:
-            rc, _, _ = await self._run(
+            rc, stdout, stderr = await self._run(
                 ["usermod", "-aG", "shellusers", username]
             )
             if rc != 0:
-                logger.warning("Failed to add %s to shellusers", username)
+                logger.warning("Failed to add %s to shellusers (rc=%d): %s", username, rc, stderr)
                 return False
 
             # Remove from sftpusers -- ignore error if not a member
