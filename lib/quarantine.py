@@ -45,8 +45,12 @@ class QuarantineManager:
             dest = dest_dir / ("%s_%s" % (incident.id[:8], dest_name))
 
         try:
-            # Read content for hash before moving
-            content = await asyncio.to_thread(src.read_bytes)
+            # Read content for hash before moving (O_NOFOLLOW prevents symlink races)
+            fd = os.open(str(src), os.O_RDONLY | os.O_NOFOLLOW)
+            try:
+                content = await asyncio.to_thread(os.read, fd, 50_000_000)  # 50MB max
+            finally:
+                os.close(fd)
             file_hash = hashlib.sha256(content).hexdigest()
 
             # Move file to quarantine

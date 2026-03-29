@@ -51,10 +51,10 @@ class ScoringEngine:
                 total = sum(f.score for f in findings)
                 action = "log" if total >= self._score_log else "ignore"
                 return ThreatScore(total=total, findings=findings, action=action)
-            # Has real signature matches — score normally but only count those
-            findings = real_threats
-
-        total = sum(f.score for f in findings)
+            # Has real signature matches — score only those, but keep all findings for forensics
+            total = sum(f.score for f in real_threats)
+        else:
+            total = sum(f.score for f in findings)
 
         # Context multipliers
         if event.in_uploads_dir:

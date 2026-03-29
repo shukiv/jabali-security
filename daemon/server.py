@@ -85,8 +85,6 @@ class SecurityDaemon:
 
                 await stop_event.wait()
                 logger.info("Shutdown signal received...")
-            except KeyboardInterrupt:
-                logger.info("Keyboard interrupt received...")
             finally:
                 for task in bg_tasks:
                     task.cancel()
@@ -100,6 +98,8 @@ class SecurityDaemon:
                             task.get_name(), result, exc_info=result,
                         )
                 await api_runner.cleanup()
+                if socket_path:
+                    Path(socket_path).unlink(missing_ok=True)
                 logger.info("Jabali Security stopped.")
 
     async def _scan_worker(self, worker_id: int) -> None:
@@ -185,13 +185,4 @@ class SecurityDaemon:
 
         return _on_waf_event
 
-    async def _handle_process_threats(self, threats: list) -> None:
-        """Callback for process monitor -- log threats."""
-        for threat in threats:
-            logger.critical(
-                "PROCESS THREAT: pid=%d ppid=%d score=%d user=%s cmd=%s -- %s",
-                threat.pid, threat.ppid, threat.score,
-                threat.username, threat.cmdline[:100], threat.description,
-            )
-        # Future: create incidents for process threats
 

@@ -26,14 +26,8 @@ async def post_quarantine_restore(request: web.Request) -> web.Response:
     quarantine = request.app["quarantine"]
     record_id = request.match_info["id"]
 
-    # Find the record in the database
-    records = await incidents.list_quarantine()
-    record = None
-    for r in records:
-        if r.id == record_id:
-            record = r
-            break
-
+    # Find the record in the database (O(1) primary-key lookup)
+    record = await incidents.get_quarantine_by_id(record_id)
     if not record:
         return _err("Quarantine record not found", 404)
 
@@ -50,14 +44,8 @@ async def delete_quarantine(request: web.Request) -> web.Response:
     quarantine = request.app["quarantine"]
     record_id = request.match_info["id"]
 
-    # Find the record in the database
-    records = await incidents.list_quarantine()
-    record = None
-    for r in records:
-        if r.id == record_id:
-            record = r
-            break
-
+    # Find the record in the database (O(1) primary-key lookup)
+    record = await incidents.get_quarantine_by_id(record_id)
     if not record:
         return _err("Quarantine record not found", 404)
 

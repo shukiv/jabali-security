@@ -756,9 +756,6 @@ class Security extends Page implements HasActions, HasForms
         'DB_SCANNER_ENABLED' => 'Enable database injection scanning',
         'RAPIDSCAN_WORKERS' => 'Parallel workers for rapid directory scans',
         'RAPIDSCAN_MTIME_CACHE' => 'Cache file modification times to skip unchanged files',
-        'NOTIFY_EMAIL' => 'Email address for high-severity notifications',
-        'NOTIFY_WEBHOOK' => 'Webhook URL for incident notifications',
-        'NOTIFY_MIN_SEVERITY' => 'Minimum severity to trigger notifications',
         'INCIDENT_RETAIN_DAYS' => 'Days to keep incident records before cleanup',
         'SSHJAIL_ENABLED' => 'Enable SSH jail management (chroot jailshell with wp-cli)',
         'SSHJAIL_JAIL_DIR' => 'Root directory for the SSH chroot jail',
@@ -805,7 +802,6 @@ class Security extends Page implements HasActions, HasForms
         'FIREWALL_BACKEND' => ['auto', 'nftables', 'iptables', 'none'],
         'WAF_AUDIT_LOG_TYPE' => ['serial', 'concurrent'],
         'WAF_WEB_SERVER' => ['auto', 'nginx', 'apache'],
-        'NOTIFY_MIN_SEVERITY' => ['low', 'medium', 'high', 'critical'],
     ];
 
     /** Basic mode: only these categories shown, expert keys hidden within them. */

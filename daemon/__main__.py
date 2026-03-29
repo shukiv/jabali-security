@@ -63,7 +63,7 @@ def _write_pid():
             pf.unlink()
     except OSError:
         pass
-    fd = os.open(str(pf), os.O_CREAT | os.O_WRONLY | os.O_TRUNC, 0o644)
+    fd = os.open(str(pf), os.O_CREAT | os.O_WRONLY | os.O_TRUNC | os.O_NOFOLLOW, 0o644)
     f = os.fdopen(fd, "w")
     try:
         fcntl.flock(f.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -144,13 +144,15 @@ def _api_request(config: JabaliConfig, method: str, path: str, body: dict | None
         conn = http.client.HTTPConnection("localhost")
         sock = socket_mod.socket(socket_mod.AF_UNIX, socket_mod.SOCK_STREAM)
         sock.settimeout(30)
-        sock.connect(socket_path)
-        conn.sock = sock
-        conn.request(method, path, body=data, headers=headers)
-        resp = conn.getresponse()
-        result = json.loads(resp.read().decode())
-        conn.close()
-        return result
+        try:
+            sock.connect(socket_path)
+            conn.sock = sock
+            conn.request(method, path, body=data, headers=headers)
+            resp = conn.getresponse()
+            result = json.loads(resp.read().decode())
+            return result
+        finally:
+            conn.close()
     else:
         # TCP fallback
         if not config.api_bind:

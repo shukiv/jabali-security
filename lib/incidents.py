@@ -241,6 +241,18 @@ class IncidentStore:
                     results.append(record)
         return results
 
+    async def get_quarantine_by_id(self, record_id: str) -> QuarantineRecord | None:
+        """Fetch a single quarantine record by ID (O(1) primary-key lookup)."""
+        if self._db is None:
+            raise RuntimeError("IncidentStore not initialized — call open() first")
+        async with self._db.execute(
+            "SELECT * FROM quarantine WHERE id = ? AND deleted = 0", (record_id,)
+        ) as cursor:
+            row = await cursor.fetchone()
+            if row:
+                return self._row_to_quarantine(row, cursor.description)
+        return None
+
     async def mark_quarantine_restored(self, record_id: str) -> bool:
         if self._db is None:
             raise RuntimeError("IncidentStore not initialized — call open() first")

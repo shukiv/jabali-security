@@ -59,7 +59,7 @@ class SshKeysTable extends Component implements HasActions, HasSchemas, HasTable
                     return $records;
                 }
 
-                return $this->client()->get('/ssh/keys?username='.$this->sshUsername) ?? [];
+                return $this->client()->get('/ssh/keys', ['username' => $this->sshUsername]) ?? [];
             })
             ->columns([
                 TextColumn::make('username')
