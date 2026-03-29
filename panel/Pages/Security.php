@@ -140,38 +140,7 @@ class Security extends Page implements HasActions, HasForms
 
     protected function getHeaderActions(): array
     {
-        return [
-            Action::make('scan')
-                ->label(__('Run Scan'))
-                ->icon('heroicon-o-magnifying-glass')
-                ->color('danger')
-                ->form([
-                    TextInput::make('path')
-                        ->label(__('Path'))
-                        ->placeholder('/home/user/public_html')
-                        ->required()
-                        ->rules(['regex:/^\/home\/|^\/var\/www\//'])
-                        ->validationMessages(['regex' => __('Path must be under /home/ or /var/www/')]),
-                ])
-                ->action(function (array $data): void {
-                    $result = $this->client()->post('/scan', ['path' => $data['path']]);
-                    if ($result) {
-                        $score = $result['score'] ?? $result['threats_found'] ?? 0;
-                        $filesScanned = $result['files_scanned'] ?? null;
-                        $body = $filesScanned
-                            ? __('Scanned :files files, :threats threats found', ['files' => $filesScanned, 'threats' => $score])
-                            : __('Score: :score', ['score' => $score]);
-                        Notification::make()
-                            ->title(__('Scan Complete'))
-                            ->body($body)
-                            ->color($score > 0 ? 'warning' : 'success')
-                            ->send();
-                    } else {
-                        Notification::make()->title(__('Scan failed'))->danger()->send();
-                    }
-                }),
-
-        ];
+        return [];
     }
 
     // ── Forms ────────────────────────────────────────────────────────
@@ -223,6 +192,44 @@ class Security extends Page implements HasActions, HasForms
                                             EmbeddedTable::make(CleanupRecordsTable::class),
                                         ]),
                                 ]),
+                        ]),
+                    'scan' => Tab::make(__('Scan'))
+                        ->icon('heroicon-o-magnifying-glass')
+                        ->schema([
+                            Text::make(__('Scan user directories for malware, webshells, and suspicious files. Uses heuristic, entropy, and YARA-X engines. ClamAV is used when enabled.'))
+                                ->size(TextSize::Small)
+                                ->color('gray'),
+                            SchemaActions::make([
+                                Action::make('scanAllUsers')
+                                    ->label(__('Scan All Users'))
+                                    ->icon('heroicon-o-shield-exclamation')
+                                    ->color('danger')
+                                    ->requiresConfirmation()
+                                    ->modalDescription(__('This will scan /home/*/public_html recursively. It may take several minutes depending on the number of files.'))
+                                    ->action('scanAllUsers'),
+                                Action::make('scanUser')
+                                    ->label(__('Scan User'))
+                                    ->icon('heroicon-o-magnifying-glass')
+                                    ->color('warning')
+                                    ->form([
+                                        Select::make('username')
+                                            ->label(__('User'))
+                                            ->options(function () {
+                                                $users = $this->client()->get('/users') ?? [];
+                                                $options = [];
+                                                foreach ($users as $user) {
+                                                    $name = $user['username'] ?? '';
+                                                    if ($name) {
+                                                        $options[$name] = $name;
+                                                    }
+                                                }
+                                                return $options;
+                                            })
+                                            ->searchable()
+                                            ->required(),
+                                    ])
+                                    ->action('scanUser'),
+                            ]),
                         ]),
                     'defense' => Tab::make(__('Defense'))
                         ->icon('heroicon-o-shield-check')
@@ -484,6 +491,8 @@ class Security extends Page implements HasActions, HasForms
         return Section::make($stat['value'] . '  ' . $stat['label'])
             ->icon($stat['icon'])
             ->iconColor($stat['color'])
+            ->compact()
+            ->extraAttributes(['style' => 'padding: 0.75rem 1rem;'])
             ->schema([]);
     }
 
@@ -819,6 +828,53 @@ class Security extends Page implements HasActions, HasForms
             ->duration(10000)
             ->send();
         $this->redirect(static::getUrl(['tab' => 'overview']));
+    }
+
+    // ── Scan Actions ─────────────────────────────────────────────────
+
+    public function scanAllUsers(): void
+    {
+        $result = $this->client()->post('/scan', ['path' => '/home']);
+
+        if ($result) {
+            $threats = $result['threats_found'] ?? 0;
+            $files = $result['files_scanned'] ?? 0;
+            Notification::make()
+                ->title(__('Scan Complete'))
+                ->body(__(':files files scanned, :threats threats found', ['files' => $files, 'threats' => $threats]))
+                ->color($threats > 0 ? 'danger' : 'success')
+                ->{$threats > 0 ? 'warning' : 'success'}()
+                ->duration(10000)
+                ->send();
+        } else {
+            Notification::make()->title(__('Scan failed'))->danger()->send();
+        }
+        $this->redirect(static::getUrl(['tab' => 'scan']));
+    }
+
+    public function scanUser(array $data): void
+    {
+        $username = $data['username'] ?? '';
+        $path = '/home/' . $username . '/public_html';
+        $result = $this->client()->post('/scan', ['path' => $path]);
+
+        if ($result) {
+            $threats = $result['threats_found'] ?? $result['score'] ?? 0;
+            $files = $result['files_scanned'] ?? null;
+            $body = $files
+                ? __(':files files scanned, :threats threats found', ['files' => $files, 'threats' => $threats])
+                : __('Score: :score', ['score' => $threats]);
+            Notification::make()
+                ->title(__('Scan Complete for :user', ['user' => $username]))
+                ->body($body)
+                ->color($threats > 0 ? 'danger' : 'success')
+                ->{$threats > 0 ? 'warning' : 'success'}()
+                ->duration(10000)
+                ->send();
+        } else {
+            Notification::make()->title(__('Scan failed for :user', ['user' => $username]))->danger()->send();
+        }
+        $this->redirect(static::getUrl(['tab' => 'scan']));
     }
 
     // ── Firewall Actions ─────────────────────────────────────────────
