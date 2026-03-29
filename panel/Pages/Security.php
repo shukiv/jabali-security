@@ -473,7 +473,8 @@ class Security extends Page implements HasActions, HasForms
 
         $jailEnabled = in_array($this->moduleStates['SSHJAIL_ENABLED'] ?? false, [true, 'yes', '1', 1]);
 
-        $shellDefault = in_array($this->configData['config_SSH_SHELL_ACCESS_ENABLED'] ?? true, [true, 'yes', '1', 1]);
+        $config = $this->client()->get('/config') ?? [];
+        $shellDefault = in_array($config['SSH_SHELL_ACCESS_ENABLED'] ?? 'no', ['yes', 'true', '1']);
 
         return [
             Grid::make(3)->dense()->schema([
@@ -844,7 +845,8 @@ class Security extends Page implements HasActions, HasForms
 
     public function toggleShellDefault(): void
     {
-        $current = in_array($this->configData['config_SSH_SHELL_ACCESS_ENABLED'] ?? true, [true, 'yes', '1', 1]);
+        $config = $this->client()->get('/config') ?? [];
+        $current = in_array($config['SSH_SHELL_ACCESS_ENABLED'] ?? 'no', ['yes', 'true', '1']);
         $newValue = $current ? 'no' : 'yes';
         $this->client()->patch('/config', ['SSH_SHELL_ACCESS_ENABLED' => $newValue]);
         Notification::make()

@@ -95,7 +95,7 @@ DEFAULTS: dict[str, str] = {
     "RAPIDSCAN_MTIME_CACHE": "yes",
     "SSHJAIL_ENABLED": "no",
     "SSHJAIL_JAIL_DIR": "/var/jail",
-    "SSH_SHELL_ACCESS_ENABLED": "yes",
+    "SSH_SHELL_ACCESS_ENABLED": "no",
 }
 
 

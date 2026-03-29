@@ -19,7 +19,7 @@ SyslogIdentifier=jabali-security
 # Security hardening
 NoNewPrivileges=yes
 ProtectSystem=strict
-ReadWritePaths=/var/security/quarantine /var/lib/jabali-security /var/log/jabali-security /etc/php /etc/ufw /lib/ufw /run /etc/fstab /var/jail
+ReadWritePaths=/var/security/quarantine /var/lib/jabali-security /var/log/jabali-security /etc/php /etc/ufw /lib/ufw /run /etc/fstab /var/jail /etc/ssh
 # UFW needs /run/ufw.lock and /proc/sys/net for sysctl tuning
 ProtectKernelTunables=no
 RuntimeDirectory=jabali-security

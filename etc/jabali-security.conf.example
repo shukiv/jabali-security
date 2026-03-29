@@ -280,7 +280,7 @@ SSHJAIL_ENABLED="no"
 SSHJAIL_JAIL_DIR="/var/jail"
 
 # Allow shell access for hosting users (disable to force SFTP-only)
-SSH_SHELL_ACCESS_ENABLED="yes"
+SSH_SHELL_ACCESS_ENABLED="no"
 
 # -- Retention ---------------------------------------------------------------
 
