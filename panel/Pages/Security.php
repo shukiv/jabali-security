@@ -433,7 +433,7 @@ class Security extends Page implements HasActions, HasForms
         return [
             Grid::make(3)->dense()->schema([
                 Section::make()->compact()->schema([
-                    Grid::make(['default' => 3])->schema([
+                    Grid::make(['default' => 3])->extraAttributes(['class' => 'items-center'])->schema([
                         Text::make(__('SSH Jail'))->size(TextSize::Small)->weight(FontWeight::Medium)->color('gray'),
                         Text::make($jailEnabled ? __('Enabled') : __('Disabled'))
                             ->weight(FontWeight::Bold)
@@ -448,7 +448,7 @@ class Security extends Page implements HasActions, HasForms
                     ]),
                 ]),
                 Section::make()->compact()->schema([
-                    Grid::make(['default' => 3])->schema([
+                    Grid::make(['default' => 3])->extraAttributes(['class' => 'items-center'])->schema([
                         Text::make(__('Password Auth'))->size(TextSize::Small)->weight(FontWeight::Medium)->color('gray'),
                         Text::make($passAuth ? __('Enabled') : __('Disabled'))
                             ->weight(FontWeight::Bold)
@@ -467,7 +467,7 @@ class Security extends Page implements HasActions, HasForms
                     ]),
                 ]),
                 Section::make()->compact()->schema([
-                    Grid::make(['default' => 3])->schema([
+                    Grid::make(['default' => 3])->extraAttributes(['class' => 'items-center'])->schema([
                         Text::make(__('SSH Port'))->size(TextSize::Small)->weight(FontWeight::Medium)->color('gray'),
                         Text::make((string) $port)
                             ->weight(FontWeight::Bold)
