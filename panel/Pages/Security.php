@@ -432,9 +432,9 @@ class Security extends Page implements HasActions, HasForms
 
         return [
             Grid::make(3)->dense()->schema([
-                Section::make(__('SSH Jail') . ': ' . ($jailEnabled ? __('Enabled') : __('Disabled')))
-                    ->icon($jailEnabled ? 'heroicon-o-check-circle' : 'heroicon-o-x-circle')
-                    ->iconColor($jailEnabled ? 'success' : 'danger')
+                Section::make(new \Illuminate\Support\HtmlString(
+                    __('SSH Jail') . ': <span style="color:' . ($jailEnabled ? '#22c55e' : '#ef4444') . '">' . ($jailEnabled ? __('Enabled') : __('Disabled')) . '</span>'
+                ))
                     ->compact()
                     ->headerActions([
                         Action::make('toggleSshJail')
@@ -444,9 +444,9 @@ class Security extends Page implements HasActions, HasForms
                             ->action('toggleSshJail'),
                     ])
                     ->schema([]),
-                Section::make(__('Password Auth') . ': ' . ($passAuth ? __('Enabled') : __('Disabled')))
-                    ->icon($passAuth ? 'heroicon-o-check-circle' : 'heroicon-o-x-circle')
-                    ->iconColor($passAuth ? 'success' : 'danger')
+                Section::make(new \Illuminate\Support\HtmlString(
+                    __('Password Auth') . ': <span style="color:' . ($passAuth ? '#22c55e' : '#ef4444') . '">' . ($passAuth ? __('Enabled') : __('Disabled')) . '</span>'
+                ))
                     ->compact()
                     ->headerActions([
                         Action::make('toggleSshPasswordAuth')
@@ -460,9 +460,9 @@ class Security extends Page implements HasActions, HasForms
                             ->action($passAuth ? 'disableSshPasswordAuth' : 'enableSshPasswordAuth'),
                     ])
                     ->schema([]),
-                Section::make(__('SSH Port') . ': ' . $port)
-                    ->icon('heroicon-o-signal')
-                    ->iconColor('warning')
+                Section::make(new \Illuminate\Support\HtmlString(
+                    __('SSH Port') . ': <span style="color:#eab308">' . $port . '</span>'
+                ))
                     ->compact()
                     ->headerActions([
                         Action::make('changeSshPort')
