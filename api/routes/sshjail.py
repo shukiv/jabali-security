@@ -161,7 +161,7 @@ async def get_shell_status(request: web.Request) -> web.Response:
         return _err(str(exc))
 
     try:
-        status = await sshjail.get_shell_status(username)
+        status = await sshjail.shell_status(username)
     except Exception:
         logger.exception("Failed to get shell status for %s", username)
         return _err("Failed to get shell status", 500)

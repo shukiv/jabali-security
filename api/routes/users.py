@@ -28,7 +28,7 @@ async def get_users(request: web.Request) -> web.Response:
             if not username:
                 continue
             try:
-                status = await sshjail.get_shell_status(username)
+                status = await sshjail.shell_status(username)
                 user["shell"] = status.shell
                 user["shell_enabled"] = status.shell_enabled
                 user["sftp_only"] = status.sftp_only
