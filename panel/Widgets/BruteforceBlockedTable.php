@@ -9,9 +9,11 @@ use Filament\Actions\Action;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Actions\BulkAction;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
+use Illuminate\Support\Collection;
 use Filament\Actions\Concerns\InteractsWithActions;
 use Filament\Actions\Contracts\HasActions;
 use Filament\Schemas\Concerns\InteractsWithSchemas;
@@ -54,6 +56,31 @@ class BruteforceBlockedTable extends Component implements HasActions, HasSchemas
                         Notification::make()
                             ->title($result ? __('IP whitelisted') : __('Failed to whitelist IP'))
                             ->{($result ? "success" : "danger")}()
+                            ->send();
+                    }),
+            ])
+            ->bulkActions([
+                BulkAction::make('unblock')
+                    ->label(__('Unblock Selected'))
+                    ->icon('heroicon-o-lock-open')
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->deselectRecordsAfterCompletion()
+                    ->action(function (Collection $records): void {
+                        $count = 0;
+                        foreach ($records as $record) {
+                            $ip = is_string($record) ? $record : ($record['ip'] ?? '');
+                            if (! $ip) {
+                                continue;
+                            }
+                            $result = $this->client()->delete('/block/' . urlencode($ip));
+                            if ($result) {
+                                $count++;
+                            }
+                        }
+                        Notification::make()
+                            ->title(__(':count IPs unblocked', ['count' => $count]))
+                            ->success()
                             ->send();
                     }),
             ])

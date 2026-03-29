@@ -8,9 +8,11 @@ use App\JabaliSecurity\JabaliSecurityClient;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Actions\BulkAction;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
+use Illuminate\Support\Collection;
 use Filament\Actions\Concerns\InteractsWithActions;
 use Filament\Actions\Contracts\HasActions;
 use Filament\Schemas\Concerns\InteractsWithSchemas;
@@ -69,6 +71,46 @@ class QuarantineTable extends Component implements HasActions, HasSchemas, HasTa
                         Notification::make()
                             ->title($result ? __('File deleted') : __('Failed to delete file'))
                             ->{($result ? "success" : "danger")}()
+                            ->send();
+                    }),
+            ])
+            ->bulkActions([
+                BulkAction::make('restore')
+                    ->label(__('Restore Selected'))
+                    ->icon('heroicon-o-arrow-uturn-left')
+                    ->color('success')
+                    ->requiresConfirmation()
+                    ->deselectRecordsAfterCompletion()
+                    ->action(function (Collection $records): void {
+                        $count = 0;
+                        foreach ($records as $record) {
+                            $result = $this->client()->post("/quarantine/{$record['id']}/restore");
+                            if ($result) {
+                                $count++;
+                            }
+                        }
+                        Notification::make()
+                            ->title(__(':count files restored', ['count' => $count]))
+                            ->success()
+                            ->send();
+                    }),
+                BulkAction::make('delete')
+                    ->label(__('Delete Selected'))
+                    ->icon('heroicon-o-trash')
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->deselectRecordsAfterCompletion()
+                    ->action(function (Collection $records): void {
+                        $count = 0;
+                        foreach ($records as $record) {
+                            $result = $this->client()->delete("/quarantine/{$record['id']}");
+                            if ($result) {
+                                $count++;
+                            }
+                        }
+                        Notification::make()
+                            ->title(__(':count files deleted', ['count' => $count]))
+                            ->success()
                             ->send();
                     }),
             ])

@@ -11,9 +11,11 @@ use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Actions\BulkAction;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
+use Illuminate\Support\Collection;
 use Filament\Actions\Concerns\InteractsWithActions;
 use Filament\Actions\Contracts\HasActions;
 use Filament\Schemas\Concerns\InteractsWithSchemas;
@@ -113,6 +115,29 @@ class FirewallRulesTable extends Component implements HasActions, HasSchemas, Ha
                         Notification::make()
                             ->title($result ? __('Rule deleted') : __('Failed to delete rule'))
                             ->{($result ? "success" : "danger")}()
+                            ->send();
+                    }),
+            ])
+            ->bulkActions([
+                BulkAction::make('delete_rules')
+                    ->label(__('Delete Selected Rules'))
+                    ->icon('heroicon-o-trash')
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->deselectRecordsAfterCompletion()
+                    ->action(function (Collection $records): void {
+                        $count = 0;
+                        // Delete in reverse order (highest number first) because UFW renumbers after each delete
+                        $sorted = $records->sortByDesc('number');
+                        foreach ($sorted as $record) {
+                            $result = $this->client()->delete("/firewall/ufw/rules/{$record['number']}");
+                            if ($result) {
+                                $count++;
+                            }
+                        }
+                        Notification::make()
+                            ->title(__(':count rules deleted', ['count' => $count]))
+                            ->success()
                             ->send();
                     }),
             ])

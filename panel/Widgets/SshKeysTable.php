@@ -12,9 +12,11 @@ use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Actions\BulkAction;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
+use Illuminate\Support\Collection;
 use Filament\Actions\Concerns\InteractsWithActions;
 use Filament\Actions\Contracts\HasActions;
 use Filament\Schemas\Concerns\InteractsWithSchemas;
@@ -165,6 +167,46 @@ class SshKeysTable extends Component implements HasActions, HasSchemas, HasTable
                         } else {
                             Notification::make()->title(__('Generation failed'))->danger()->send();
                         }
+                    }),
+            ])
+            ->bulkActions([
+                BulkAction::make('enable_shell')
+                    ->label(__('Enable Shell'))
+                    ->icon('heroicon-o-check-circle')
+                    ->color('success')
+                    ->requiresConfirmation()
+                    ->deselectRecordsAfterCompletion()
+                    ->action(function (Collection $records): void {
+                        $count = 0;
+                        foreach ($records as $record) {
+                            $result = $this->client()->post('/ssh/shell/enable', ['username' => $record['username']]);
+                            if ($result !== null) {
+                                $count++;
+                            }
+                        }
+                        Notification::make()
+                            ->title(__(':count shells enabled', ['count' => $count]))
+                            ->success()
+                            ->send();
+                    }),
+                BulkAction::make('disable_shell')
+                    ->label(__('Disable Shell'))
+                    ->icon('heroicon-o-x-circle')
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->deselectRecordsAfterCompletion()
+                    ->action(function (Collection $records): void {
+                        $count = 0;
+                        foreach ($records as $record) {
+                            $result = $this->client()->post('/ssh/shell/disable', ['username' => $record['username']]);
+                            if ($result !== null) {
+                                $count++;
+                            }
+                        }
+                        Notification::make()
+                            ->title(__(':count shells disabled', ['count' => $count]))
+                            ->success()
+                            ->send();
                     }),
             ])
             ->emptyStateHeading(__('No SSH users found'))

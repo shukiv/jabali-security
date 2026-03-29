@@ -10,9 +10,11 @@ use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Actions\BulkAction;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
+use Illuminate\Support\Collection;
 use Filament\Actions\Concerns\InteractsWithActions;
 use Filament\Actions\Contracts\HasActions;
 use Filament\Schemas\Concerns\InteractsWithSchemas;
@@ -75,6 +77,27 @@ class IncidentsTable extends Component implements HasActions, HasSchemas, HasTab
                         Notification::make()
                             ->title($result ? __('Incident resolved') : __('Failed to resolve incident'))
                             ->{($result ? "success" : "danger")}()
+                            ->send();
+                    }),
+            ])
+            ->bulkActions([
+                BulkAction::make('resolve')
+                    ->label(__('Resolve Selected'))
+                    ->icon('heroicon-o-check')
+                    ->color('success')
+                    ->requiresConfirmation()
+                    ->deselectRecordsAfterCompletion()
+                    ->action(function (Collection $records): void {
+                        $count = 0;
+                        foreach ($records as $record) {
+                            $result = $this->client()->post("/incidents/{$record['id']}/resolve");
+                            if ($result) {
+                                $count++;
+                            }
+                        }
+                        Notification::make()
+                            ->title(__(':count incidents resolved', ['count' => $count]))
+                            ->success()
                             ->send();
                     }),
             ])
