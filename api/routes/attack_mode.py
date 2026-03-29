@@ -118,7 +118,8 @@ async def post_enable(request: web.Request) -> web.Response:
     webshield = request.app.get("webshield")
     if webshield:
         try:
-            if not webshield.is_installed():
+            ws_status = webshield.get_status()
+            if not ws_status.installed:
                 state["previous"]["_webshield_installed"] = "no"
                 await webshield.install()
                 actions.append("WebShield rate limiting installed (10 req/s)")
@@ -133,7 +134,7 @@ async def post_enable(request: web.Request) -> web.Response:
     incidents = request.app.get("incidents")
     if detector and firewall:
         try:
-            tracked = detector.get_tracked_ips()
+            tracked = detector.get_all_tracked()
             blocked_count = 0
             for ip, info in tracked.items():
                 if info.get("count", 0) >= 2:
@@ -226,7 +227,7 @@ async def post_disable(request: web.Request) -> web.Response:
             for entry in blocked:
                 if entry.get("blocked_by") == "attack_mode":
                     await firewall.unblock_ip(entry["ip"])
-                    await incidents.remove_blocked_ip(entry["ip"])
+                    await incidents.delete_blocked_ip(entry["ip"])
                     unblocked += 1
             if unblocked > 0:
                 actions.append(f"Unblocked {unblocked} attack-mode IPs")

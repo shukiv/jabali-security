@@ -129,3 +129,8 @@ class BruteForceDetector:
     @property
     def blocked_count(self) -> int:
         return len(self._blocked)
+
+    def get_all_tracked(self) -> dict[str, dict]:
+        """Return all tracked IPs with attempt counts (for attack mode)."""
+        with self._lock:
+            return {ip: {"count": len(dq)} for ip, dq in self._attempts.items()}
