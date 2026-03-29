@@ -432,9 +432,11 @@ class Security extends Page implements HasActions, HasForms
 
         return [
             Grid::make(3)->dense()->schema([
-                Section::make(__('SSH Jail') . ': ' . ($jailEnabled ? __('Enabled') : __('Disabled')))
+                Section::make(__('SSH Jail'))
+                    ->description($jailEnabled ? __('Enabled') : __('Disabled'))
+                    ->icon($jailEnabled ? 'heroicon-o-check-circle' : 'heroicon-o-x-circle')
+                    ->iconColor($jailEnabled ? 'success' : 'danger')
                     ->compact()
-                    ->collapsible(false)
                     ->headerActions([
                         Action::make('toggleSshJail')
                             ->label($jailEnabled ? __('Disable') : __('Enable'))
@@ -443,9 +445,11 @@ class Security extends Page implements HasActions, HasForms
                             ->action('toggleSshJail'),
                     ])
                     ->schema([]),
-                Section::make(__('Password Auth') . ': ' . ($passAuth ? __('Enabled') : __('Disabled')))
+                Section::make(__('Password Auth'))
+                    ->description($passAuth ? __('Enabled') : __('Disabled'))
+                    ->icon($passAuth ? 'heroicon-o-check-circle' : 'heroicon-o-x-circle')
+                    ->iconColor($passAuth ? 'success' : 'danger')
                     ->compact()
-                    ->collapsible(false)
                     ->headerActions([
                         Action::make('toggleSshPasswordAuth')
                             ->label($passAuth ? __('Disable') : __('Enable'))
@@ -458,9 +462,11 @@ class Security extends Page implements HasActions, HasForms
                             ->action($passAuth ? 'disableSshPasswordAuth' : 'enableSshPasswordAuth'),
                     ])
                     ->schema([]),
-                Section::make(__('SSH Port') . ': ' . $port)
+                Section::make(__('SSH Port'))
+                    ->description((string) $port)
+                    ->icon('heroicon-o-signal')
+                    ->iconColor('warning')
                     ->compact()
-                    ->collapsible(false)
                     ->headerActions([
                         Action::make('changeSshPort')
                             ->label(__('Change'))
