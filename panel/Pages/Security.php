@@ -559,17 +559,19 @@ class Security extends Page implements HasActions, HasForms
         $active = $fw['active'] ?? false;
 
         return [
-            Section::make(__('UFW Status'))
-                ->schema([
-                    SchemaActions::make([
-                        Action::make('fw_toggle')
-                            ->label($active ? __('Disable Firewall') : __('Enable Firewall'))
-                            ->color($active ? 'danger' : 'success')
-                            ->size('sm')
-                            ->requiresConfirmation()
-                            ->action($active ? 'disableFirewall' : 'enableFirewall'),
-                    ]),
-                ]),
+            Section::make(new \Illuminate\Support\HtmlString(
+                __('UFW Firewall') . ': <span style="color:' . ($active ? '#22c55e' : '#ef4444') . '">' . ($active ? __('Enabled') : __('Disabled')) . '</span>'
+            ))
+                ->compact()
+                ->headerActions([
+                    Action::make('fw_toggle')
+                        ->label($active ? __('Disable Firewall') : __('Enable Firewall'))
+                        ->color($active ? 'danger' : 'success')
+                        ->size('xs')
+                        ->requiresConfirmation()
+                        ->action($active ? 'disableFirewall' : 'enableFirewall'),
+                ])
+                ->schema([]),
             EmbeddedTable::make(FirewallRulesTable::class),
         ];
     }
