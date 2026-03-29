@@ -672,9 +672,6 @@ SSHJAIL
     done_ok "Services started"
 
     # ── Summary ───────────────────────────────────────────────────────
-    local api_key
-    api_key=$(grep "^API_KEY=" "$CONFIG_DIR/jabali-security.conf" 2>/dev/null | cut -d'"' -f2)
-
     echo ""
     bold "╔════════════════════════════════════════════════════════════╗"
     bold "║          Installation Complete                             ║"
@@ -683,7 +680,6 @@ SSHJAIL
     green "  Jabali Security installed successfully!"
     echo ""
     echo "  Daemon:    systemctl status $SERVICE_NAME"
-    echo "  API Key:   $api_key"
     echo "  Config:    $CONFIG_DIR/jabali-security.conf"
     echo "  CLI:       jabali-security --help"
     echo "  Logs:      journalctl -u $SERVICE_NAME -f"
