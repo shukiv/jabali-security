@@ -474,19 +474,7 @@ class Security extends Page implements HasActions, HasForms
         $jailEnabled = in_array($this->moduleStates['SSHJAIL_ENABLED'] ?? false, [true, 'yes', '1', 1]);
 
         return [
-            Grid::make(3)->dense()->schema([
-                Section::make(new \Illuminate\Support\HtmlString(
-                    __('SSH Jail') . ': <span style="color:' . ($jailEnabled ? '#22c55e' : '#ef4444') . '">' . ($jailEnabled ? __('Enabled') : __('Disabled')) . '</span>'
-                ))
-                    ->compact()
-                    ->headerActions([
-                        Action::make('toggleSshJail')
-                            ->label($jailEnabled ? __('Disable') : __('Enable'))
-                            ->color($jailEnabled ? 'gray' : 'success')
-                            ->size('xs')
-                            ->action('toggleSshJail'),
-                    ])
-                    ->schema([]),
+            Grid::make(2)->dense()->schema([
                 Section::make(new \Illuminate\Support\HtmlString(
                     __('Password Auth') . ': <span style="color:' . ($passAuth ? '#22c55e' : '#ef4444') . '">' . ($passAuth ? __('Enabled') : __('Disabled')) . '</span>'
                 ))
