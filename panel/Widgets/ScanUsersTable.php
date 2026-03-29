@@ -30,6 +30,18 @@ class ScanUsersTable extends Component implements HasActions, HasSchemas, HasTab
         return JabaliSecurityClient::getInstance();
     }
 
+    protected function scanPath(string $username): array
+    {
+        $path = '/home/' . $username;
+        $result = $this->client()->post('/scan', ['path' => $path]);
+
+        return [
+            'success' => $result !== null,
+            'files' => $result['files_scanned'] ?? 0,
+            'threats' => $result['threats_found'] ?? $result['score'] ?? 0,
+        ];
+    }
+
     public function table(Table $table): Table
     {
         return $table
@@ -55,7 +67,7 @@ class ScanUsersTable extends Component implements HasActions, HasSchemas, HasTab
                         'incident_count' => $incidents['incident_count'] ?? 0,
                         'max_score' => $incidents['max_score'] ?? 0,
                         'quarantine_count' => $incidents['quarantine_count'] ?? 0,
-                        'path' => '/home/' . $username',
+                        'path' => '/home/' . $username,
                     ];
                 }
 
@@ -78,7 +90,7 @@ class ScanUsersTable extends Component implements HasActions, HasSchemas, HasTab
                             'incident_count' => $u['incident_count'] ?? 0,
                             'max_score' => $u['max_score'] ?? 0,
                             'quarantine_count' => $u['quarantine_count'] ?? 0,
-                            'path' => '/home/' . $username',
+                            'path' => '/home/' . $username,
                         ];
                     }
                 }
@@ -120,27 +132,21 @@ class ScanUsersTable extends Component implements HasActions, HasSchemas, HasTab
                     ->requiresConfirmation()
                     ->action(function (array $record): void {
                         $username = $record['username'] ?? '';
-                        $path = '/home/' . $username';
-                        $result = $this->client()->post('/scan', ['path' => $path]);
 
-                        if ($result) {
-                            $threats = $result['threats_found'] ?? $result['score'] ?? 0;
-                            $files = $result['files_scanned'] ?? null;
-                            $body = $files
-                                ? __(':files files scanned, :threats threats found', ['files' => $files, 'threats' => $threats])
-                                : __('Score: :score', ['score' => $threats]);
-                            Notification::make()
-                                ->title(__('Scan complete: :user', ['user' => $username]))
-                                ->body($body)
-                                ->{$threats > 0 ? 'warning' : 'success'}()
-                                ->duration(10000)
-                                ->send();
-                        } else {
-                            Notification::make()
-                                ->title(__('Scan failed for :user', ['user' => $username]))
-                                ->danger()
-                                ->send();
-                        }
+                        Notification::make()
+                            ->title(__('Scanning :user...', ['user' => $username]))
+                            ->info()
+                            ->send();
+
+                        $r = $this->scanPath($username);
+
+                        Notification::make()
+                            ->title($r['success']
+                                ? __(':user — :files files, :threats threats', ['user' => $username, 'files' => $r['files'], 'threats' => $r['threats']])
+                                : __('Scan failed for :user', ['user' => $username]))
+                            ->{$r['success'] ? ($r['threats'] > 0 ? 'warning' : 'success') : 'danger'}()
+                            ->duration(10000)
+                            ->send();
                     }),
             ])
             ->headerActions([
@@ -149,22 +155,39 @@ class ScanUsersTable extends Component implements HasActions, HasSchemas, HasTab
                     ->icon('heroicon-o-shield-exclamation')
                     ->color('danger')
                     ->requiresConfirmation()
-                    ->modalDescription(__('This will scan /home recursively. It may take several minutes depending on the number of files.'))
+                    ->modalDescription(__('Each user will be scanned individually. You will see progress notifications for each user.'))
                     ->action(function (): void {
-                        $result = $this->client()->post('/scan', ['path' => '/home']);
+                        $sshUsers = $this->client()->get('/ssh/users') ?? [];
+                        $totalFiles = 0;
+                        $totalThreats = 0;
+                        $scanned = 0;
+                        $count = count($sshUsers);
 
-                        if ($result) {
-                            $threats = $result['threats_found'] ?? 0;
-                            $files = $result['files_scanned'] ?? 0;
-                            Notification::make()
-                                ->title(__('Scan Complete'))
-                                ->body(__(':files files scanned, :threats threats found', ['files' => $files, 'threats' => $threats]))
-                                ->{$threats > 0 ? 'warning' : 'success'}()
-                                ->duration(10000)
+                        foreach ($sshUsers as $user) {
+                            $username = $user['username'] ?? '';
+                            if (! $username) {
+                                continue;
+                            }
+
+                            $scanned++;
+                            Notification::make('scan-progress')
+                                ->title(__('Scanning :n/:total — :user', ['n' => $scanned, 'total' => $count, 'user' => $username]))
+                                ->info()
                                 ->send();
-                        } else {
-                            Notification::make()->title(__('Scan failed'))->danger()->send();
+
+                            $r = $this->scanPath($username);
+                            if ($r['success']) {
+                                $totalFiles += $r['files'];
+                                $totalThreats += $r['threats'];
+                            }
                         }
+
+                        Notification::make()
+                            ->title(__('Scan complete — :users users', ['users' => $scanned]))
+                            ->body(__(':files files scanned, :threats threats found', ['files' => $totalFiles, 'threats' => $totalThreats]))
+                            ->{$totalThreats > 0 ? 'warning' : 'success'}()
+                            ->duration(15000)
+                            ->send();
                     }),
             ])
             ->bulkActions([
@@ -175,26 +198,35 @@ class ScanUsersTable extends Component implements HasActions, HasSchemas, HasTab
                     ->requiresConfirmation()
                     ->deselectRecordsAfterCompletion()
                     ->action(function (Collection $records): void {
-                        $total = 0;
-                        $threats = 0;
+                        $totalFiles = 0;
+                        $totalThreats = 0;
+                        $scanned = 0;
+                        $count = $records->count();
+
                         foreach ($records as $record) {
                             $username = $record['username'] ?? '';
-                            $path = '/home/' . $username';
-                            $result = $this->client()->post('/scan', ['path' => $path]);
-                            if ($result) {
-                                $total += $result['files_scanned'] ?? 0;
-                                $threats += $result['threats_found'] ?? $result['score'] ?? 0;
+                            if (! $username) {
+                                continue;
+                            }
+
+                            $scanned++;
+                            Notification::make('scan-progress')
+                                ->title(__('Scanning :n/:total — :user', ['n' => $scanned, 'total' => $count, 'user' => $username]))
+                                ->info()
+                                ->send();
+
+                            $r = $this->scanPath($username);
+                            if ($r['success']) {
+                                $totalFiles += $r['files'];
+                                $totalThreats += $r['threats'];
                             }
                         }
+
                         Notification::make()
-                            ->title(__('Bulk scan complete'))
-                            ->body(__(':users users, :files files scanned, :threats threats', [
-                                'users' => $records->count(),
-                                'files' => $total,
-                                'threats' => $threats,
-                            ]))
-                            ->{$threats > 0 ? 'warning' : 'success'}()
-                            ->duration(10000)
+                            ->title(__('Scan complete — :users users', ['users' => $scanned]))
+                            ->body(__(':files files scanned, :threats threats found', ['files' => $totalFiles, 'threats' => $totalThreats]))
+                            ->{$totalThreats > 0 ? 'warning' : 'success'}()
+                            ->duration(15000)
                             ->send();
                     }),
             ])
