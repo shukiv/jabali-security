@@ -332,7 +332,7 @@ class Security extends Page implements HasActions, HasForms
 
     private function statCard(string $label, string $value, string $desc, string $color = 'gray'): Section
     {
-        return Section::make()->compact()->schema([
+        return Section::make()->compact()->extraAttributes(['class' => 'flex items-center'])->schema([
             Text::make(__($label))->size(TextSize::ExtraSmall)->weight(FontWeight::Medium)->color('gray'),
             Text::make($value)->size(TextSize::Large)->weight(FontWeight::Bold)->color($color),
             Text::make(__($desc))->size(TextSize::ExtraSmall)->color('gray'),
@@ -432,7 +432,7 @@ class Security extends Page implements HasActions, HasForms
 
         return [
             Grid::make(3)->dense()->schema([
-                Section::make()->compact()->schema([
+                Section::make()->compact()->extraAttributes(['class' => 'flex items-center'])->schema([
                     Grid::make(['default' => 3])->extraAttributes(['class' => 'items-center'])->schema([
                         Text::make(__('SSH Jail'))->size(TextSize::Small)->weight(FontWeight::Medium)->color('gray'),
                         Text::make($jailEnabled ? __('Enabled') : __('Disabled'))
@@ -447,7 +447,7 @@ class Security extends Page implements HasActions, HasForms
                         ]),
                     ]),
                 ]),
-                Section::make()->compact()->schema([
+                Section::make()->compact()->extraAttributes(['class' => 'flex items-center'])->schema([
                     Grid::make(['default' => 3])->extraAttributes(['class' => 'items-center'])->schema([
                         Text::make(__('Password Auth'))->size(TextSize::Small)->weight(FontWeight::Medium)->color('gray'),
                         Text::make($passAuth ? __('Enabled') : __('Disabled'))
@@ -466,7 +466,7 @@ class Security extends Page implements HasActions, HasForms
                         ]),
                     ]),
                 ]),
-                Section::make()->compact()->schema([
+                Section::make()->compact()->extraAttributes(['class' => 'flex items-center'])->schema([
                     Grid::make(['default' => 3])->extraAttributes(['class' => 'items-center'])->schema([
                         Text::make(__('SSH Port'))->size(TextSize::Small)->weight(FontWeight::Medium)->color('gray'),
                         Text::make((string) $port)
