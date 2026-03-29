@@ -491,8 +491,6 @@ class Security extends Page implements HasActions, HasForms
         return Section::make($stat['value'] . '  ' . $stat['label'])
             ->icon($stat['icon'])
             ->iconColor($stat['color'])
-            ->compact()
-            ->extraAttributes(['style' => 'padding: 0.75rem 1rem;'])
             ->schema([]);
     }
 
