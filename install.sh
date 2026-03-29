@@ -413,6 +413,22 @@ MODSECEOF
             echo "  ModSecurity enabled in nginx."
         fi
 
+        # Enable WAF per-site in the nginx include
+        WAF_INCLUDE_DIR="/etc/nginx/jabali/includes"
+        mkdir -p "$WAF_INCLUDE_DIR"
+        cat > "$WAF_INCLUDE_DIR/waf.conf" << 'WAFEOF'
+# Managed by Jabali Security
+modsecurity on;
+
+# Security headers
+add_header X-Frame-Options "SAMEORIGIN" always;
+add_header X-Content-Type-Options "nosniff" always;
+add_header X-XSS-Protection "1; mode=block" always;
+add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+add_header Content-Security-Policy "default-src 'self' https: data: 'unsafe-inline' 'unsafe-eval'" always;
+WAFEOF
+        echo "  WAF per-site include ...... enabled"
+
         if nginx -t 2>/dev/null; then
             systemctl reload nginx 2>/dev/null || true
             done_ok "WAF configured (ModSecurity + OWASP CRS)"

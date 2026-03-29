@@ -62,8 +62,9 @@ async def post_enable(request: web.Request) -> web.Response:
             previous[key] = str(val)
 
     # Write state file
+    state = {"active": True, "previous": previous}
     _STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
-    _STATE_FILE.write_text(json.dumps({"active": True, "previous": previous}), encoding="utf-8")
+    _STATE_FILE.write_text(json.dumps(state), encoding="utf-8")
 
     # Apply aggressive settings
     for key, value in _ATTACK_SETTINGS.items():
@@ -75,10 +76,22 @@ async def post_enable(request: web.Request) -> web.Response:
     for attr in vars(new_config):
         setattr(old_config, attr, getattr(new_config, attr))
 
+    # Enable WAF per-site if WAF rule manager is available
+    waf_rules = request.app.get("waf_rules")
+    waf_activated = False
+    if waf_rules:
+        if not waf_rules.is_modsecurity_enabled():
+            state["previous"]["_waf_per_site"] = "off"
+            await waf_rules.set_modsecurity_enabled(True)
+            waf_activated = True
+            logger.info("Attack mode: enabled WAF per-site (modsecurity on)")
+        _STATE_FILE.write_text(json.dumps(state), encoding="utf-8")
+
     logger.warning("UNDER ATTACK mode ENABLED — aggressive defenses activated")
     return _ok({
         "active": True,
         "settings_applied": list(_ATTACK_SETTINGS.keys()),
+        "waf_activated": waf_activated,
         "message": "Under Attack mode enabled. Aggressive defenses activated.",
     })
 
@@ -94,9 +107,17 @@ async def post_disable(request: web.Request) -> web.Response:
     except (FileNotFoundError, json.JSONDecodeError):
         previous = {}
 
-    # Restore previous settings
+    # Restore previous settings (skip internal keys starting with _)
     for key, value in previous.items():
-        update_conf_key(CONFIG_FILE, key, value)
+        if not key.startswith("_"):
+            update_conf_key(CONFIG_FILE, key, value)
+
+    # Restore WAF per-site state if it was changed
+    if previous.get("_waf_per_site") == "off":
+        waf_rules = request.app.get("waf_rules")
+        if waf_rules:
+            await waf_rules.set_modsecurity_enabled(False)
+            logger.info("Attack mode: restored WAF per-site to off")
 
     # Remove state file
     _STATE_FILE.unlink(missing_ok=True)
