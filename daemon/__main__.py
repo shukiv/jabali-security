@@ -1087,7 +1087,7 @@ def blocklist(as_json: bool) -> None:
         click.echo(json.dumps(data, indent=2))
         return
 
-    items = data if isinstance(data, list) else data.get("blocked", [])
+    items = data.get("blocked_ips", []) if isinstance(data, dict) else data
     if not items:
         click.echo("No blocked IPs.")
         return
