@@ -473,8 +473,22 @@ class Security extends Page implements HasActions, HasForms
 
         $jailEnabled = in_array($this->moduleStates['SSHJAIL_ENABLED'] ?? false, [true, 'yes', '1', 1]);
 
+        $shellDefault = in_array($this->configData['config_SSH_SHELL_ACCESS_ENABLED'] ?? true, [true, 'yes', '1', 1]);
+
         return [
-            Grid::make(2)->dense()->schema([
+            Grid::make(3)->dense()->schema([
+                Section::make(new \Illuminate\Support\HtmlString(
+                    __('SSH Shell Default') . ': <span style="color:' . ($shellDefault ? '#22c55e' : '#ef4444') . '">' . ($shellDefault ? __('Enabled') : __('Disabled')) . '</span>'
+                ))
+                    ->compact()
+                    ->headerActions([
+                        Action::make('toggleShellDefault')
+                            ->label($shellDefault ? __('Disable') : __('Enable'))
+                            ->color($shellDefault ? 'gray' : 'success')
+                            ->size('xs')
+                            ->action('toggleShellDefault'),
+                    ])
+                    ->schema([]),
                 Section::make(new \Illuminate\Support\HtmlString(
                     __('Password Auth') . ': <span style="color:' . ($passAuth ? '#22c55e' : '#ef4444') . '">' . ($passAuth ? __('Enabled') : __('Disabled')) . '</span>'
                 ))
@@ -824,6 +838,18 @@ class Security extends Page implements HasActions, HasForms
             ->title($enabled ? __('SSH Jail disabled') : __('SSH Jail enabled'))
             ->body(__('Daemon restarted'))
             ->{$enabled ? 'warning' : 'success'}()
+            ->send();
+        $this->redirect(static::getUrl(['tab' => 'defense', 'defense' => 'ssh']));
+    }
+
+    public function toggleShellDefault(): void
+    {
+        $current = in_array($this->configData['config_SSH_SHELL_ACCESS_ENABLED'] ?? true, [true, 'yes', '1', 1]);
+        $newValue = $current ? 'no' : 'yes';
+        $this->client()->patch('/config', ['SSH_SHELL_ACCESS_ENABLED' => $newValue]);
+        Notification::make()
+            ->title($current ? __('SSH shell disabled by default for new users') : __('SSH shell enabled by default for new users'))
+            ->{$current ? 'warning' : 'success'}()
             ->send();
         $this->redirect(static::getUrl(['tab' => 'defense', 'defense' => 'ssh']));
     }
