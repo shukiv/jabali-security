@@ -529,8 +529,8 @@ class Security extends Page implements HasActions, HasForms
         return [
             Section::make($underAttack ? __('UNDER ATTACK MODE ACTIVE') : __('Under Attack Mode'))
                 ->description($underAttack
-                    ? __('Aggressive defenses are active: process killer, auto-block IPs, low brute-force thresholds.')
-                    : __('Enable if your server is under active attack. Activates process killer, auto-blocks IPs, lowers brute-force thresholds.'))
+                    ? __('Active defenses: process killer (threshold 50), auto-block IPs, brute-force limit 3 attempts/120s, WAF blocking, WebShield rate limiting (10 req/s), progressive bans (1h→24h→permanent).')
+                    : __('Panic button for active attacks. Enables: process killer, auto-block IPs, WAF blocking, WebShield rate limiting, aggressive brute-force thresholds, and progressive IP bans.'))
                 ->icon($underAttack ? 'heroicon-o-fire' : 'heroicon-o-shield-exclamation')
                 ->headerActions([
                     Action::make('toggleAttackMode')
@@ -735,12 +735,23 @@ class Security extends Page implements HasActions, HasForms
     public function enableAttackMode(): void
     {
         $result = $this->client()->post('/attack-mode/enable');
-        $actions = implode(', ', $result['actions_taken'] ?? []);
+        $actions = $result['actions_taken'] ?? [];
+        $body = count($actions) > 0
+            ? implode("\n", array_map(fn ($a) => "• {$a}", $actions))
+            : __('Aggressive defenses activated');
+        $body .= "\n\n" . implode("\n", [
+            __('• Process killer threshold lowered to 50'),
+            __('• Auto-block IPs on suspicious activity'),
+            __('• Brute-force threshold: 3 attempts in 120 seconds'),
+            __('• Block durations: 1h → 24h → permanent'),
+            __('• WAF blocking enabled per-site'),
+            __('• WebShield rate limiting: 10 req/s, burst 5'),
+        ]);
         Notification::make()
             ->title($result ? __('Under Attack mode ENABLED') : __('Failed to enable attack mode'))
-            ->body($actions ?: __('Aggressive defenses activated'))
+            ->body($body)
             ->{$result ? 'danger' : 'warning'}()
-            ->duration(10000)
+            ->duration(15000)
             ->send();
         $this->redirect(static::getUrl(['tab' => 'overview']));
     }
