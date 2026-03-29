@@ -432,12 +432,11 @@ class Security extends Page implements HasActions, HasForms
 
         return [
             Grid::make(3)->dense()->schema([
-                Section::make()->compact()->extraAttributes(['class' => 'flex items-center'])->schema([
-                    Grid::make(['default' => 3])->extraAttributes(['class' => 'items-center'])->schema([
-                        Text::make(__('SSH Jail'))->size(TextSize::Small)->weight(FontWeight::Medium)->color('gray'),
-                        Text::make($jailEnabled ? __('Enabled') : __('Disabled'))
-                            ->weight(FontWeight::Bold)
-                            ->color($jailEnabled ? 'success' : 'gray'),
+                Section::make(__('SSH Jail'))
+                    ->description($jailEnabled ? __('Enabled') : __('Disabled'))
+                    ->aside()
+                    ->compact()
+                    ->schema([
                         SchemaActions::make([
                             Action::make('toggleSshJail')
                                 ->label($jailEnabled ? __('Disable') : __('Enable'))
@@ -446,13 +445,11 @@ class Security extends Page implements HasActions, HasForms
                                 ->action('toggleSshJail'),
                         ]),
                     ]),
-                ]),
-                Section::make()->compact()->extraAttributes(['class' => 'flex items-center'])->schema([
-                    Grid::make(['default' => 3])->extraAttributes(['class' => 'items-center'])->schema([
-                        Text::make(__('Password Auth'))->size(TextSize::Small)->weight(FontWeight::Medium)->color('gray'),
-                        Text::make($passAuth ? __('Enabled') : __('Disabled'))
-                            ->weight(FontWeight::Bold)
-                            ->color($passAuth ? 'warning' : 'success'),
+                Section::make(__('Password Auth'))
+                    ->description($passAuth ? __('Enabled') : __('Disabled'))
+                    ->aside()
+                    ->compact()
+                    ->schema([
                         SchemaActions::make([
                             Action::make('toggleSshPasswordAuth')
                                 ->label($passAuth ? __('Disable') : __('Enable'))
@@ -465,13 +462,11 @@ class Security extends Page implements HasActions, HasForms
                                 ->action($passAuth ? 'disableSshPasswordAuth' : 'enableSshPasswordAuth'),
                         ]),
                     ]),
-                ]),
-                Section::make()->compact()->extraAttributes(['class' => 'flex items-center'])->schema([
-                    Grid::make(['default' => 3])->extraAttributes(['class' => 'items-center'])->schema([
-                        Text::make(__('SSH Port'))->size(TextSize::Small)->weight(FontWeight::Medium)->color('gray'),
-                        Text::make((string) $port)
-                            ->weight(FontWeight::Bold)
-                            ->color($port === 22 ? 'warning' : 'success'),
+                Section::make(__('SSH Port'))
+                    ->description((string) $port)
+                    ->aside()
+                    ->compact()
+                    ->schema([
                         SchemaActions::make([
                             Action::make('changeSshPort')
                                 ->label(__('Change'))
@@ -490,7 +485,6 @@ class Security extends Page implements HasActions, HasForms
                                 ->action('changeSshPortAction'),
                         ]),
                     ]),
-                ]),
             ]),
         ];
     }
