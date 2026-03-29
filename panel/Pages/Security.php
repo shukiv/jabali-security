@@ -448,16 +448,7 @@ class Security extends Page implements HasActions, HasForms
                     ->modalDescription($passAuth
                         ? __('Users will only be able to log in with SSH keys. Make sure all users have keys configured.')
                         : __('Users will be able to log in with passwords. Key-based authentication is more secure.'))
-                    ->action(function () use ($passAuth): void {
-                        $result = $this->client()->post('/ssh/sshd-settings', ['password_auth' => ! $passAuth]);
-
-                        Notification::make()
-                            ->title($result !== null
-                                ? (! $passAuth ? __('Password auth enabled') : __('Password auth disabled'))
-                                : __('Failed to update setting'))
-                            ->{$result !== null ? 'success' : 'danger'}()
-                            ->send();
-                    }),
+                    ->action($passAuth ? 'disableSshPasswordAuth' : 'enableSshPasswordAuth'),
                 Action::make('toggleSshPubkeyAuth')
                     ->label($pubkeyAuth ? __('Disable Pubkey Auth') : __('Enable Pubkey Auth'))
                     ->icon($pubkeyAuth ? 'heroicon-o-key' : 'heroicon-o-key')
@@ -467,16 +458,7 @@ class Security extends Page implements HasActions, HasForms
                     ->modalDescription($pubkeyAuth
                         ? __('Disabling public key authentication is not recommended. Users will only be able to log in with passwords.')
                         : __('Enable public key authentication for more secure SSH access.'))
-                    ->action(function () use ($pubkeyAuth): void {
-                        $result = $this->client()->post('/ssh/sshd-settings', ['pubkey_auth' => ! $pubkeyAuth]);
-
-                        Notification::make()
-                            ->title($result !== null
-                                ? (! $pubkeyAuth ? __('Pubkey auth enabled') : __('Pubkey auth disabled'))
-                                : __('Failed to update setting'))
-                            ->{$result !== null ? 'success' : 'danger'}()
-                            ->send();
-                    }),
+                    ->action($pubkeyAuth ? 'disableSshPubkeyAuth' : 'enableSshPubkeyAuth'),
                 Action::make('changeSshPort')
                     ->label(__('Change SSH Port'))
                     ->icon('heroicon-o-cog-6-tooth')
@@ -493,16 +475,7 @@ class Security extends Page implements HasActions, HasForms
                     ])
                     ->requiresConfirmation()
                     ->modalDescription(__('Changing the SSH port requires updating firewall rules. Make sure the new port is allowed before applying.'))
-                    ->action(function (array $data): void {
-                        $result = $this->client()->post('/ssh/sshd-settings', ['port' => (int) $data['port']]);
-
-                        Notification::make()
-                            ->title($result !== null
-                                ? __('SSH port changed to :port', ['port' => $data['port']])
-                                : __('Failed to change SSH port'))
-                            ->{$result !== null ? 'success' : 'danger'}()
-                            ->send();
-                    }),
+                    ->action('changeSshPortAction'),
             ]),
         ];
     }
@@ -773,6 +746,60 @@ class Security extends Page implements HasActions, HasForms
             ->{($result ? "success" : "danger")}()
             ->send();
         $this->redirect(static::getUrl(['tab' => 'defense', 'defense' => 'firewall']));
+    }
+
+    // ── SSH Settings Actions ────────────────────────────────────────
+
+    public function enableSshPasswordAuth(): void
+    {
+        $result = $this->client()->post('/ssh/sshd-settings', ['password_auth' => true]);
+        Notification::make()
+            ->title($result !== null ? __('Password auth enabled') : __('Failed to update setting'))
+            ->{($result !== null ? "success" : "danger")}()
+            ->send();
+        $this->redirect(static::getUrl(['tab' => 'defense', 'defense' => 'ssh']));
+    }
+
+    public function disableSshPasswordAuth(): void
+    {
+        $result = $this->client()->post('/ssh/sshd-settings', ['password_auth' => false]);
+        Notification::make()
+            ->title($result !== null ? __('Password auth disabled') : __('Failed to update setting'))
+            ->{($result !== null ? "success" : "danger")}()
+            ->send();
+        $this->redirect(static::getUrl(['tab' => 'defense', 'defense' => 'ssh']));
+    }
+
+    public function enableSshPubkeyAuth(): void
+    {
+        $result = $this->client()->post('/ssh/sshd-settings', ['pubkey_auth' => true]);
+        Notification::make()
+            ->title($result !== null ? __('Pubkey auth enabled') : __('Failed to update setting'))
+            ->{($result !== null ? "success" : "danger")}()
+            ->send();
+        $this->redirect(static::getUrl(['tab' => 'defense', 'defense' => 'ssh']));
+    }
+
+    public function disableSshPubkeyAuth(): void
+    {
+        $result = $this->client()->post('/ssh/sshd-settings', ['pubkey_auth' => false]);
+        Notification::make()
+            ->title($result !== null ? __('Pubkey auth disabled') : __('Failed to update setting'))
+            ->{($result !== null ? "success" : "danger")}()
+            ->send();
+        $this->redirect(static::getUrl(['tab' => 'defense', 'defense' => 'ssh']));
+    }
+
+    public function changeSshPortAction(array $data): void
+    {
+        $result = $this->client()->post('/ssh/sshd-settings', ['port' => (int) $data['port']]);
+        Notification::make()
+            ->title($result !== null
+                ? __('SSH port changed to :port', ['port' => $data['port']])
+                : __('Failed to change SSH port'))
+            ->{($result !== null ? "success" : "danger")}()
+            ->send();
+        $this->redirect(static::getUrl(['tab' => 'defense', 'defense' => 'ssh']));
     }
 
     public static array $configHelp = [
