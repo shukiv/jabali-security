@@ -332,7 +332,7 @@ class Security extends Page implements HasActions, HasForms
 
     private function statCard(string $label, string $value, string $desc, string $color = 'gray'): Section
     {
-        return Section::make()->compact()->extraAttributes(['class' => 'flex items-center'])->schema([
+        return Section::make()->compact()->schema([
             Text::make(__($label))->size(TextSize::ExtraSmall)->weight(FontWeight::Medium)->color('gray'),
             Text::make($value)->size(TextSize::Large)->weight(FontWeight::Bold)->color($color),
             Text::make(__($desc))->size(TextSize::ExtraSmall)->color('gray'),
