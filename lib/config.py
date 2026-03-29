@@ -64,7 +64,7 @@ DEFAULTS: dict[str, str] = {
     "WAF_AUDIT_LOG_TYPE": "serial",
     "WAF_RULES_DIR": "/etc/modsecurity/crs",
     "WAF_OVERRIDES_FILE": "/etc/modsecurity/jabali-overrides.conf",
-    "WAF_CRS_AUTO_UPDATE": "no",
+    "WAF_CRS_AUTO_UPDATE": "yes",
     "WAF_WEB_SERVER": "auto",
     "WAF_NGINX_INCLUDE": "/etc/nginx/jabali/includes/waf.conf",
     "PROCESS_KILL_ENABLED": "no",

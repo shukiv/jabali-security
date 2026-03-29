@@ -169,19 +169,6 @@ class Security extends Page implements HasActions, HasForms
                     }
                 }),
 
-            Action::make('updateRules')
-                ->label(__('Update Rules'))
-                ->icon('heroicon-o-arrow-path')
-                ->color('danger')
-                ->requiresConfirmation()
-                ->action(function (): void {
-                    $result = $this->client()->post('/rules/reload');
-                    if ($result && ($result['yara_reloaded'] ?? false)) {
-                        Notification::make()->title(__('Rules reloaded'))->success()->send();
-                    } else {
-                        Notification::make()->title(__('Reload failed'))->danger()->send();
-                    }
-                }),
         ];
     }
 

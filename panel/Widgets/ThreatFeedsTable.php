@@ -51,17 +51,6 @@ class ThreatFeedsTable extends Component implements HasActions, HasSchemas, HasT
                     ->boolean(),
             ])
             ->headerActions([
-                Action::make('update_feeds')
-                    ->label(__('Update Feeds'))
-                    ->icon('heroicon-o-arrow-path')
-                    ->action(function (): void {
-                        $result = $this->client()->post('/threat-intel/update');
-
-                        Notification::make()
-                            ->title($result ? __('Feeds updated') : __('Failed to update feeds'))
-                            ->{($result ? "success" : "danger")}()
-                            ->send();
-                    }),
                 Action::make('check_ip')
                     ->label(__('Check IP'))
                     ->icon('heroicon-o-magnifying-glass')

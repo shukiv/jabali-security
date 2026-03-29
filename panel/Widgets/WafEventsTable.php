@@ -55,20 +55,6 @@ class WafEventsTable extends Component implements HasActions, HasSchemas, HasTab
                     ->label(__('Time'))
                     ->since(),
             ])
-            ->headerActions([
-                Action::make('update_crs')
-                    ->label(__('Update CRS'))
-                    ->icon('heroicon-o-arrow-down-tray')
-                    ->requiresConfirmation()
-                    ->action(function (): void {
-                        $result = $this->client()->post('/waf/crs/update');
-
-                        Notification::make()
-                            ->title($result ? __('CRS updated') : __('Failed to update CRS'))
-                            ->{($result ? "success" : "danger")}()
-                            ->send();
-                    }),
-            ])
             ->recordActions([
                 Action::make('disable_rule')
                     ->label(__('Disable Rule'))
