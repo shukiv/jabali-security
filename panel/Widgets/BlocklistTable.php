@@ -58,7 +58,7 @@ class BlocklistTable extends Component implements HasActions, HasSchemas, HasTab
                         TextInput::make('ip')
                             ->label(__('IP Address'))
                             ->required()
-                            ->ipv4(),
+                            ->ip(),
                         TextInput::make('reason')
                             ->label(__('Reason'))
                             ->default('manual'),

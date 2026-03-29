@@ -49,7 +49,7 @@ async def get_health(request: web.Request) -> web.Response:
     uptime_seconds = round(time.time() - start_time, 1) if start_time else 0
 
     # Overall status
-    has_error = any(v.startswith("error:") for v in components.values())
+    has_error = any(v.startswith("error") for v in components.values())
     status = "degraded" if has_error else "healthy"
 
     return _ok({

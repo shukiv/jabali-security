@@ -384,7 +384,7 @@ class Security extends Page implements HasActions, HasForms
     {
         $s = $this->client()->get('/proactive/status') ?? [];
         return [
-            Grid::make(3)->dense()->schema([
+            Grid::make(2)->dense()->schema([
                 $this->statCard('Process Killer', ($s['process_kill_enabled'] ?? false) ? __('Active') : __('Disabled'), '',
                     ($s['process_kill_enabled'] ?? false) ? 'success' : 'gray'),
                 $this->statCard('Processes Killed', (string) ($s['process_kill_count'] ?? 0), '',

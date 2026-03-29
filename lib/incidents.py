@@ -547,6 +547,16 @@ class IncidentStore:
         try:
             cols = [d[0] for d in description]
             data = dict(zip(cols, row))
+
+            # Parse stored timestamp — don't generate a new one
+            timestamp = None
+            if data.get("created_at"):
+                try:
+                    from datetime import datetime
+                    timestamp = datetime.fromisoformat(data["created_at"])
+                except (ValueError, TypeError):
+                    pass
+
             return QuarantineRecord(
                 id=data["id"],
                 original_path=data["original_path"],
@@ -557,6 +567,7 @@ class IncidentStore:
                 sha256=data["sha256"],
                 restored=bool(data["restored"]),
                 deleted=bool(data["deleted"]),
+                **({"timestamp": timestamp} if timestamp else {}),
             )
         except Exception:
             logger.exception("Failed to deserialize quarantine row")

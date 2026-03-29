@@ -46,4 +46,4 @@ async def post_cleanup_file(request: web.Request) -> web.Response:
     result = await cleanup.clean_file(path)
     # Save to DB
     await request.app["incidents"].save_cleanup(result)
-    return _ok(result.model_dump())
+    return _ok(result.model_dump(mode="json"))

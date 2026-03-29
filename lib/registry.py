@@ -326,17 +326,27 @@ async def _sync_blocked_ips(incidents: IncidentStore, firewall: FirewallManager)
         return
     blocked = await incidents.get_blocked_ips()
     sync_count = 0
+    now = datetime.now(timezone.utc)
     for entry in blocked:
         expires_at = entry.get("expires_at")
         if expires_at:
-            from datetime import datetime as dt
             try:
-                exp = dt.fromisoformat(expires_at)
-                if exp < datetime.now(timezone.utc):
+                exp = datetime.fromisoformat(expires_at)
+                # Fix naive datetimes — assume UTC if no tzinfo
+                if exp.tzinfo is None:
+                    exp = exp.replace(tzinfo=timezone.utc)
+                remaining = int((exp - now).total_seconds())
+                if remaining <= 0:
+                    # Already expired — clean up from DB and skip
+                    await incidents.delete_blocked_ip(entry["ip"])
                     continue
+                await firewall.block_ip(entry["ip"], remaining)
             except (ValueError, TypeError):
-                pass
-        await firewall.block_ip(entry["ip"], 0)
+                # Unparseable expiry — treat as permanent
+                await firewall.block_ip(entry["ip"], 0)
+        else:
+            # No expiry = permanent block
+            await firewall.block_ip(entry["ip"], 0)
         sync_count += 1
     if sync_count:
         logger.info("Synced %d blocked IPs to firewall", sync_count)

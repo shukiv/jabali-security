@@ -76,9 +76,25 @@ class ScoringEngine:
 
     @staticmethod
     def _is_cms_core_path(path: str) -> bool:
-        """Check if a file path is a known CMS core file or directory."""
+        """Check if a file path is a known CMS core file or directory.
+
+        Requires that the path is actually under a CMS installation by
+        verifying a CMS root indicator directory exists in the path, not
+        just a generic directory name like "core" or "modules".
+        """
         p = PurePosixPath(path)
         parts = p.parts
+
+        # CMS root indicators — directories that only exist in real CMS installs
+        cms_roots = frozenset({
+            "wp-content", "wp-includes", "wp-admin",   # WordPress
+            "administrator", "components", "plugins",   # Joomla
+        })
+        has_cms_root = any(part in cms_roots for part in parts)
+        if not has_cms_root:
+            # No CMS root indicator — don't trust generic dir names
+            # (prevents attacker from creating a "core/" dir to bypass detection)
+            return False
 
         # Check if inside a known CMS core directory
         if any(part in _CMS_CORE_DIRS for part in parts):

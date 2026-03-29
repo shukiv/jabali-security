@@ -13,46 +13,49 @@ from lib.log_tailer import AsyncLogTailer
 
 logger = logging.getLogger(__name__)
 
+# Match both IPv4 and IPv6 addresses (including link-local %iface suffixes)
+_IP_PATTERN = r'(?P<ip>(?:\d+\.\d+\.\d+\.\d+|[0-9a-fA-F:]+(?:::[0-9a-fA-F:]*)?(?:%\w+)?))'
+
 # Service patterns: (rule_name, compiled_regex with named group "ip")
 _LOG_PATTERNS: dict[str, list[tuple[str, re.Pattern[str]]]] = {
     "ssh": [
         ("ssh_failed_password", re.compile(
-            r"Failed password for (?:invalid user )?\S+ from (?P<ip>\d+\.\d+\.\d+\.\d+)"
+            r"Failed password for (?:invalid user )?\S+ from " + _IP_PATTERN
         )),
         ("ssh_invalid_user", re.compile(
-            r"Invalid user \S+ from (?P<ip>\d+\.\d+\.\d+\.\d+)"
+            r"Invalid user \S+ from " + _IP_PATTERN
         )),
         ("ssh_connection_closed_preauth", re.compile(
-            r"Connection closed by (?:authenticating user \S+ )?(?P<ip>\d+\.\d+\.\d+\.\d+) port \d+ \[preauth\]"
+            r"Connection closed by (?:authenticating user \S+ )?" + _IP_PATTERN + r" port \d+ \[preauth\]"
         )),
     ],
     "dovecot": [
         ("dovecot_auth_failed", re.compile(
-            r"auth-worker.*(?:password|auth failed).*rip=(?P<ip>\d+\.\d+\.\d+\.\d+)"
+            r"auth-worker.*(?:password|auth failed).*rip=" + _IP_PATTERN
         )),
     ],
     "exim": [
         ("exim_auth_failed", re.compile(
-            r"authenticator failed.*\[(?P<ip>\d+\.\d+\.\d+\.\d+)\]"
+            r"authenticator failed.*\[" + _IP_PATTERN + r"\]"
         )),
     ],
     "postfix": [
         ("postfix_sasl_failed", re.compile(
-            r"SASL (?:LOGIN|PLAIN|CRAM-MD5) authentication failed.*\[(?P<ip>\d+\.\d+\.\d+\.\d+)\]"
+            r"SASL (?:LOGIN|PLAIN|CRAM-MD5) authentication failed.*\[" + _IP_PATTERN + r"\]"
         )),
     ],
     "stalwart": [
         # Stalwart log format: 2026-03-19T20:22:55Z WARN ... (auth.failed) remote-ip = 1.2.3.4
         ("stalwart_auth_failed", re.compile(
-            r"(?:auth\.failed|auth\.error|Authentication failed).{0,200}remote-ip\s*=\s*(?P<ip>\d+\.\d+\.\d+\.\d+)"
+            r"(?:auth\.failed|auth\.error|Authentication failed).{0,200}remote-ip\s*=\s*" + _IP_PATTERN
         )),
         # Alternative format: ... (security.authentication-failed) ... remote-ip = x.x.x.x
         ("stalwart_security_auth_failed", re.compile(
-            r"security\.authentication-failed.{0,200}remote-ip\s*=\s*(?P<ip>\d+\.\d+\.\d+\.\d+)"
+            r"security\.authentication-failed.{0,200}remote-ip\s*=\s*" + _IP_PATTERN
         )),
         # Brute force detection by Stalwart itself
         ("stalwart_brute_force", re.compile(
-            r"(?:security\.brute-force|too many auth).{0,200}remote-ip\s*=\s*(?P<ip>\d+\.\d+\.\d+\.\d+)"
+            r"(?:security\.brute-force|too many auth).{0,200}remote-ip\s*=\s*" + _IP_PATTERN
         )),
     ],
 }

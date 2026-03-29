@@ -46,7 +46,7 @@ class BruteforceBlockedTable extends Component implements HasActions, HasSchemas
                         TextInput::make('ip')
                             ->label(__('IP Address'))
                             ->required()
-                            ->ipv4(),
+                            ->ip(),
                     ])
                     ->action(function (array $data): void {
                         $result = $this->client()->post('/bruteforce/whitelist', $data);

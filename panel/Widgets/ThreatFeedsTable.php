@@ -69,7 +69,7 @@ class ThreatFeedsTable extends Component implements HasActions, HasSchemas, HasT
                         TextInput::make('ip')
                             ->label(__('IP Address'))
                             ->required()
-                            ->ipv4(),
+                            ->ip(),
                     ])
                     ->action(function (array $data): void {
                         $result = $this->client()->get("/threat-intel/check/ip/{$data['ip']}");
@@ -77,8 +77,8 @@ class ThreatFeedsTable extends Component implements HasActions, HasSchemas, HasT
                         if ($result) {
                             Notification::make()
                                 ->title(__('IP Check Result'))
-                                ->body(($result['threat'] ?? false) ? __('Threat detected') : __('No threats found'))
-                                ->color(($result['threat'] ?? false) ? 'danger' : 'success')
+                                ->body(($result['is_malicious'] ?? false) ? __('Threat detected') : __('No threats found'))
+                                ->color(($result['is_malicious'] ?? false) ? 'danger' : 'success')
                                 ->send();
                         } else {
                             Notification::make()
