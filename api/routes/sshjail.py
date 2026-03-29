@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 def setup_routes(app: web.Application) -> None:
+    app.router.add_get("/api/v1/ssh/users", get_ssh_users)
     app.router.add_get("/api/v1/ssh/keys", get_ssh_keys)
     app.router.add_post("/api/v1/ssh/keys", post_ssh_key)
     app.router.add_delete("/api/v1/ssh/keys/{key_id}", delete_ssh_key)
@@ -26,6 +27,40 @@ def setup_routes(app: web.Application) -> None:
     app.router.add_get("/api/v1/ssh/shell/status", get_shell_status)
     app.router.add_post("/api/v1/ssh/shell/enable", post_shell_enable)
     app.router.add_post("/api/v1/ssh/shell/disable", post_shell_disable)
+
+
+async def get_ssh_users(request: web.Request) -> web.Response:
+    """List all hosting users (UID >= 1000) with shell status."""
+    sshjail = request.app.get("sshjail")
+    if not sshjail:
+        return _err("SSH jail management not enabled", 404)
+
+    import pwd
+    users = []
+    for pw in pwd.getpwall():
+        if pw.pw_uid < 1000 or pw.pw_uid >= 65534:
+            continue
+        if not pw.pw_dir.startswith("/home/"):
+            continue
+        try:
+            status = await sshjail.shell_status(pw.pw_name)
+            key_count = len(await sshjail.list_keys(pw.pw_name))
+            users.append({
+                "username": pw.pw_name,
+                "shell": status.shell,
+                "shell_enabled": status.shell_enabled,
+                "sftp_only": status.sftp_only,
+                "key_count": key_count,
+            })
+        except Exception:
+            users.append({
+                "username": pw.pw_name,
+                "shell": pw.pw_shell,
+                "shell_enabled": pw.pw_shell != "/usr/sbin/nologin",
+                "sftp_only": pw.pw_shell == "/usr/sbin/nologin",
+                "key_count": 0,
+            })
+    return _ok(users)
 
 
 async def get_ssh_keys(request: web.Request) -> web.Response:

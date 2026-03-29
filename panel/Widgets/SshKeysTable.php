@@ -39,8 +39,8 @@ class SshKeysTable extends Component implements HasActions, HasSchemas, HasTable
         return $table
             ->records(function () {
                 if (! $this->sshUsername) {
-                    // Show all users — use /users endpoint which includes shell status
-                    $users = $this->client()->get('/users') ?? [];
+                    // Show all system users with shell status
+                    $users = $this->client()->get('/ssh/users') ?? [];
                     $records = [];
                     foreach ($users as $user) {
                         $username = $user['username'] ?? '';
