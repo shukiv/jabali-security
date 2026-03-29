@@ -241,9 +241,6 @@ async def post_shell_enable(request: web.Request) -> web.Response:
     except ValueError as exc:
         return _err(str(exc))
 
-    config = request.app.get("config")
-    if config and not config.ssh_shell_access_enabled:
-        return _err("Shell access management is disabled by administrator", 403)
 
     logger.info("SSH shell enable: user=%s", username)
     try:
@@ -277,9 +274,6 @@ async def post_shell_disable(request: web.Request) -> web.Response:
     except ValueError as exc:
         return _err(str(exc))
 
-    config = request.app.get("config")
-    if config and not config.ssh_shell_access_enabled:
-        return _err("Shell access management is disabled by administrator", 403)
 
     logger.info("SSH shell disable: user=%s", username)
     try:
