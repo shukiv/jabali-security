@@ -363,14 +363,25 @@ class Security extends Page implements HasActions, HasForms
         ];
     }
 
+    private function inlineStatCard(string $label, string $value, string $color = 'gray'): Section
+    {
+        $hex = match ($color) {
+            'success' => '#22c55e', 'danger' => '#ef4444', 'warning' => '#eab308',
+            'info' => '#3b82f6', default => '#9ca3af',
+        };
+        return Section::make(new \Illuminate\Support\HtmlString(
+            __($label) . ': <span style="color:' . $hex . '">' . $value . '</span>'
+        ))->compact()->schema([]);
+    }
+
     protected function wafStats(): array
     {
         $s = $this->client()->get('/waf/stats') ?? [];
         return [
             Grid::make(2)->dense()->schema([
-                $this->statCard('Events (24h)', (string) ($s['total_events_24h'] ?? 0), '',
+                $this->inlineStatCard('Events (24h)', (string) ($s['total_events_24h'] ?? 0),
                     ($s['total_events_24h'] ?? 0) > 0 ? 'warning' : 'success'),
-                $this->statCard('Blocked (24h)', (string) ($s['blocked_24h'] ?? 0), '',
+                $this->inlineStatCard('Blocked (24h)', (string) ($s['blocked_24h'] ?? 0),
                     ($s['blocked_24h'] ?? 0) > 0 ? 'danger' : 'success'),
             ]),
         ];
@@ -381,8 +392,8 @@ class Security extends Page implements HasActions, HasForms
         $s = $this->client()->get('/bruteforce/stats') ?? [];
         return [
             Grid::make(2)->dense()->schema([
-                $this->statCard('Tracked IPs', (string) ($s['tracked_ips'] ?? 0), '', 'info'),
-                $this->statCard('Blocked', (string) ($s['blocked_count'] ?? 0), '',
+                $this->inlineStatCard('Tracked IPs', (string) ($s['tracked_ips'] ?? 0), 'info'),
+                $this->inlineStatCard('Blocked', (string) ($s['blocked_count'] ?? 0),
                     ($s['blocked_count'] ?? 0) > 0 ? 'danger' : 'success'),
             ]),
         ];
@@ -393,9 +404,9 @@ class Security extends Page implements HasActions, HasForms
         $s = $this->client()->get('/proactive/status') ?? [];
         return [
             Grid::make(2)->dense()->schema([
-                $this->statCard('Process Killer', ($s['process_kill_enabled'] ?? false) ? __('Active') : __('Disabled'), '',
+                $this->inlineStatCard('Process Killer', ($s['process_kill_enabled'] ?? false) ? __('Active') : __('Disabled'),
                     ($s['process_kill_enabled'] ?? false) ? 'success' : 'gray'),
-                $this->statCard('Processes Killed', (string) ($s['process_kill_count'] ?? 0), '',
+                $this->inlineStatCard('Processes Killed', (string) ($s['process_kill_count'] ?? 0),
                     ($s['process_kill_count'] ?? 0) > 0 ? 'warning' : 'success'),
             ]),
         ];
@@ -405,18 +416,20 @@ class Security extends Page implements HasActions, HasForms
     {
         $s = $this->client()->get('/webshield/status') ?? [];
         return [
-            Grid::make(6)->dense()->schema([
-                $this->statCard('Enabled', ($s['installed'] ?? false) ? __('Yes') : __('No'), '',
+            Grid::make(3)->dense()->schema([
+                $this->inlineStatCard('Installed', ($s['installed'] ?? false) ? __('Yes') : __('No'),
                     ($s['installed'] ?? false) ? 'success' : 'gray'),
-                $this->statCard('Rate Limiting', ($s['rate_limiting'] ?? false) ? __('On') : __('Off'), '',
+                $this->inlineStatCard('Rate Limiting', ($s['rate_limiting'] ?? false) ? __('On') : __('Off'),
                     ($s['rate_limiting'] ?? false) ? 'success' : 'gray'),
-                $this->statCard('Bot Filtering', ($s['bot_filtering'] ?? false) ? __('On') : __('Off'), '',
+                $this->inlineStatCard('Bot Filtering', ($s['bot_filtering'] ?? false) ? __('On') : __('Off'),
                     ($s['bot_filtering'] ?? false) ? 'success' : 'gray'),
-                $this->statCard('Blocked IPs', (string) ($s['blocked_ips_count'] ?? 0), '',
+            ]),
+            Grid::make(3)->dense()->schema([
+                $this->inlineStatCard('Blocked IPs', (string) ($s['blocked_ips_count'] ?? 0),
                     ($s['blocked_ips_count'] ?? 0) > 0 ? 'danger' : 'success'),
-                $this->statCard('Bots Blocked', (string) ($s['bot_blocked_24h'] ?? 0), 'Last 24 hours',
+                $this->inlineStatCard('Bots Blocked', (string) ($s['bot_blocked_24h'] ?? 0),
                     ($s['bot_blocked_24h'] ?? 0) > 0 ? 'warning' : 'success'),
-                $this->statCard('Rate Limited', (string) ($s['rate_limited_24h'] ?? 0), 'Last 24 hours',
+                $this->inlineStatCard('Rate Limited', (string) ($s['rate_limited_24h'] ?? 0),
                     ($s['rate_limited_24h'] ?? 0) > 0 ? 'warning' : 'success'),
             ]),
         ];
@@ -491,12 +504,12 @@ class Security extends Page implements HasActions, HasForms
         $r = $this->client()->get('/rules') ?? [];
         return [
             Grid::make(4)->dense()->schema([
-                $this->statCard('YARA', ($r['yara_enabled'] ?? false) ? __('Enabled') : __('Disabled'), '',
+                $this->inlineStatCard('YARA', ($r['yara_enabled'] ?? false) ? __('Enabled') : __('Disabled'),
                     ($r['yara_enabled'] ?? false) ? 'success' : 'gray'),
-                $this->statCard('ClamAV', ($r['clamav_enabled'] ?? false) ? __('Enabled') : __('Disabled'), '',
+                $this->inlineStatCard('ClamAV', ($r['clamav_enabled'] ?? false) ? __('Enabled') : __('Disabled'),
                     ($r['clamav_enabled'] ?? false) ? 'success' : 'gray'),
-                $this->statCard('Scanners', implode(', ', $r['scanners'] ?? []), '', 'info'),
-                $this->statCard('Rules Dir', $r['yara_rules_dir'] ?? '?', '', 'gray'),
+                $this->inlineStatCard('Scanners', implode(', ', $r['scanners'] ?? []), 'info'),
+                $this->inlineStatCard('Rules Dir', $r['yara_rules_dir'] ?? '?', 'gray'),
             ]),
         ];
     }
