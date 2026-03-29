@@ -432,55 +432,64 @@ class Security extends Page implements HasActions, HasForms
 
         return [
             Grid::make(3)->dense()->schema([
-                Section::make(__('SSH Jail'))->compact()->schema([
+                Section::make()->compact()->schema([
+                    Grid::make(['default' => 2])->schema([
+                        Text::make(__('SSH Jail'))->size(TextSize::ExtraSmall)->weight(FontWeight::Medium)->color('gray'),
+                        SchemaActions::make([
+                            Action::make('toggleSshJail')
+                                ->label($jailEnabled ? __('Disable') : __('Enable'))
+                                ->color($jailEnabled ? 'gray' : 'success')
+                                ->size('xs')
+                                ->action('toggleSshJail'),
+                        ]),
+                    ]),
                     Text::make($jailEnabled ? __('Enabled') : __('Disabled'))
                         ->size(TextSize::Large)->weight(FontWeight::Bold)
                         ->color($jailEnabled ? 'success' : 'gray'),
-                ])->headerActions([
-                    Action::make('toggleSshJail')
-                        ->label($jailEnabled ? __('Disable') : __('Enable'))
-                        ->icon($jailEnabled ? 'heroicon-o-lock-open' : 'heroicon-o-shield-check')
-                        ->color($jailEnabled ? 'gray' : 'success')
-                        ->size('xs')
-                        ->action('toggleSshJail'),
                 ]),
-                Section::make(__('Password Auth'))->compact()->schema([
+                Section::make()->compact()->schema([
+                    Grid::make(['default' => 2])->schema([
+                        Text::make(__('Password Auth'))->size(TextSize::ExtraSmall)->weight(FontWeight::Medium)->color('gray'),
+                        SchemaActions::make([
+                            Action::make('toggleSshPasswordAuth')
+                                ->label($passAuth ? __('Disable') : __('Enable'))
+                                ->color($passAuth ? 'danger' : 'success')
+                                ->size('xs')
+                                ->requiresConfirmation()
+                                ->modalDescription($passAuth
+                                    ? __('Users will only be able to log in with SSH keys.')
+                                    : __('Users will be able to log in with passwords.'))
+                                ->action($passAuth ? 'disableSshPasswordAuth' : 'enableSshPasswordAuth'),
+                        ]),
+                    ]),
                     Text::make($passAuth ? __('Enabled') : __('Disabled'))
                         ->size(TextSize::Large)->weight(FontWeight::Bold)
                         ->color($passAuth ? 'warning' : 'success'),
-                ])->headerActions([
-                    Action::make('toggleSshPasswordAuth')
-                        ->label($passAuth ? __('Disable') : __('Enable'))
-                        ->icon($passAuth ? 'heroicon-o-lock-closed' : 'heroicon-o-lock-open')
-                        ->color($passAuth ? 'danger' : 'success')
-                        ->size('xs')
-                        ->requiresConfirmation()
-                        ->modalDescription($passAuth
-                            ? __('Users will only be able to log in with SSH keys.')
-                            : __('Users will be able to log in with passwords.'))
-                        ->action($passAuth ? 'disableSshPasswordAuth' : 'enableSshPasswordAuth'),
                 ]),
-                Section::make(__('SSH Port'))->compact()->schema([
+                Section::make()->compact()->schema([
+                    Grid::make(['default' => 2])->schema([
+                        Text::make(__('SSH Port'))->size(TextSize::ExtraSmall)->weight(FontWeight::Medium)->color('gray'),
+                        SchemaActions::make([
+                            Action::make('changeSshPort')
+                                ->label(__('Change'))
+                                ->color('gray')
+                                ->size('xs')
+                                ->form([
+                                    TextInput::make('port')
+                                        ->label(__('SSH Port'))
+                                        ->numeric()
+                                        ->default($port)
+                                        ->minValue(1)
+                                        ->maxValue(65535)
+                                        ->required(),
+                                ])
+                                ->requiresConfirmation()
+                                ->action('changeSshPortAction'),
+                        ]),
+                    ]),
                     Text::make((string) $port)
                         ->size(TextSize::Large)->weight(FontWeight::Bold)
                         ->color($port === 22 ? 'warning' : 'success'),
-                ])->headerActions([
-                    Action::make('changeSshPort')
-                        ->label(__('Change'))
-                        ->icon('heroicon-o-cog-6-tooth')
-                        ->color('gray')
-                        ->size('xs')
-                        ->form([
-                            TextInput::make('port')
-                                ->label(__('SSH Port'))
-                                ->numeric()
-                                ->default($port)
-                                ->minValue(1)
-                                ->maxValue(65535)
-                                ->required(),
-                        ])
-                        ->requiresConfirmation()
-                        ->action('changeSshPortAction'),
                 ]),
             ]),
         ];
