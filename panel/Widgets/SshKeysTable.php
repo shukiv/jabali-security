@@ -68,17 +68,11 @@ class SshKeysTable extends Component implements HasActions, HasSchemas, HasTable
                     ->label(__('User'))
                     ->weight('bold')
                     ->searchable(),
-                TextColumn::make('shell')
-                    ->label(__('Shell'))
-                    ->fontFamily('mono')
-                    ->size('sm')
-                    ->color('gray'),
-                IconColumn::make('shell_enabled')
-                    ->label(__('Terminal'))
-                    ->boolean(),
-                IconColumn::make('sftp_only')
-                    ->label(__('SFTP Only'))
-                    ->boolean(),
+                TextColumn::make('shell_enabled')
+                    ->label(__('Permission'))
+                    ->badge()
+                    ->state(fn (array $record): string => ($record['shell_enabled'] ?? false) ? 'SSH / SFTP' : 'SFTP Only')
+                    ->color(fn (array $record): string => ($record['shell_enabled'] ?? false) ? 'success' : 'gray'),
                 TextColumn::make('key_count')
                     ->label(__('SSH Keys'))
                     ->badge()
