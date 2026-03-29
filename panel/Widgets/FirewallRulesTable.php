@@ -53,9 +53,11 @@ class FirewallRulesTable extends Component implements HasActions, HasSchemas, Ha
                     ->label(__('From')),
                 TextColumn::make('direction')
                     ->label(__('Direction')),
-                IconColumn::make('v6')
-                    ->label(__('IPv6'))
-                    ->boolean(),
+                TextColumn::make('v6')
+                    ->label(__('IP Version'))
+                    ->badge()
+                    ->formatStateUsing(fn ($state) => $state ? 'IPv6' : 'IPv4')
+                    ->color(fn ($state) => $state ? 'info' : 'gray'),
             ])
             ->headerActions([
                 Action::make('add_rule')
