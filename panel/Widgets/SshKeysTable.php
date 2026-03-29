@@ -92,6 +92,8 @@ class SshKeysTable extends Component implements HasActions, HasSchemas, HasTable
                                 : __('Failed'))
                             ->{$result !== null ? 'success' : 'danger'}()
                             ->send();
+
+                        $this->resetTable();
                     }),
             ])
             ->headerActions([])
