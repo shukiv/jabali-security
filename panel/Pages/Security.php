@@ -752,9 +752,11 @@ class Security extends Page implements HasActions, HasForms
         $enabled = $this->moduleStates['SSHJAIL_ENABLED'] ?? false;
         $newValue = $enabled ? 'no' : 'yes';
         $this->client()->patch('/config', ['SSHJAIL_ENABLED' => $newValue]);
-        $this->moduleStates['SSHJAIL_ENABLED'] = ! $enabled;
+        // Daemon restart needed to load/unload SSHJailManager
+        $this->client()->post('/daemon/restart');
         Notification::make()
             ->title($enabled ? __('SSH Jail disabled') : __('SSH Jail enabled'))
+            ->body(__('Daemon restarted to apply changes'))
             ->{$enabled ? 'warning' : 'success'}()
             ->send();
         $this->redirect(static::getUrl(['tab' => 'defense', 'defense' => 'ssh']));

@@ -16,6 +16,7 @@ from lib.constants import VERSION
 def setup_routes(app: web.Application) -> None:
     app.router.add_get("/api/v1/health", get_health)
     app.router.add_get("/api/v1/status", get_status)
+    app.router.add_post("/api/v1/daemon/restart", post_daemon_restart)
 
 
 async def get_health(request: web.Request) -> web.Response:
@@ -101,3 +102,24 @@ async def get_status(request: web.Request) -> web.Response:
     }
 
     return _ok(data)
+
+
+async def post_daemon_restart(request: web.Request) -> web.Response:
+    """Restart the daemon via systemctl. Runs as root so this works."""
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.warning("Daemon restart requested via API")
+    # Send response first, then restart
+    response = _ok({"restarting": True, "message": "Daemon is restarting..."})
+    # Schedule restart after response is sent
+    asyncio.get_event_loop().call_later(1.0, _trigger_restart)
+    return response
+
+
+def _trigger_restart() -> None:
+    """Trigger systemctl restart in a subprocess (non-blocking)."""
+    import subprocess
+    subprocess.Popen(  # noqa: S603
+        ["/usr/bin/systemctl", "restart", "jabali-security"],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+    )
