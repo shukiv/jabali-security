@@ -278,12 +278,15 @@ class Security extends Page implements HasActions, HasForms
                                             [EmbeddedTable::make(WebshieldRulesTable::class)],
                                         )),
                                     'ssh' => Tab::make(__('SSH Jail'))
-                                        ->schema([
-                                            Text::make(__('SSH/SFTP access management with chroot jailshell. Users get SFTP-only access by default. Shell access provides a jailed environment with wp-cli and basic commands.'))
-                                                ->size(TextSize::Small)
-                                                ->color('gray'),
-                                            EmbeddedTable::make(SshKeysTable::class),
-                                        ]),
+                                        ->schema(array_merge(
+                                            [
+                                                Text::make(__('SSH/SFTP access management with chroot jailshell. Users get SFTP-only access by default. Shell access provides a jailed environment with wp-cli and basic commands.'))
+                                                    ->size(TextSize::Small)
+                                                    ->color('gray'),
+                                            ],
+                                            $this->sshdSettingsStats(),
+                                            [EmbeddedTable::make(SshKeysTable::class)],
+                                        )),
                                 ]),
                         ]),
                     'intelligence' => Tab::make(__('Intelligence'))
@@ -415,6 +418,91 @@ class Security extends Page implements HasActions, HasForms
                     ($s['bot_blocked_24h'] ?? 0) > 0 ? 'warning' : 'success'),
                 $this->statCard('Rate Limited', (string) ($s['rate_limited_24h'] ?? 0), 'Last 24 hours',
                     ($s['rate_limited_24h'] ?? 0) > 0 ? 'warning' : 'success'),
+            ]),
+        ];
+    }
+
+    protected function sshdSettingsStats(): array
+    {
+        $s = $this->client()->get('/ssh/sshd-settings') ?? [];
+        $passAuth = $s['password_auth'] ?? true;
+        $pubkeyAuth = $s['pubkey_auth'] ?? true;
+        $port = $s['port'] ?? 22;
+
+        return [
+            Grid::make(3)->dense()->schema([
+                $this->statCard('Password Auth', $passAuth ? __('Enabled') : __('Disabled'), 'sshd_config',
+                    $passAuth ? 'warning' : 'success'),
+                $this->statCard('Pubkey Auth', $pubkeyAuth ? __('Enabled') : __('Disabled'), 'sshd_config',
+                    $pubkeyAuth ? 'success' : 'danger'),
+                $this->statCard('SSH Port', (string) $port, 'sshd_config',
+                    $port === 22 ? 'warning' : 'success'),
+            ]),
+            SchemaActions::make([
+                Action::make('toggleSshPasswordAuth')
+                    ->label($passAuth ? __('Disable Password Auth') : __('Enable Password Auth'))
+                    ->icon($passAuth ? 'heroicon-o-lock-closed' : 'heroicon-o-lock-open')
+                    ->color($passAuth ? 'danger' : 'success')
+                    ->size('sm')
+                    ->requiresConfirmation()
+                    ->modalDescription($passAuth
+                        ? __('Users will only be able to log in with SSH keys. Make sure all users have keys configured.')
+                        : __('Users will be able to log in with passwords. Key-based authentication is more secure.'))
+                    ->action(function () use ($passAuth): void {
+                        $result = $this->client()->post('/ssh/sshd-settings', ['password_auth' => ! $passAuth]);
+
+                        Notification::make()
+                            ->title($result !== null
+                                ? (! $passAuth ? __('Password auth enabled') : __('Password auth disabled'))
+                                : __('Failed to update setting'))
+                            ->{$result !== null ? 'success' : 'danger'}()
+                            ->send();
+                    }),
+                Action::make('toggleSshPubkeyAuth')
+                    ->label($pubkeyAuth ? __('Disable Pubkey Auth') : __('Enable Pubkey Auth'))
+                    ->icon($pubkeyAuth ? 'heroicon-o-key' : 'heroicon-o-key')
+                    ->color($pubkeyAuth ? 'danger' : 'success')
+                    ->size('sm')
+                    ->requiresConfirmation()
+                    ->modalDescription($pubkeyAuth
+                        ? __('Disabling public key authentication is not recommended. Users will only be able to log in with passwords.')
+                        : __('Enable public key authentication for more secure SSH access.'))
+                    ->action(function () use ($pubkeyAuth): void {
+                        $result = $this->client()->post('/ssh/sshd-settings', ['pubkey_auth' => ! $pubkeyAuth]);
+
+                        Notification::make()
+                            ->title($result !== null
+                                ? (! $pubkeyAuth ? __('Pubkey auth enabled') : __('Pubkey auth disabled'))
+                                : __('Failed to update setting'))
+                            ->{$result !== null ? 'success' : 'danger'}()
+                            ->send();
+                    }),
+                Action::make('changeSshPort')
+                    ->label(__('Change SSH Port'))
+                    ->icon('heroicon-o-cog-6-tooth')
+                    ->color('gray')
+                    ->size('sm')
+                    ->form([
+                        TextInput::make('port')
+                            ->label(__('SSH Port'))
+                            ->numeric()
+                            ->default($port)
+                            ->minValue(1)
+                            ->maxValue(65535)
+                            ->required(),
+                    ])
+                    ->requiresConfirmation()
+                    ->modalDescription(__('Changing the SSH port requires updating firewall rules. Make sure the new port is allowed before applying.'))
+                    ->action(function (array $data): void {
+                        $result = $this->client()->post('/ssh/sshd-settings', ['port' => (int) $data['port']]);
+
+                        Notification::make()
+                            ->title($result !== null
+                                ? __('SSH port changed to :port', ['port' => $data['port']])
+                                : __('Failed to change SSH port'))
+                            ->{$result !== null ? 'success' : 'danger'}()
+                            ->send();
+                    }),
             ]),
         ];
     }

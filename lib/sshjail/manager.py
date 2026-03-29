@@ -232,6 +232,128 @@ class SSHJailManager:
             shutil.rmtree(tmp_dir, ignore_errors=True)
 
     # ------------------------------------------------------------------
+    # sshd_config management
+    # ------------------------------------------------------------------
+
+    _SSHD_CONFIG = "/etc/ssh/sshd_config"
+
+    # Settings we manage, with their sshd_config key and default value
+    _SSHD_SETTINGS = {
+        "password_auth": ("PasswordAuthentication", True),
+        "pubkey_auth": ("PubkeyAuthentication", True),
+        "port": ("Port", 22),
+    }
+
+    async def get_sshd_settings(self) -> dict:
+        """Read managed settings from sshd_config."""
+        defaults = {k: v[1] for k, v in self._SSHD_SETTINGS.items()}
+        result = dict(defaults)
+
+        try:
+            with open(self._SSHD_CONFIG, "r") as fh:
+                for line in fh:
+                    stripped = line.strip()
+                    if stripped.startswith("#"):
+                        continue
+                    parts = stripped.split()
+                    if len(parts) < 2:
+                        continue
+                    key_lower = parts[0].lower()
+                    for name, (sshd_key, _default) in self._SSHD_SETTINGS.items():
+                        if key_lower == sshd_key.lower():
+                            if isinstance(_default, bool):
+                                result[name] = parts[1].lower() == "yes"
+                            elif isinstance(_default, int):
+                                try:
+                                    result[name] = int(parts[1])
+                                except ValueError:
+                                    pass
+        except OSError as exc:
+            logger.warning("Failed to read sshd_config: %s", exc)
+
+        return result
+
+    async def set_sshd_settings(self, settings: dict) -> bool:
+        """Update sshd_config settings and reload sshd.
+
+        Accepts a dict with keys: password_auth (bool), pubkey_auth (bool), port (int).
+        Only provided keys are updated; omitted keys are left unchanged.
+        """
+        # Build key -> value map for the settings to write
+        updates: dict[str, str] = {}
+        for name, value in settings.items():
+            if name not in self._SSHD_SETTINGS:
+                continue
+            sshd_key, default = self._SSHD_SETTINGS[name]
+            if isinstance(default, bool):
+                updates[sshd_key] = "yes" if value else "no"
+            elif isinstance(default, int):
+                updates[sshd_key] = str(value)
+
+        if not updates:
+            return True
+
+        async with self._lock:
+            try:
+                with open(self._SSHD_CONFIG, "r") as fh:
+                    lines = fh.readlines()
+            except OSError as exc:
+                logger.error("Failed to read sshd_config: %s", exc)
+                return False
+
+            applied: set[str] = set()
+            new_lines: list[str] = []
+            for line in lines:
+                stripped = line.strip()
+                # Match both active and commented-out directives
+                parts = stripped.lstrip("#").strip().split()
+                if len(parts) >= 2:
+                    for sshd_key, new_val in updates.items():
+                        if parts[0].lower() == sshd_key.lower() and sshd_key not in applied:
+                            new_lines.append(f"{sshd_key} {new_val}\n")
+                            applied.add(sshd_key)
+                            break
+                    else:
+                        new_lines.append(line)
+                else:
+                    new_lines.append(line)
+
+            # Append any settings not found in the file
+            for sshd_key, new_val in updates.items():
+                if sshd_key not in applied:
+                    new_lines.append(f"{sshd_key} {new_val}\n")
+
+            # Atomic write
+            fd, tmp_path = tempfile.mkstemp(
+                dir="/etc/ssh", prefix=".sshd_config.jabali."
+            )
+            try:
+                with os.fdopen(fd, "w") as fh:
+                    fh.writelines(new_lines)
+                os.chmod(tmp_path, 0o600)
+                os.rename(tmp_path, self._SSHD_CONFIG)
+            except OSError:
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
+                raise
+
+        # Validate config before reloading
+        rc, _, stderr = await self._run(["sshd", "-t"])
+        if rc != 0:
+            logger.error("sshd config test failed: %s", stderr)
+            return False
+
+        # Reload sshd
+        rc, _, _ = await self._run(["systemctl", "reload", "sshd"])
+        if rc != 0:
+            # Try ssh service name (Debian/Ubuntu)
+            rc, _, _ = await self._run(["systemctl", "reload", "ssh"])
+
+        return rc == 0
+
+    # ------------------------------------------------------------------
     # Shell management
     # ------------------------------------------------------------------
 
