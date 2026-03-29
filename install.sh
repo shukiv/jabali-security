@@ -520,6 +520,15 @@ WAFEOF
         cp /etc/ssh/sshd_config "/etc/ssh/sshd_config.backup.$(date +%Y%m%d%H%M%S)"
         echo "  sshd_config backed up"
 
+        # Disable password authentication (key-based auth only)
+        if grep -q "^PasswordAuthentication yes" /etc/ssh/sshd_config; then
+            sed -i 's/^PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
+            echo "  Password authentication disabled (key-based only)"
+        elif ! grep -q "^PasswordAuthentication" /etc/ssh/sshd_config; then
+            echo "PasswordAuthentication no" >> /etc/ssh/sshd_config
+            echo "  Password authentication disabled (key-based only)"
+        fi
+
         # Remove any existing Jabali SSH config block
         sed -i '/# Jabali SSH Jail Configuration/,/# End Jabali SSH Jail/d' /etc/ssh/sshd_config
 
