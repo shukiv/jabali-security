@@ -390,6 +390,18 @@ def update() -> None:
                 fh.write(conf_content)
             click.echo("Config migrated to Unix socket.")
 
+    # Fix config permissions (older installs may have 600 root:root)
+    import grp
+    try:
+        www_gid = grp.getgrnam("www-data").gr_gid
+        os.chown("/etc/jabali-security", 0, www_gid)
+        os.chmod("/etc/jabali-security", 0o750)
+        if os.path.isfile(config_file):
+            os.chown(config_file, 0, www_gid)
+            os.chmod(config_file, 0o640)
+    except (KeyError, PermissionError):
+        pass  # www-data group may not exist
+
     # Restart services
     subprocess.run(["/usr/bin/systemctl", "restart", "jabali-security"], capture_output=True)  # noqa: S603
     # Restart Jabali Panel if plugin was updated (FrankenPHP caches PHP in memory)
