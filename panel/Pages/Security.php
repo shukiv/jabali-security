@@ -334,13 +334,15 @@ class Security extends Page implements HasActions, HasForms
         }
 
         return [
-            Grid::make(6)->dense()->schema([
+            Grid::make(3)->dense()->schema([
                 $this->inlineStatCard('Incidents', (string) ($s['incidents_24h'] ?? 0),
                     ($s['incidents_24h'] ?? 0) > 0 ? 'danger' : 'success'),
-                $this->inlineStatCard('Attacks Blocked', (string) ($s['attacks_blocked_24h'] ?? 0),
+                $this->inlineStatCard('Blocked', (string) ($s['attacks_blocked_24h'] ?? 0),
                     ($s['attacks_blocked_24h'] ?? 0) > 0 ? 'warning' : 'success'),
                 $this->inlineStatCard('Quarantine', (string) ($s['quarantined_count'] ?? 0),
                     ($s['quarantined_count'] ?? 0) > 0 ? 'warning' : 'success'),
+            ]),
+            Grid::make(3)->dense()->schema([
                 $this->inlineStatCard('Watching', (string) ($s['watched_dirs'] ?? 0), 'info'),
                 $this->inlineStatCard('Memory', round($s['memory_mb'] ?? 0, 1).' MB', 'gray'),
                 $this->inlineStatCard('Daemon', ($s['running'] ?? false) ? __('Online') : __('Offline'),
@@ -377,9 +379,7 @@ class Security extends Page implements HasActions, HasForms
     private function inlineStatCard(string $label, string $value, string $color = 'gray'): Section
     {
         $icon = static::$statIcons[$label] ?? 'heroicon-o-information-circle';
-        return Section::make(new \Illuminate\Support\HtmlString(
-            '<div class="flex items-center gap-2"><span class="fi-section-header-heading">' . $value . '</span><span class="fi-section-header-description">' . __($label) . '</span></div>'
-        ))
+        return Section::make($value . '  ' . __($label))
             ->icon($icon)
             ->iconColor($color)
             ->compact()
