@@ -86,6 +86,8 @@ class Security extends Page implements HasActions, HasForms
                 $this->moduleStates[$key] = in_array($config[$key] ?? 'no', ['yes', 'true', '1']);
             }
         }
+        // SSH Jail is not in module toggles but needs state tracking
+        $this->moduleStates['SSHJAIL_ENABLED'] = in_array($config['SSHJAIL_ENABLED'] ?? 'no', ['yes', 'true', '1']);
     }
 
     public function updatedModuleStates($value, string $key): void
