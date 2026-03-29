@@ -433,7 +433,6 @@ class Security extends Page implements HasActions, HasForms
         return [
             Grid::make(3)->dense()->schema([
                 Section::make(__('SSH Jail'))
-                    ->description($jailEnabled ? __('Enabled') : __('Disabled'))
                     ->icon($jailEnabled ? 'heroicon-o-check-circle' : 'heroicon-o-x-circle')
                     ->iconColor($jailEnabled ? 'success' : 'danger')
                     ->compact()
@@ -444,9 +443,12 @@ class Security extends Page implements HasActions, HasForms
                             ->size('xs')
                             ->action('toggleSshJail'),
                     ])
-                    ->schema([]),
+                    ->schema([
+                        Text::make($jailEnabled ? __('Enabled') : __('Disabled'))
+                            ->color($jailEnabled ? 'success' : 'danger')
+                            ->weight(FontWeight::Bold),
+                    ]),
                 Section::make(__('Password Auth'))
-                    ->description($passAuth ? __('Enabled') : __('Disabled'))
                     ->icon($passAuth ? 'heroicon-o-check-circle' : 'heroicon-o-x-circle')
                     ->iconColor($passAuth ? 'success' : 'danger')
                     ->compact()
@@ -461,9 +463,12 @@ class Security extends Page implements HasActions, HasForms
                                 : __('Users will be able to log in with passwords.'))
                             ->action($passAuth ? 'disableSshPasswordAuth' : 'enableSshPasswordAuth'),
                     ])
-                    ->schema([]),
+                    ->schema([
+                        Text::make($passAuth ? __('Enabled') : __('Disabled'))
+                            ->color($passAuth ? 'success' : 'danger')
+                            ->weight(FontWeight::Bold),
+                    ]),
                 Section::make(__('SSH Port'))
-                    ->description((string) $port)
                     ->icon('heroicon-o-signal')
                     ->iconColor('warning')
                     ->compact()
@@ -484,7 +489,12 @@ class Security extends Page implements HasActions, HasForms
                             ->requiresConfirmation()
                             ->action('changeSshPortAction'),
                     ])
-                    ->schema([]),
+                    ->schema([
+                        Text::make((string) $port)
+                            ->color('warning')
+                            ->weight(FontWeight::Bold)
+                            ->size(TextSize::Large),
+                    ]),
             ]),
         ];
     }
