@@ -1,0 +1,22 @@
+{
+  "id": "session-1774797337926",
+  "startedAt": "2026-03-29T15:15:37.926Z",
+  "cwd": "/home/shuki/projects/jabali-security",
+  "context": {
+    "lastMatchedPatterns": [
+      "mem-MEMORY-project-structure",
+      "mem-MEMORY-jabali-panel",
+      "mem-MEMORY-references",
+      "mem-MEMORY-git-remotes",
+      "mem-MEMORY-project-overview"
+    ]
+  },
+  "metrics": {
+    "edits": 147,
+    "commands": 0,
+    "tasks": 0,
+    "errors": 0
+  },
+  "updatedAt": "2026-03-29T18:41:05.920Z",
+  "restoredAt": "2026-03-29T15:26:41.823Z"
+}
