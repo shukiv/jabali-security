@@ -6,13 +6,9 @@ namespace App\JabaliSecurity\Widgets;
 
 use App\JabaliSecurity\JabaliSecurityClient;
 use Filament\Actions\Action;
-use Filament\Forms\Components\Select;
-use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\TextInput;
-use Filament\Notifications\Notification;
-use Filament\Tables\Columns\IconColumn;
-use Filament\Tables\Columns\TextColumn;
 use Filament\Actions\BulkAction;
+use Filament\Notifications\Notification;
+use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
@@ -98,71 +94,7 @@ class SshKeysTable extends Component implements HasActions, HasSchemas, HasTable
                             ->send();
                     }),
             ])
-            ->headerActions([
-                Action::make('addKey')
-                    ->label(__('Add SSH Key'))
-                    ->icon('heroicon-o-key')
-                    ->form([
-                        TextInput::make('username')
-                            ->label(__('Username'))
-                            ->required(),
-                        TextInput::make('name')
-                            ->label(__('Key Name'))
-                            ->required()
-                            ->maxLength(50),
-                        Textarea::make('public_key')
-                            ->label(__('Public Key'))
-                            ->required()
-                            ->rows(3)
-                            ->placeholder('ssh-ed25519 AAAAC3... or ssh-rsa AAAAB3...'),
-                    ])
-                    ->action(function (array $data): void {
-                        $result = $this->client()->post('/ssh/keys', $data);
-
-                        Notification::make()
-                            ->title($result ? __('SSH key added') : __('Failed to add key'))
-                            ->{($result ? "success" : "danger")}()
-                            ->send();
-                    }),
-                Action::make('generateKey')
-                    ->label(__('Generate Key'))
-                    ->icon('heroicon-o-sparkles')
-                    ->color('success')
-                    ->form([
-                        TextInput::make('username')
-                            ->label(__('Username'))
-                            ->required(),
-                        TextInput::make('name')
-                            ->label(__('Key Name'))
-                            ->required()
-                            ->maxLength(50),
-                        Select::make('type')
-                            ->label(__('Key Type'))
-                            ->options([
-                                'ed25519' => 'ED25519 (Recommended)',
-                                'rsa' => 'RSA 4096-bit',
-                            ])
-                            ->default('ed25519')
-                            ->required(),
-                        TextInput::make('passphrase')
-                            ->label(__('Passphrase (Optional)'))
-                            ->password(),
-                    ])
-                    ->action(function (array $data): void {
-                        $result = $this->client()->post('/ssh/keys/generate', $data);
-
-                        if ($result && ($result['private_key'] ?? '')) {
-                            Notification::make()
-                                ->title(__('Key generated'))
-                                ->body(__('Private key returned — save it securely.'))
-                                ->success()
-                                ->persistent()
-                                ->send();
-                        } else {
-                            Notification::make()->title(__('Generation failed'))->danger()->send();
-                        }
-                    }),
-            ])
+            ->headerActions([])
             ->bulkActions([
                 BulkAction::make('enable_shell')
                     ->label(__('Enable Shell'))
