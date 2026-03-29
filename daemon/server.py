@@ -163,13 +163,17 @@ class SecurityDaemon:
                 return
             await firewall.block_ip(decision.ip, decision.duration)
             # Persist to blocked_ips table
-            now = datetime.now(timezone.utc)
-            expires_at = None
-            if decision.duration > 0:
-                expires_at = (now + timedelta(seconds=decision.duration)).isoformat()
-            await incidents.save_blocked_ip(
-                decision.ip, decision.reason, now.isoformat(), expires_at, "bruteforce",
-            )
+            try:
+                now = datetime.now(timezone.utc)
+                expires_at = None
+                if decision.duration > 0:
+                    expires_at = (now + timedelta(seconds=decision.duration)).isoformat()
+                await incidents.save_blocked_ip(
+                    decision.ip, decision.reason, now.isoformat(), expires_at, "bruteforce",
+                )
+            except Exception:
+                import logging
+                logging.getLogger(__name__).exception("Failed to persist blocked IP %s", decision.ip)
 
         return _on_auth_event
 

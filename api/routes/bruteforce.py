@@ -25,10 +25,10 @@ async def get_bruteforce_stats(request: web.Request) -> web.Response:
 
 
 async def get_bruteforce_blocked(request: web.Request) -> web.Response:
-    firewall = request.app.get("firewall")
-    if not firewall:
-        return _err("Firewall not available", 404)
-    ips = await firewall.list_blocked()
+    incidents = request.app.get("incidents")
+    if not incidents:
+        return _err("Incident store not available", 404)
+    ips = await incidents.get_blocked_ips()
     return _ok({"blocked_ips": ips, "count": len(ips)})
 
 
