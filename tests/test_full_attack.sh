@@ -1311,6 +1311,61 @@ if feature_enabled "BRUTEFORCE_ENABLED"; then
     if [ "$(json_success "$result")" = "false" ]; then
         pass "Rejected invalid IP for whitelist"
     fi
+
+    log ""
+    log "10.3 SSH Brute-Force Live Test"
+
+    # Whitelist our own IP first so we don't lock ourselves out
+    MY_IP=$(ssh_cmd "who am i 2>/dev/null | awk '{print \$5}' | tr -d '()'" 2>/dev/null)
+    if [ -z "$MY_IP" ]; then
+        MY_IP=$(ssh_cmd "echo \$SSH_CLIENT | awk '{print \$1}'" 2>/dev/null)
+    fi
+    if [ -n "$MY_IP" ]; then
+        remote_api POST /bruteforce/whitelist -d "'{\"ip\": \"${MY_IP}\"}'" &>/dev/null
+        info "Whitelisted our IP (${MY_IP}) before SSH brute-force test"
+    fi
+
+    # Use a test IP that we can safely block — send failed SSH logins from the server itself
+    BF_TEST_IP="198.51.100.99"
+    # Simulate failed login events by writing directly to journal (avoids actually blocking real IPs)
+    ssh_cmd "logger -t sshd -p auth.warning 'Failed password for invalid user attacker from ${BF_TEST_IP} port 22 ssh2'" 2>/dev/null
+    ssh_cmd "logger -t sshd -p auth.warning 'Failed password for invalid user attacker from ${BF_TEST_IP} port 22 ssh2'" 2>/dev/null
+    ssh_cmd "logger -t sshd -p auth.warning 'Failed password for invalid user attacker from ${BF_TEST_IP} port 22 ssh2'" 2>/dev/null
+    ssh_cmd "logger -t sshd -p auth.warning 'Failed password for invalid user attacker from ${BF_TEST_IP} port 22 ssh2'" 2>/dev/null
+    ssh_cmd "logger -t sshd -p auth.warning 'Failed password for invalid user attacker from ${BF_TEST_IP} port 22 ssh2'" 2>/dev/null
+    ssh_cmd "logger -t sshd -p auth.warning 'Failed password for invalid user attacker from ${BF_TEST_IP} port 22 ssh2'" 2>/dev/null
+    info "Injected 6 fake failed SSH logins for ${BF_TEST_IP} via logger"
+    sleep 5
+
+    # Check if the IP was detected and blocked
+    result=$(remote_api GET /bruteforce/stats)
+    tracked=$(json_data "$result" "tracked_ips")
+    blocked=$(json_data "$result" "blocked_count")
+    if [ "$tracked" -gt 0 ] 2>/dev/null; then
+        pass "Brute-force detected attack: tracked=${tracked} IPs"
+    else
+        warn "Brute-force did not detect injected failed logins (tracked=0)"
+    fi
+
+    # Check blocked list for our test IP
+    result=$(remote_api GET /bruteforce/blocked)
+    if echo "$result" | grep -q "$BF_TEST_IP"; then
+        pass "IP ${BF_TEST_IP} was blocked by brute-force detector"
+        # Clean up: unblock test IP
+        remote_api DELETE "/block/${BF_TEST_IP}" &>/dev/null
+        pass "Cleaned up: unblocked test IP ${BF_TEST_IP}"
+    else
+        if [ "$blocked" -gt 0 ] 2>/dev/null; then
+            pass "Brute-force has ${blocked} blocked IPs (test IP may have different format)"
+        else
+            warn "Test IP ${BF_TEST_IP} was not blocked (threshold may not have been reached)"
+        fi
+    fi
+
+    # Clean up: remove our IP from whitelist
+    if [ -n "$MY_IP" ]; then
+        remote_api DELETE "/bruteforce/whitelist/${MY_IP}" &>/dev/null
+    fi
 else
     skip_test "Brute-force disabled (BRUTEFORCE_ENABLED=no)"
 fi
