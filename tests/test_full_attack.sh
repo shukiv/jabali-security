@@ -1080,7 +1080,9 @@ plant_and_scan() {
     local content="$2"
     local path="${REMOTE_TEST_DIR}/${name}.php"
 
-    ssh_cmd "echo '${content}' > '${path}'"
+    local encoded
+    encoded=$(printf '%s' "$content" | base64 -w0)
+    ssh_cmd "echo '${encoded}' | base64 -d > '${path}'"
     REMOTE_TEST_FILES+=("$path")
 
     local result
