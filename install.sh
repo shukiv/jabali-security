@@ -771,9 +771,6 @@ case "${1:-}" in
         echo "  (no args)     Install Jabali Security"
         echo "  --update      Update to latest version (preserves config/data)"
         echo "  --uninstall   Completely remove Jabali Security (config, data, logs)"
-        echo ""
-        echo "Environment variables:"
-        echo "  JABALI_WEB=no   Skip web dashboard installation"
         ;;
     "")
         do_install
