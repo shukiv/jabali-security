@@ -161,6 +161,8 @@ class AuthLogParser:
                         service = "postfix"
                     elif "exim" in line.lower():
                         service = "exim"
+                    if "failed" in line.lower() or "invalid" in line.lower():
+                        logger.debug("journald auth line: %s", line[:200])
                     await self._process_line(service, line, patterns, callback)
         finally:
             proc.terminate()
@@ -191,5 +193,6 @@ class AuthLogParser:
                     success=False,
                     raw_line=line[:500],
                 )
+                logger.info("Brute-force: %s from %s (user=%s, rule=%s)", service, ip, username, _rule_name)
                 await callback(event)
                 break  # One match per line
