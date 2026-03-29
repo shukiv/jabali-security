@@ -584,8 +584,32 @@ class Security extends Page implements HasActions, HasForms
         $tabs = [];
         $categoriesToShow = $expert ? static::$configCategories : static::$basicCategories;
 
+        $tabDescriptions = [
+            'Daemon' => 'Core daemon settings: log verbosity, data directories, quarantine location, and number of parallel scan workers. These affect how the daemon operates at the system level.',
+            'Scoring & Response' => 'Threat scoring thresholds that determine what happens when malware is detected. Files scoring above the log threshold are recorded as incidents. Above quarantine threshold, files are automatically isolated. Above suspend threshold, the hosting account can be suspended.',
+            'Brute-Force' => 'SSH and mail service brute-force protection. Monitors authentication logs for repeated failed login attempts and automatically blocks attacking IPs with progressive ban durations (10 min → 1 hour → 24 hours → permanent).',
+            'WAF' => 'ModSecurity Web Application Firewall with OWASP Core Rule Set. Inspects HTTP requests for SQL injection, XSS, path traversal, and other web attacks. CRS rules auto-update periodically.',
+            'Process Killer' => 'Monitors running processes for suspicious activity like reverse shells, crypto miners, and unauthorized scripts. Processes exceeding the threat score threshold are terminated. Only affects non-system processes (UID >= 1000).',
+            'Cleanup' => 'Automated malware cleanup engine. Removes injected PHP code from compromised files, restores CMS core files from official checksums, and creates backups before any modifications.',
+            'Scheduled Scan' => 'Periodic full-directory scanning that runs automatically on a schedule. Catches dormant malware that may have been missed by real-time file watching. Scans all configured paths at the specified interval.',
+            'Threat Intel' => 'Threat intelligence feeds from public sources: Spamhaus DROP/EDROP (known spam networks), blocklist.de (brute-force attackers), and MalwareBazaar (malware hashes). Feeds update every 6 hours automatically.',
+            'WebShield' => 'Nginx-level protection layer: rate limiting prevents request flooding, bot filtering blocks known malicious user agents, and JavaScript challenge pages verify that visitors are real browsers, not automated scanners.',
+            'Retention' => 'Data retention policy for incident records. Old incidents are automatically cleaned up after the specified number of days to prevent database growth.',
+            'File Watcher' => 'Directories monitored for file changes in real-time using inotify. New or modified files matching the scan extensions are automatically scanned for malware.',
+            'Pre-Filter' => 'File filtering rules that determine which files are scanned. Only files matching the configured extensions are analyzed. Large files and common non-code directories are skipped for performance.',
+            'Detection' => 'Tuning parameters for the detection engines. Entropy threshold controls sensitivity of the Shannon entropy scanner (lower = more sensitive). YARA rules directory contains custom signature files.',
+            'ClamAV' => 'ClamAV antivirus integration. When set to "auto", the daemon detects if clamd is running and uses it. ClamAV provides signature-based detection complementing the built-in heuristic and YARA engines.',
+            'UFW' => 'UFW (Uncomplicated Firewall) management via the REST API. When enabled, firewall rules can be viewed and managed from the Security panel.',
+            'SSH Jail' => 'SSH chroot jail management for hosting users. Users get SFTP-only access by default. Shell access provides a jailed environment with wp-cli and basic commands.',
+            'Performance' => 'Performance tuning for database scanning and rapid directory scans. Controls parallel workers and file modification time caching for faster re-scans.',
+        ];
+
         foreach ($categoriesToShow as $category => $keys) {
             $fields = [];
+            $desc = $tabDescriptions[$category] ?? '';
+            if ($desc) {
+                $fields[] = Text::make(__($desc))->size(TextSize::Small)->color('gray');
+            }
             foreach ($keys as $key) {
                 if (! $expert && in_array($key, static::$expertKeys)) {
                     continue;
