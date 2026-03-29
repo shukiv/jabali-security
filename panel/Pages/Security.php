@@ -349,15 +349,42 @@ class Security extends Page implements HasActions, HasForms
         ];
     }
 
+    private static array $statIcons = [
+        'Incidents' => 'heroicon-o-exclamation-triangle',
+        'Attacks Blocked' => 'heroicon-o-shield-check',
+        'Quarantine' => 'heroicon-o-lock-closed',
+        'Watching' => 'heroicon-o-eye',
+        'Memory' => 'heroicon-o-cpu-chip',
+        'Daemon' => 'heroicon-o-server',
+        'Events (24h)' => 'heroicon-o-bolt',
+        'Blocked (24h)' => 'heroicon-o-no-symbol',
+        'Tracked IPs' => 'heroicon-o-signal',
+        'Blocked' => 'heroicon-o-no-symbol',
+        'Process Killer' => 'heroicon-o-fire',
+        'Processes Killed' => 'heroicon-o-x-circle',
+        'Installed' => 'heroicon-o-check-circle',
+        'Rate Limiting' => 'heroicon-o-clock',
+        'Bot Filtering' => 'heroicon-o-funnel',
+        'Blocked IPs' => 'heroicon-o-no-symbol',
+        'Bots Blocked' => 'heroicon-o-bug-ant',
+        'Rate Limited' => 'heroicon-o-clock',
+        'YARA' => 'heroicon-o-document-magnifying-glass',
+        'ClamAV' => 'heroicon-o-shield-check',
+        'Scanners' => 'heroicon-o-magnifying-glass',
+        'Rules Dir' => 'heroicon-o-folder',
+    ];
+
     private function inlineStatCard(string $label, string $value, string $color = 'gray'): Section
     {
-        $hex = match ($color) {
-            'success' => '#22c55e', 'danger' => '#ef4444', 'warning' => '#eab308',
-            'info' => '#3b82f6', default => '#9ca3af',
-        };
+        $icon = static::$statIcons[$label] ?? 'heroicon-o-information-circle';
         return Section::make(new \Illuminate\Support\HtmlString(
-            __($label) . ': <span style="color:' . $hex . '">' . $value . '</span>'
-        ))->compact()->schema([]);
+            '<div class="flex items-center gap-2"><span class="fi-section-header-heading">' . $value . '</span><span class="fi-section-header-description">' . __($label) . '</span></div>'
+        ))
+            ->icon($icon)
+            ->iconColor($color)
+            ->compact()
+            ->extraAttributes(['class' => '!px-2 !py-1'])
+            ->schema([]);
     }
 
     protected function wafStats(): array
