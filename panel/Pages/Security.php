@@ -283,10 +283,6 @@ class Security extends Page implements HasActions, HasForms
                                                 Text::make(__('SSH/SFTP access management with chroot jailshell. Users get SFTP-only access by default. Shell access provides a jailed environment with wp-cli and basic commands.'))
                                                     ->size(TextSize::Small)
                                                     ->color('gray'),
-                                                Toggle::make('moduleStates.SSHJAIL_ENABLED')
-                                                    ->label(__('SSH Jail Enabled'))
-                                                    ->helperText(__('Enable SSH jail management to control user shell access'))
-                                                    ->live(),
                                             ],
                                             $this->sshdSettingsStats(),
                                             [EmbeddedTable::make(SshKeysTable::class)],
@@ -432,8 +428,12 @@ class Security extends Page implements HasActions, HasForms
         $passAuth = $s['password_auth'] ?? true;
         $port = $s['port'] ?? 22;
 
+        $jailEnabled = in_array($this->moduleStates['SSHJAIL_ENABLED'] ?? false, [true, 'yes', '1', 1]);
+
         return [
-            Grid::make(2)->dense()->schema([
+            Grid::make(3)->dense()->schema([
+                $this->statCard('SSH Jail', $jailEnabled ? __('Enabled') : __('Disabled'), '',
+                    $jailEnabled ? 'success' : 'gray'),
                 $this->statCard('Password Auth', $passAuth ? __('Enabled') : __('Disabled'), 'sshd_config',
                     $passAuth ? 'warning' : 'success'),
                 $this->statCard('SSH Port', (string) $port, 'sshd_config',
@@ -467,6 +467,12 @@ class Security extends Page implements HasActions, HasForms
                     ->requiresConfirmation()
                     ->modalDescription(__('Changing the SSH port requires updating firewall rules. Make sure the new port is allowed before applying.'))
                     ->action('changeSshPortAction'),
+                Action::make('toggleSshJail')
+                    ->label($jailEnabled ? __('Disable SSH Jail') : __('Enable SSH Jail'))
+                    ->icon($jailEnabled ? 'heroicon-o-lock-open' : 'heroicon-o-shield-check')
+                    ->color($jailEnabled ? 'gray' : 'success')
+                    ->size('sm')
+                    ->action('toggleSshJail'),
             ]),
         ];
     }
@@ -740,6 +746,19 @@ class Security extends Page implements HasActions, HasForms
     }
 
     // ── SSH Settings Actions ────────────────────────────────────────
+
+    public function toggleSshJail(): void
+    {
+        $enabled = $this->moduleStates['SSHJAIL_ENABLED'] ?? false;
+        $newValue = $enabled ? 'no' : 'yes';
+        $this->client()->patch('/config', ['SSHJAIL_ENABLED' => $newValue]);
+        $this->moduleStates['SSHJAIL_ENABLED'] = ! $enabled;
+        Notification::make()
+            ->title($enabled ? __('SSH Jail disabled') : __('SSH Jail enabled'))
+            ->{$enabled ? 'warning' : 'success'}()
+            ->send();
+        $this->redirect(static::getUrl(['tab' => 'defense', 'defense' => 'ssh']));
+    }
 
     public function enableSshPasswordAuth(): void
     {
