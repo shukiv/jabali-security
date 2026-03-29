@@ -432,47 +432,56 @@ class Security extends Page implements HasActions, HasForms
 
         return [
             Grid::make(3)->dense()->schema([
-                $this->statCard('SSH Jail', $jailEnabled ? __('Enabled') : __('Disabled'), '',
-                    $jailEnabled ? 'success' : 'gray'),
-                $this->statCard('Password Auth', $passAuth ? __('Enabled') : __('Disabled'), 'sshd_config',
-                    $passAuth ? 'warning' : 'success'),
-                $this->statCard('SSH Port', (string) $port, 'sshd_config',
-                    $port === 22 ? 'warning' : 'success'),
-            ]),
-            SchemaActions::make([
-                Action::make('toggleSshPasswordAuth')
-                    ->label($passAuth ? __('Disable Password Auth') : __('Enable Password Auth'))
-                    ->icon($passAuth ? 'heroicon-o-lock-closed' : 'heroicon-o-lock-open')
-                    ->color($passAuth ? 'danger' : 'success')
-                    ->size('sm')
-                    ->requiresConfirmation()
-                    ->modalDescription($passAuth
-                        ? __('Users will only be able to log in with SSH keys. Make sure all users have keys configured.')
-                        : __('Users will be able to log in with passwords. Key-based authentication is more secure.'))
-                    ->action($passAuth ? 'disableSshPasswordAuth' : 'enableSshPasswordAuth'),
-                Action::make('changeSshPort')
-                    ->label(__('Change SSH Port'))
-                    ->icon('heroicon-o-cog-6-tooth')
-                    ->color('gray')
-                    ->size('sm')
-                    ->form([
-                        TextInput::make('port')
-                            ->label(__('SSH Port'))
-                            ->numeric()
-                            ->default($port)
-                            ->minValue(1)
-                            ->maxValue(65535)
-                            ->required(),
-                    ])
-                    ->requiresConfirmation()
-                    ->modalDescription(__('Changing the SSH port requires updating firewall rules. Make sure the new port is allowed before applying.'))
-                    ->action('changeSshPortAction'),
-                Action::make('toggleSshJail')
-                    ->label($jailEnabled ? __('Disable SSH Jail') : __('Enable SSH Jail'))
-                    ->icon($jailEnabled ? 'heroicon-o-lock-open' : 'heroicon-o-shield-check')
-                    ->color($jailEnabled ? 'gray' : 'success')
-                    ->size('sm')
-                    ->action('toggleSshJail'),
+                Section::make(__('SSH Jail'))->compact()->schema([
+                    Text::make($jailEnabled ? __('Enabled') : __('Disabled'))
+                        ->size(TextSize::Large)->weight(FontWeight::Bold)
+                        ->color($jailEnabled ? 'success' : 'gray'),
+                ])->headerActions([
+                    Action::make('toggleSshJail')
+                        ->label($jailEnabled ? __('Disable') : __('Enable'))
+                        ->icon($jailEnabled ? 'heroicon-o-lock-open' : 'heroicon-o-shield-check')
+                        ->color($jailEnabled ? 'gray' : 'success')
+                        ->size('xs')
+                        ->action('toggleSshJail'),
+                ]),
+                Section::make(__('Password Auth'))->compact()->schema([
+                    Text::make($passAuth ? __('Enabled') : __('Disabled'))
+                        ->size(TextSize::Large)->weight(FontWeight::Bold)
+                        ->color($passAuth ? 'warning' : 'success'),
+                ])->headerActions([
+                    Action::make('toggleSshPasswordAuth')
+                        ->label($passAuth ? __('Disable') : __('Enable'))
+                        ->icon($passAuth ? 'heroicon-o-lock-closed' : 'heroicon-o-lock-open')
+                        ->color($passAuth ? 'danger' : 'success')
+                        ->size('xs')
+                        ->requiresConfirmation()
+                        ->modalDescription($passAuth
+                            ? __('Users will only be able to log in with SSH keys.')
+                            : __('Users will be able to log in with passwords.'))
+                        ->action($passAuth ? 'disableSshPasswordAuth' : 'enableSshPasswordAuth'),
+                ]),
+                Section::make(__('SSH Port'))->compact()->schema([
+                    Text::make((string) $port)
+                        ->size(TextSize::Large)->weight(FontWeight::Bold)
+                        ->color($port === 22 ? 'warning' : 'success'),
+                ])->headerActions([
+                    Action::make('changeSshPort')
+                        ->label(__('Change'))
+                        ->icon('heroicon-o-cog-6-tooth')
+                        ->color('gray')
+                        ->size('xs')
+                        ->form([
+                            TextInput::make('port')
+                                ->label(__('SSH Port'))
+                                ->numeric()
+                                ->default($port)
+                                ->minValue(1)
+                                ->maxValue(65535)
+                                ->required(),
+                        ])
+                        ->requiresConfirmation()
+                        ->action('changeSshPortAction'),
+                ]),
             ]),
         ];
     }
