@@ -283,6 +283,10 @@ class Security extends Page implements HasActions, HasForms
                                                 Text::make(__('SSH/SFTP access management with chroot jailshell. Users get SFTP-only access by default. Shell access provides a jailed environment with wp-cli and basic commands.'))
                                                     ->size(TextSize::Small)
                                                     ->color('gray'),
+                                                Toggle::make('moduleStates.SSHJAIL_ENABLED')
+                                                    ->label(__('SSH Jail Enabled'))
+                                                    ->helperText(__('Enable SSH jail management to control user shell access'))
+                                                    ->live(),
                                             ],
                                             $this->sshdSettingsStats(),
                                             [EmbeddedTable::make(SshKeysTable::class)],
@@ -862,7 +866,6 @@ class Security extends Page implements HasActions, HasForms
                 'THREAT_INTEL_ENABLED' => ['label' => 'Threat Intelligence', 'desc' => 'IP reputation and malware hash feeds'],
                 'CLEANUP_ENABLED' => ['label' => 'Auto Cleanup', 'desc' => 'Removes injected code from files'],
                 'UFW_ENABLED' => ['label' => 'UFW Firewall', 'desc' => 'Manage system firewall rules'],
-                'SSHJAIL_ENABLED' => ['label' => 'SSH Jail', 'desc' => 'Chroot jailshell with wp-cli for hosting users'],
                 'SCHEDULED_SCAN_ENABLED' => ['label' => 'Scheduled Scans', 'desc' => 'Periodic full-path scanning'],
                 'AUTO_SUSPEND' => ['label' => 'Auto Suspend', 'desc' => 'Suspends accounts above score threshold'],
             ],
