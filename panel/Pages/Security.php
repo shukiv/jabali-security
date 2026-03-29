@@ -532,7 +532,7 @@ class Security extends Page implements HasActions, HasForms
                     ? __('Active defenses: process killer (threshold 50), auto-block IPs, brute-force limit 3 attempts/120s, WAF blocking, WebShield rate limiting (10 req/s), progressive bans (1h→24h→permanent).')
                     : __('Panic button for active attacks. Enables: process killer, auto-block IPs, WAF blocking, WebShield rate limiting, aggressive brute-force thresholds, and progressive IP bans.'))
                 ->icon($underAttack ? 'heroicon-o-fire' : 'heroicon-o-shield-exclamation')
-                ->extraAttributes($underAttack ? ['style' => 'background-color: #dc2626; color: white; --tw-ring-color: #dc2626;', 'class' => '[&_*]:!text-white'] : [])
+                ->extraAttributes($underAttack ? ['style' => 'background-color: #dc2626 !important; border-color: #dc2626 !important; --fi-color-gray-400: white; --fi-color-gray-950: white; color: white !important;'] : [])
                 ->headerActions([
                     Action::make('toggleAttackMode')
                         ->label($underAttack ? __('Disable Attack Mode') : __('I Am Under Attack!'))
