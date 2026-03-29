@@ -637,10 +637,12 @@ class Security extends Page implements HasActions, HasForms
     public function enableAttackMode(): void
     {
         $result = $this->client()->post('/attack-mode/enable');
+        $actions = implode(', ', $result['actions_taken'] ?? []);
         Notification::make()
             ->title($result ? __('Under Attack mode ENABLED') : __('Failed to enable attack mode'))
-            ->body($result ? __('Aggressive defenses activated. Process killer, auto-block, low thresholds.') : '')
+            ->body($actions ?: __('Aggressive defenses activated'))
             ->{$result ? 'danger' : 'warning'}()
+            ->duration(10000)
             ->send();
         $this->redirect(static::getUrl(['tab' => 'overview']));
     }
@@ -648,10 +650,12 @@ class Security extends Page implements HasActions, HasForms
     public function disableAttackMode(): void
     {
         $result = $this->client()->post('/attack-mode/disable');
+        $actions = implode(', ', $result['actions_taken'] ?? []);
         Notification::make()
             ->title($result ? __('Under Attack mode disabled') : __('Failed to disable attack mode'))
-            ->body($result ? __('Normal defense settings restored.') : '')
+            ->body($actions ?: __('Normal settings restored'))
             ->{$result ? 'success' : 'danger'}()
+            ->duration(10000)
             ->send();
         $this->redirect(static::getUrl(['tab' => 'overview']));
     }
