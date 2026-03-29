@@ -18,8 +18,7 @@ SyslogIdentifier=jabali-security
 
 # Security hardening
 NoNewPrivileges=yes
-ProtectSystem=full
-ReadWritePaths=/etc
+ProtectSystem=no
 # UFW needs /run/ufw.lock and /proc/sys/net for sysctl tuning
 ProtectKernelTunables=no
 RuntimeDirectory=jabali-security
