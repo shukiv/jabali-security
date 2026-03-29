@@ -517,7 +517,7 @@ class Security extends Page implements HasActions, HasForms
                     ->headerActions([
                         Action::make('toggleSshPasswordAuth')
                             ->label($passAuth ? __('Disable') : __('Enable'))
-                            ->color($passAuth ? 'danger' : 'success')
+                            ->color($passAuth ? 'gray' : 'success')
                             ->size('xs')
                             ->requiresConfirmation()
                             ->modalDescription($passAuth
