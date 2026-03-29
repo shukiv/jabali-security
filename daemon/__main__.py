@@ -143,6 +143,7 @@ def _api_request(config: JabaliConfig, method: str, path: str, body: dict | None
         # Connect via Unix socket
         conn = http.client.HTTPConnection("localhost")
         sock = socket_mod.socket(socket_mod.AF_UNIX, socket_mod.SOCK_STREAM)
+        sock.settimeout(30)
         sock.connect(socket_path)
         conn.sock = sock
         conn.request(method, path, body=data, headers=headers)
@@ -152,6 +153,8 @@ def _api_request(config: JabaliConfig, method: str, path: str, body: dict | None
         return result
     else:
         # TCP fallback
+        if not config.api_bind:
+            _daemon_not_running()
         url = "http://%s:%d%s" % (config.api_bind, config.api_port, path)
         req = Request(url, data=data, headers=headers, method=method)  # noqa: S310
         with urlopen(req, timeout=30) as resp:  # noqa: S310
@@ -669,7 +672,7 @@ def config_test() -> None:
     warnings: list[str] = []
     if not config.api_key:
         warnings.append("API_KEY is empty -- API will be unauthenticated")
-    if config.api_bind not in ("127.0.0.1", "::1", "localhost"):
+    if config.api_bind and config.api_bind not in ("127.0.0.1", "::1", "localhost"):
         warnings.append("API_BIND is not loopback -- API exposed to network")
     if config.auto_suspend:
         warnings.append("AUTO_SUSPEND is enabled -- accounts may be suspended automatically")

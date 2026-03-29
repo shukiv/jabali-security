@@ -154,10 +154,15 @@ class Security extends Page implements HasActions, HasForms
                 ->action(function (array $data): void {
                     $result = $this->client()->post('/scan', ['path' => $data['path']]);
                     if ($result) {
+                        $score = $result['score'] ?? $result['threats_found'] ?? 0;
+                        $filesScanned = $result['files_scanned'] ?? null;
+                        $body = $filesScanned
+                            ? __('Scanned :files files, :threats threats found', ['files' => $filesScanned, 'threats' => $score])
+                            : __('Score: :score', ['score' => $score]);
                         Notification::make()
                             ->title(__('Scan Complete'))
-                            ->body(__('Score: :score', ['score' => $result['score'] ?? 0]))
-                            ->color(($result['score'] ?? 0) > 0 ? 'warning' : 'success')
+                            ->body($body)
+                            ->color($score > 0 ? 'warning' : 'success')
                             ->send();
                     } else {
                         Notification::make()->title(__('Scan failed'))->danger()->send();

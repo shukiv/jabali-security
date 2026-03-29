@@ -32,7 +32,10 @@ class BlocklistTable extends Component implements HasActions, HasSchemas, HasTab
     public function table(Table $table): Table
     {
         return $table
-            ->records(fn () => $this->client()->get('/blocklist') ?? [])
+            ->records(function () {
+                $response = $this->client()->get('/blocklist');
+                return $response['blocked_ips'] ?? $response ?? [];
+            })
             ->columns([
                 TextColumn::make('ip')
                     ->label(__('IP Address'))

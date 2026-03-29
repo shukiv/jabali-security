@@ -133,6 +133,9 @@ class SshKeysTable extends Component implements HasActions, HasSchemas, HasTable
                     ->icon('heroicon-o-sparkles')
                     ->color('success')
                     ->form([
+                        TextInput::make('username')
+                            ->label(__('Username'))
+                            ->required(),
                         TextInput::make('name')
                             ->label(__('Key Name'))
                             ->required()

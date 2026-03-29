@@ -49,7 +49,7 @@ async def post_bruteforce_whitelist(request: web.Request) -> web.Response:
     if not detector:
         return _err("Brute-force protection not enabled", 404)
 
-    detector._whitelist.add(ip)
+    detector.add_to_whitelist(ip)
 
     # Also unblock if currently blocked
     firewall = request.app.get("firewall")
@@ -70,8 +70,8 @@ async def delete_bruteforce_whitelist(request: web.Request) -> web.Response:
     if not detector:
         return _err("Brute-force protection not enabled", 404)
 
-    if ip not in detector._whitelist:
+    if not detector.is_whitelisted(ip):
         return _err("IP not in whitelist", 404)
 
-    detector._whitelist.discard(ip)
+    detector.remove_from_whitelist(ip)
     return _ok({"removed": True, "ip": ip})

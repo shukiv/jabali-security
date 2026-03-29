@@ -224,10 +224,13 @@ async def post_disable(request: web.Request) -> web.Response:
         try:
             blocked = await incidents.get_blocked_ips()
             unblocked = 0
+            detector = request.app.get("bruteforce_detector")
             for entry in blocked:
                 if entry.get("blocked_by") == "attack_mode":
                     await firewall.unblock_ip(entry["ip"])
                     await incidents.delete_blocked_ip(entry["ip"])
+                    if detector:
+                        detector.unblock(entry["ip"])
                     unblocked += 1
             if unblocked > 0:
                 actions.append(f"Unblocked {unblocked} attack-mode IPs")

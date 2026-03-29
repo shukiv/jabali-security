@@ -231,7 +231,7 @@ class JabaliConfig:
     clamav_enabled: str = "auto"
     clamav_socket: str = "/var/run/clamav/clamd.ctl"
     freshclam_on_update: bool = True
-    bruteforce_enabled: bool = False
+    bruteforce_enabled: bool = True
     bruteforce_ssh_log: str = "/var/log/auth.log"
     bruteforce_mail_log: str = "/var/log/mail.log"
     bruteforce_stalwart_log: str = "/var/log/stalwart-mail"
@@ -243,7 +243,7 @@ class JabaliConfig:
     firewall_backend: str = "auto"
     ufw_enabled: bool = False
     bruteforce_whitelist_ips: list[str] = field(default_factory=list)
-    waf_enabled: bool = False
+    waf_enabled: bool = True
     waf_audit_log: str = "/var/log/modsec_audit.log"
     waf_audit_log_type: str = "serial"
     waf_rules_dir: str = "/etc/modsecurity/crs"
@@ -255,14 +255,14 @@ class JabaliConfig:
     process_kill_threshold: int = 70
     process_kill_min_uid: int = 1000
     process_kill_whitelist: list[str] = field(default_factory=lambda: ["wp-cron.php", "artisan", "composer"])
-    cleanup_enabled: bool = False
+    cleanup_enabled: bool = True
     cleanup_auto: bool = False
     cleanup_backup_dir: str = "/var/lib/jabali-security/backups"
     cleanup_cms_checksums: bool = True
-    scheduled_scan_enabled: bool = False
+    scheduled_scan_enabled: bool = True
     scheduled_scan_interval: int = 24
     scheduled_scan_paths: list[str] = field(default_factory=lambda: ["/home/*/public_html"])
-    threat_intel_enabled: bool = False
+    threat_intel_enabled: bool = True
     threat_intel_update_interval: int = 6
     threat_intel_feeds: list[str] = field(
         default_factory=lambda: ["spamhaus_drop", "spamhaus_edrop", "blocklist_de_all", "malwarebazaar_recent"]
@@ -362,8 +362,10 @@ def load_config(filepath: Path | None = None) -> JabaliConfig:
         bruteforce_mail_threshold=_safe_int(merged["BRUTEFORCE_MAIL_THRESHOLD"], 10, min_val=1),
         bruteforce_mail_window=_safe_int(merged["BRUTEFORCE_MAIL_WINDOW"], 600, min_val=10),
         bruteforce_block_durations=[
-            int(x) for x in merged["BRUTEFORCE_BLOCK_DURATIONS"].split(",")
-            if x.strip().lstrip("-").isdigit()
+            d for d in [
+                int(x) for x in merged["BRUTEFORCE_BLOCK_DURATIONS"].split(",")
+                if x.strip().lstrip("-").isdigit()
+            ] if d >= 0
         ],
         firewall_backend=merged["FIREWALL_BACKEND"],
         ufw_enabled=_bool(merged["UFW_ENABLED"]),

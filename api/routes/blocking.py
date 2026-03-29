@@ -90,4 +90,4 @@ async def delete_block(request: web.Request) -> web.Response:
 async def get_blocklist(request: web.Request) -> web.Response:
     incidents = request.app["incidents"]
     blocked = await incidents.get_blocked_ips()
-    return _ok(blocked)
+    return _ok({"blocked_ips": blocked, "count": len(blocked)})

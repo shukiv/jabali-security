@@ -45,9 +45,6 @@ class ResponseEngine:
             username=event.username,
         )
 
-        # Save incident to database
-        await self._incidents.save(incident)
-
         # Try cleanup before quarantine if enabled
         if self._cleanup and self._cleanup.enabled and self._cleanup.auto:
             if score.action in ("quarantine", "suspend"):
@@ -55,6 +52,7 @@ class ResponseEngine:
                     cleanup_result = await self._cleanup.clean_file(event.path, score.findings)
                     if cleanup_result.success:
                         incident.action_taken = "cleaned"
+                        # Save incident with correct action
                         await self._incidents.save(incident)
                         logger.info(
                             "CLEANED [%s] %s (%d changes)",
@@ -64,6 +62,9 @@ class ResponseEngine:
                         return incident
                 except Exception:
                     logger.exception("Cleanup failed for [%s] %s, falling through to quarantine", incident.id, event.path)
+
+        # Save incident to database (with correct action_taken)
+        await self._incidents.save(incident)
 
         # Execute action
         match score.action:
@@ -93,6 +94,8 @@ class ResponseEngine:
                     record = await self._quarantine.quarantine_file(event.path, incident)
                     if record:
                         await self._incidents.save_quarantine(record)
+                    else:
+                        logger.error("Failed to quarantine during suspend: %s", event.path)
                 if self._config.auto_suspend and event.username:
                     logger.critical(
                         "SUSPEND USER [%s] %s (score=%d)",

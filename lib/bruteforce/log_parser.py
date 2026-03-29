@@ -164,6 +164,8 @@ class AuthLogParser:
                         service = "postfix"
                     elif "exim" in line.lower():
                         service = "exim"
+                    elif "stalwart" in line.lower():
+                        service = "stalwart"
                     if "failed" in line.lower() or "invalid" in line.lower():
                         logger.debug("journald auth line: %s", line[:200])
                     await self._process_line(service, line, patterns, callback)

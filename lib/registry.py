@@ -155,9 +155,19 @@ class ComponentRegistry:
         await self.firewall.initialize()
         await _sync_blocked_ips(self.incidents, self.firewall)
 
+        # Restore detector state from persisted blocked IPs
+        if self.bf_detector:
+            blocked = await self.incidents.get_blocked_ips()
+            for entry in blocked:
+                self.bf_detector._blocked.add(entry["ip"])
+
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        if self.auth_parser:
+            await self.auth_parser.stop()
+        if self.waf_parser:
+            await self.waf_parser.stop()
         if self.watcher is not None:
             await self.watcher.stop()
         if self.hash_cache is not None:
