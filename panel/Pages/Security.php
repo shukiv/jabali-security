@@ -345,8 +345,8 @@ class Security extends Page implements HasActions, HasForms
 
     protected function overviewStats(): array
     {
-        // Stats are now rendered in the Blade view directly
-        return [];
+        $data = $this->getOverviewStatsDataProperty();
+        return [Grid::make(3)->dense()->schema(array_map(fn ($s) => $this->dashboardCard($s), $data))];
     }
 
     private static array $statIcons = [
@@ -385,65 +385,105 @@ class Security extends Page implements HasActions, HasForms
             ->schema([]);
     }
 
-    protected function wafStats(): array
+    public function getStatsForTab(string $tab): array
+    {
+        return match ($tab) {
+            'waf' => $this->getWafStatsData(),
+            'bruteforce' => $this->getBruteforceStatsData(),
+            'proactive' => $this->getProactiveStatsData(),
+            'webshield' => $this->getWebshieldStatsData(),
+            'rules' => $this->getRulesStatsData(),
+            default => [],
+        };
+    }
+
+    private function getWafStatsData(): array
     {
         $s = $this->client()->get('/waf/stats') ?? [];
         return [
-            Grid::make(2)->dense()->schema([
-                $this->inlineStatCard('Events (24h)', (string) ($s['total_events_24h'] ?? 0),
-                    ($s['total_events_24h'] ?? 0) > 0 ? 'warning' : 'success'),
-                $this->inlineStatCard('Blocked (24h)', (string) ($s['blocked_24h'] ?? 0),
-                    ($s['blocked_24h'] ?? 0) > 0 ? 'danger' : 'success'),
-            ]),
+            ['value' => (string) ($s['total_events_24h'] ?? 0), 'label' => __('Events (24h)'), 'icon' => 'heroicon-o-bolt', 'color' => ($s['total_events_24h'] ?? 0) > 0 ? 'warning' : 'success'],
+            ['value' => (string) ($s['blocked_24h'] ?? 0), 'label' => __('Blocked (24h)'), 'icon' => 'heroicon-o-no-symbol', 'color' => ($s['blocked_24h'] ?? 0) > 0 ? 'danger' : 'success'],
         ];
+    }
+
+    private function getBruteforceStatsData(): array
+    {
+        $s = $this->client()->get('/bruteforce/stats') ?? [];
+        return [
+            ['value' => (string) ($s['tracked_ips'] ?? 0), 'label' => __('Tracked IPs'), 'icon' => 'heroicon-o-signal', 'color' => 'info'],
+            ['value' => (string) ($s['blocked_count'] ?? 0), 'label' => __('Blocked'), 'icon' => 'heroicon-o-no-symbol', 'color' => ($s['blocked_count'] ?? 0) > 0 ? 'danger' : 'success'],
+        ];
+    }
+
+    private function getProactiveStatsData(): array
+    {
+        $s = $this->client()->get('/proactive/status') ?? [];
+        return [
+            ['value' => ($s['process_kill_enabled'] ?? false) ? __('Active') : __('Disabled'), 'label' => __('Process Killer'), 'icon' => 'heroicon-o-fire', 'color' => ($s['process_kill_enabled'] ?? false) ? 'success' : 'gray'],
+            ['value' => (string) ($s['process_kill_count'] ?? 0), 'label' => __('Processes Killed'), 'icon' => 'heroicon-o-x-circle', 'color' => ($s['process_kill_count'] ?? 0) > 0 ? 'warning' : 'success'],
+        ];
+    }
+
+    private function getWebshieldStatsData(): array
+    {
+        $s = $this->client()->get('/webshield/status') ?? [];
+        return [
+            ['value' => ($s['installed'] ?? false) ? __('Yes') : __('No'), 'label' => __('Installed'), 'icon' => 'heroicon-o-check-circle', 'color' => ($s['installed'] ?? false) ? 'success' : 'gray'],
+            ['value' => ($s['rate_limiting'] ?? false) ? __('On') : __('Off'), 'label' => __('Rate Limiting'), 'icon' => 'heroicon-o-clock', 'color' => ($s['rate_limiting'] ?? false) ? 'success' : 'gray'],
+            ['value' => ($s['bot_filtering'] ?? false) ? __('On') : __('Off'), 'label' => __('Bot Filtering'), 'icon' => 'heroicon-o-funnel', 'color' => ($s['bot_filtering'] ?? false) ? 'success' : 'gray'],
+            ['value' => (string) ($s['blocked_ips_count'] ?? 0), 'label' => __('Blocked IPs'), 'icon' => 'heroicon-o-no-symbol', 'color' => ($s['blocked_ips_count'] ?? 0) > 0 ? 'danger' : 'success'],
+            ['value' => (string) ($s['bot_blocked_24h'] ?? 0), 'label' => __('Bots Blocked'), 'icon' => 'heroicon-o-bug-ant', 'color' => ($s['bot_blocked_24h'] ?? 0) > 0 ? 'warning' : 'success'],
+            ['value' => (string) ($s['rate_limited_24h'] ?? 0), 'label' => __('Rate Limited'), 'icon' => 'heroicon-o-clock', 'color' => ($s['rate_limited_24h'] ?? 0) > 0 ? 'warning' : 'success'],
+        ];
+    }
+
+    private function getRulesStatsData(): array
+    {
+        $r = $this->client()->get('/rules') ?? [];
+        return [
+            ['value' => ($r['yara_enabled'] ?? false) ? __('Enabled') : __('Disabled'), 'label' => __('YARA'), 'icon' => 'heroicon-o-document-magnifying-glass', 'color' => ($r['yara_enabled'] ?? false) ? 'success' : 'gray'],
+            ['value' => ($r['clamav_enabled'] ?? false) ? __('Enabled') : __('Disabled'), 'label' => __('ClamAV'), 'icon' => 'heroicon-o-shield-check', 'color' => ($r['clamav_enabled'] ?? false) ? 'success' : 'gray'],
+            ['value' => implode(', ', $r['scanners'] ?? []), 'label' => __('Scanners'), 'icon' => 'heroicon-o-magnifying-glass', 'color' => 'info'],
+        ];
+    }
+
+    protected function wafStats(): array
+    {
+        $data = $this->getWafStatsData();
+        return [Grid::make(count($data))->dense()->schema(array_map(fn ($s) => $this->dashboardCard($s), $data))];
     }
 
     protected function bruteforceStats(): array
     {
-        $s = $this->client()->get('/bruteforce/stats') ?? [];
-        return [
-            Grid::make(2)->dense()->schema([
-                $this->inlineStatCard('Tracked IPs', (string) ($s['tracked_ips'] ?? 0), 'info'),
-                $this->inlineStatCard('Blocked', (string) ($s['blocked_count'] ?? 0),
-                    ($s['blocked_count'] ?? 0) > 0 ? 'danger' : 'success'),
-            ]),
-        ];
+        $data = $this->getBruteforceStatsData();
+        return [Grid::make(count($data))->dense()->schema(array_map(fn ($s) => $this->dashboardCard($s), $data))];
     }
 
     protected function proactiveStats(): array
     {
-        $s = $this->client()->get('/proactive/status') ?? [];
-        return [
-            Grid::make(2)->dense()->schema([
-                $this->inlineStatCard('Process Killer', ($s['process_kill_enabled'] ?? false) ? __('Active') : __('Disabled'),
-                    ($s['process_kill_enabled'] ?? false) ? 'success' : 'gray'),
-                $this->inlineStatCard('Processes Killed', (string) ($s['process_kill_count'] ?? 0),
-                    ($s['process_kill_count'] ?? 0) > 0 ? 'warning' : 'success'),
-            ]),
-        ];
+        $data = $this->getProactiveStatsData();
+        return [Grid::make(count($data))->dense()->schema(array_map(fn ($s) => $this->dashboardCard($s), $data))];
     }
 
     protected function webshieldStats(): array
     {
-        $s = $this->client()->get('/webshield/status') ?? [];
-        return [
-            Grid::make(3)->dense()->schema([
-                $this->inlineStatCard('Installed', ($s['installed'] ?? false) ? __('Yes') : __('No'),
-                    ($s['installed'] ?? false) ? 'success' : 'gray'),
-                $this->inlineStatCard('Rate Limiting', ($s['rate_limiting'] ?? false) ? __('On') : __('Off'),
-                    ($s['rate_limiting'] ?? false) ? 'success' : 'gray'),
-                $this->inlineStatCard('Bot Filtering', ($s['bot_filtering'] ?? false) ? __('On') : __('Off'),
-                    ($s['bot_filtering'] ?? false) ? 'success' : 'gray'),
-            ]),
-            Grid::make(3)->dense()->schema([
-                $this->inlineStatCard('Blocked IPs', (string) ($s['blocked_ips_count'] ?? 0),
-                    ($s['blocked_ips_count'] ?? 0) > 0 ? 'danger' : 'success'),
-                $this->inlineStatCard('Bots Blocked', (string) ($s['bot_blocked_24h'] ?? 0),
-                    ($s['bot_blocked_24h'] ?? 0) > 0 ? 'warning' : 'success'),
-                $this->inlineStatCard('Rate Limited', (string) ($s['rate_limited_24h'] ?? 0),
-                    ($s['rate_limited_24h'] ?? 0) > 0 ? 'warning' : 'success'),
-            ]),
-        ];
+        $data = $this->getWebshieldStatsData();
+        return [Grid::make(3)->dense()->schema(array_map(fn ($s) => $this->dashboardCard($s), $data))];
+    }
+
+    protected function rulesStats(): array
+    {
+        $data = $this->getRulesStatsData();
+        return [Grid::make(count($data))->dense()->schema(array_map(fn ($s) => $this->dashboardCard($s), $data))];
+    }
+
+    private function dashboardCard(array $stat): Section
+    {
+        return Section::make($stat['value'] . '  ' . $stat['label'])
+            ->icon($stat['icon'])
+            ->iconColor($stat['color'])
+            ->compact()
+            ->schema([]);
     }
 
     protected function sshdSettingsStats(): array
@@ -510,20 +550,6 @@ class Security extends Page implements HasActions, HasForms
         ];
     }
 
-    protected function rulesStats(): array
-    {
-        $r = $this->client()->get('/rules') ?? [];
-        return [
-            Grid::make(4)->dense()->schema([
-                $this->inlineStatCard('YARA', ($r['yara_enabled'] ?? false) ? __('Enabled') : __('Disabled'),
-                    ($r['yara_enabled'] ?? false) ? 'success' : 'gray'),
-                $this->inlineStatCard('ClamAV', ($r['clamav_enabled'] ?? false) ? __('Enabled') : __('Disabled'),
-                    ($r['clamav_enabled'] ?? false) ? 'success' : 'gray'),
-                $this->inlineStatCard('Scanners', implode(', ', $r['scanners'] ?? []), 'info'),
-                $this->inlineStatCard('Rules Dir', $r['yara_rules_dir'] ?? '?', 'gray'),
-            ]),
-        ];
-    }
 
     // ── Overview Tab ─────────────────────────────────────────────────
 
