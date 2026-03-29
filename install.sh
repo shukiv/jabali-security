@@ -512,6 +512,9 @@ WAFEOF
         # Remove any existing Jabali SSH config block
         sed -i '/# Jabali SSH Jail Configuration/,/# End Jabali SSH Jail/d' /etc/ssh/sshd_config
 
+        # Use internal-sftp (works inside chroot, no binary needed)
+        sed -i 's|Subsystem\tsftp\t/usr/lib/openssh/sftp-server|Subsystem\tsftp\tinternal-sftp|' /etc/ssh/sshd_config
+
         # Append SSH jail configuration
         cat >> /etc/ssh/sshd_config << 'SSHJAIL'
 
