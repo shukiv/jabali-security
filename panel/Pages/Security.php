@@ -449,16 +449,15 @@ class Security extends Page implements HasActions, HasForms
                         ? __('Users will only be able to log in with SSH keys. Make sure all users have keys configured.')
                         : __('Users will be able to log in with passwords. Key-based authentication is more secure.'))
                     ->action($passAuth ? 'disableSshPasswordAuth' : 'enableSshPasswordAuth'),
-                Action::make('toggleSshPubkeyAuth')
-                    ->label($pubkeyAuth ? __('Disable Pubkey Auth') : __('Enable Pubkey Auth'))
-                    ->icon($pubkeyAuth ? 'heroicon-o-key' : 'heroicon-o-key')
-                    ->color($pubkeyAuth ? 'danger' : 'success')
-                    ->size('sm')
-                    ->requiresConfirmation()
-                    ->modalDescription($pubkeyAuth
-                        ? __('Disabling public key authentication is not recommended. Users will only be able to log in with passwords.')
-                        : __('Enable public key authentication for more secure SSH access.'))
-                    ->action($pubkeyAuth ? 'disableSshPubkeyAuth' : 'enableSshPubkeyAuth'),
+                ...($pubkeyAuth ? [] : [
+                    Action::make('enableSshPubkeyAuth')
+                        ->label(__('Enable Pubkey Auth'))
+                        ->icon('heroicon-o-key')
+                        ->color('success')
+                        ->size('sm')
+                        ->requiresConfirmation()
+                        ->action('enableSshPubkeyAuth'),
+                ]),
                 Action::make('changeSshPort')
                     ->label(__('Change SSH Port'))
                     ->icon('heroicon-o-cog-6-tooth')
@@ -780,15 +779,6 @@ class Security extends Page implements HasActions, HasForms
         $this->redirect(static::getUrl(['tab' => 'defense', 'defense' => 'ssh']));
     }
 
-    public function disableSshPubkeyAuth(): void
-    {
-        $result = $this->client()->post('/ssh/sshd-settings', ['pubkey_auth' => false]);
-        Notification::make()
-            ->title($result !== null ? __('Pubkey auth disabled') : __('Failed to update setting'))
-            ->{($result !== null ? "success" : "danger")}()
-            ->send();
-        $this->redirect(static::getUrl(['tab' => 'defense', 'defense' => 'ssh']));
-    }
 
     public function changeSshPortAction(array $data): void
     {
