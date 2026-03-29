@@ -608,24 +608,3 @@ jabali-security webshield rules [--json]
 
 ---
 
-## Web Dashboard
-
-### web
-
-Start the web dashboard server (Flask + Waitress).
-
-```bash
-jabali-security web [--bind ADDRESS] [--port PORT]
-```
-
-| Option | Default | Description |
-|---|---|---|
-| `--bind` | from config (`WEB_BIND`) | Bind address |
-| `--port` | from config (`WEB_PORT`) | Port number |
-
-```bash
-jabali-security web --bind 0.0.0.0 --port 8443
-# Jabali Security web dashboard: http://0.0.0.0:8443
-```
-
-Normally managed as a systemd service (`jabali-security-web`).

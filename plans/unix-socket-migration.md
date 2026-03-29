@@ -34,24 +34,7 @@ The daemon creates a `UnixSite` listener on `/run/jabali-security/jabali-securit
 
 ---
 
-## Phase 2: Web dashboard via socket
-
-**User stories**: The Flask web dashboard connects to the daemon via Unix socket instead of TCP.
-
-### What to build
-
-`web/api_client.py` detects `API_SOCKET` from config. If set, it uses Python's `urllib` with a custom `HTTPHandler` that connects via Unix socket (using `http.client.HTTPConnection` with socket override). Falls back to TCP if socket is not configured. The Flask app no longer needs `API_URL` with port.
-
-### Acceptance criteria
-
-- [ ] Web dashboard at port 8443 shows stats fetched via socket
-- [ ] All dashboard pages work (incidents, quarantine, config, firewall, etc.)
-- [ ] Toggle features work (config PATCH via socket)
-- [ ] No TCP connection needed for web dashboard
-
----
-
-## Phase 3: Panel plugin via socket
+## Phase 2: Panel plugin via socket
 
 **User stories**: The Jabali Panel Filament plugin connects via Unix socket instead of TCP.
 

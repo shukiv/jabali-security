@@ -1,9 +1,0 @@
-{% macro protection_toggle(feature, label, enabled=false) %}
-<form method="post" action="/toggle/{{ feature }}" style="display:inline">
-    <button type="submit" class="toggle-btn {{ 'toggle-btn-on' if enabled else 'toggle-btn-off' }}">
-        {{ "Enabled" if enabled else "Disabled" }}
-    </button>
-</form>
-{% endmacro %}
-
-{% macro is_on(config, key, default="no") %}{{ config.get(key, default) in ("yes", "true", "1") if config else false }}{% endmacro %}

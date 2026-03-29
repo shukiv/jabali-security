@@ -139,9 +139,6 @@ if [ "$QUICK" != "--quick" ] && command -v nmap &>/dev/null; then
         pass "No database/cache ports exposed"
     fi
 
-    if echo "$open_ports" | grep -q "^8443.*waitress"; then
-        warn "Jabali web dashboard (8443) is exposed — should be behind auth or firewall"
-    fi
 else
     log ""
     log "1.1 Port Scan — SKIPPED (--quick mode or nmap not installed)"
@@ -742,45 +739,14 @@ else
 fi
 
 # ============================================================================
-# PHASE 5: JABALI DASHBOARD (PORT 8443)
+# PHASE 5: JABALI API (UNIX SOCKET)
 # ============================================================================
 separator
-bold "PHASE 5: JABALI WEB DASHBOARD (PORT 8443)"
+bold "PHASE 5: JABALI REST API (UNIX SOCKET)"
 separator
 
 log ""
-log "5.1 Dashboard Accessibility"
-
-dash_code=$(http_code "https://${TARGET}:8443/" 2>/dev/null)
-if [ "$dash_code" = "000" ]; then
-    dash_code=$(http_code "http://${TARGET}:8443/" 2>/dev/null)
-fi
-
-if [ "$dash_code" = "000" ]; then
-    info "Dashboard on port 8443 not reachable (may be firewalled — good)"
-elif [ "$dash_code" = "200" ]; then
-    warn "Dashboard accessible on port 8443"
-    dash_body=$(http_response "https://${TARGET}:8443/" 2>/dev/null || http_response "http://${TARGET}:8443/" 2>/dev/null)
-    if echo "$dash_body" | grep -qi "login\|password\|auth"; then
-        pass "Dashboard shows login page"
-    else
-        fail "Dashboard may be accessible without login"
-    fi
-elif [ "$dash_code" = "401" ] || [ "$dash_code" = "403" ]; then
-    pass "Dashboard requires authentication -> ${dash_code}"
-else
-    info "Dashboard -> ${dash_code}"
-fi
-
-# ============================================================================
-# PHASE 6: JABALI API (UNIX SOCKET)
-# ============================================================================
-separator
-bold "PHASE 6: JABALI REST API (UNIX SOCKET)"
-separator
-
-log ""
-log "6.1 API Socket Accessibility"
+log "5.1 API Socket Accessibility"
 
 # Verify Unix socket exists on the server
 if [ -n "${SSH_HOST:-}" ]; then
@@ -794,7 +760,7 @@ if [ -n "${SSH_HOST:-}" ]; then
 fi
 
 log ""
-log "6.2 TCP Port 9876 Not Exposed"
+log "5.2 TCP Port 9876 Not Exposed"
 
 api_code=$(http_code "http://${TARGET}:9876/api/v1/status" 2>/dev/null)
 if [ "$api_code" = "000" ]; then

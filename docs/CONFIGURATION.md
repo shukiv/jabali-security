@@ -237,14 +237,6 @@ Available feeds: `spamhaus_drop`, `spamhaus_edrop`, `blocklist_de_all`, `tor_exi
 | `RAPIDSCAN_WORKERS` | int | `4` | Number of parallel workers (1-32) |
 | `RAPIDSCAN_MTIME_CACHE` | bool | `yes` | Cache file modification times to skip unchanged files |
 
-## Web Dashboard
-
-| Key | Type | Default | Description |
-|---|---|---|---|
-| `WEB_ENABLED` | bool | `no` | Enable the web dashboard |
-| `WEB_BIND` | string | `0.0.0.0` | Bind address (`0.0.0.0` = all interfaces) |
-| `WEB_PORT` | int | `8443` | Port for the web dashboard (1024-65535) |
-
 ## Retention
 
 | Key | Type | Default | Description |
@@ -275,7 +267,6 @@ THREAT_INTEL_ENABLED="yes"
 WEBSHIELD_ENABLED="yes"
 UFW_ENABLED="yes"
 SCHEDULED_SCAN_ENABLED="yes"
-WEB_ENABLED="yes"
 ```
 
 ### High-traffic server (tuned thresholds)

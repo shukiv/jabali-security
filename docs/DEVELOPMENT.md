@@ -26,8 +26,6 @@ uv run jabali-security start --foreground
 # With custom config
 uv run jabali-security start --foreground --config etc/jabali-security.conf.example
 
-# Start web dashboard
-uv run jabali-security web --port 8443
 ```
 
 When running as non-root, config/data/logs use `~/.config/jabali-security/` instead of system paths.
@@ -122,17 +120,10 @@ jabali-security/
 |       +-- webshield.py    # WebShield endpoints
 |       +-- ufw.py          # UFW firewall management endpoints
 |       +-- helpers.py      # Shared response helpers
-+-- web/                    # Web dashboard
-|   +-- app.py              # Flask application factory
-|   +-- routes.py           # Dashboard route handlers
-|   +-- api_client.py       # HTTP client for REST API
-|   +-- templates/          # 20 Jinja2 templates
-|   +-- static/             # CSS + JavaScript
 +-- rules/                  # YARA-X rule files (.yar)
 +-- etc/                    # Config + systemd service files
 |   +-- jabali-security.conf.example
 |   +-- jabali-security.service
-|   +-- jabali-security-web.service
 +-- tests/                  # pytest test suite
 +-- scripts/                # Build scripts
 |   +-- build-deb.sh        # .deb package builder
@@ -237,13 +228,7 @@ Create a new route module `api/routes/my_feature.py` with a `setup_routes(app)` 
 
 Add a click group or commands in `daemon/__main__.py`.
 
-### 6. Add web dashboard page
-
-- Create `web/templates/my_feature.html`
-- Add a route in `web/routes.py`
-- Add a nav link in `web/templates/base.html`
-
-### 7. Write tests
+### 6. Write tests
 
 Add tests covering the core logic, edge cases, and error handling.
 

@@ -51,10 +51,6 @@ Jabali Security is a well-architected asyncio security daemon with clean module 
 
 | File | Line | Finding |
 |------|------|---------|
-| `web/routes.py` | 86 | Timing attack: Flask login uses `==` for API key comparison instead of `hmac.compare_digest` |
-| `web/routes.py` | 168-176 | URL parameter injection: unsanitized values in redirect URLs |
-| `web/app.py` | 33 | Flask `secret_key` reuses API_KEY — compromise of one compromises both |
-| `web/routes.py` | (all forms) | No CSRF protection on any Flask form |
 | `api/routes/scanning.py` | 17 | Path traversal: `/api/v1/scan` accepts arbitrary path with no restriction to allowed directories |
 | `api/routes/cleanup.py` | (POST) | Path traversal: `/api/v1/cleanup/file` accepts arbitrary file path |
 
@@ -86,7 +82,6 @@ Jabali Security is a well-architected asyncio security daemon with clean module 
 |------|------|---------|
 | `daemon/__main__.py` | - | God module: 1,520 lines with 20+ click commands, PID management, logging, API helpers |
 | `lib/incidents.py` | - | God class: 544 lines, 20 methods mixing incidents, quarantine, WAF events, blocked IPs, cleanup |
-| `web/routes.py` | - | `register_routes()` function: cyclomatic complexity 80, 569 lines |
 | `lib/config.py` | - | `load_config()`: 87 lines of manual field mapping for 56 config keys |
 
 ### HIGH — Observability
@@ -137,8 +132,6 @@ Jabali Security is a well-architected asyncio security daemon with clean module 
 8. Replace `time.sleep()` with `asyncio.sleep()` in process_killer
 9. Fix shutdown: replace `raise KeyboardInterrupt` with `asyncio.Event`-based shutdown signal
 10. Add single-instance file lock with `fcntl.flock()`
-11. Use `hmac.compare_digest` for API key comparison in Flask
-
 ### P2 — Improve quality
 12. Split `daemon/__main__.py` into a `cli/` package
 13. Decompose `IncidentStore` into domain-specific repositories

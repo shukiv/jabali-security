@@ -270,17 +270,6 @@ RAPIDSCAN_WORKERS="4"
 # Cache file modification times to skip unchanged files between scans
 RAPIDSCAN_MTIME_CACHE="yes"
 
-# -- Web Dashboard -----------------------------------------------------------
-
-# Enable the web dashboard (served by waitress on a separate port)
-WEB_ENABLED="no"
-
-# Bind address for the web dashboard (0.0.0.0 = all interfaces)
-WEB_BIND="0.0.0.0"
-
-# Port for the web dashboard (default 8443)
-WEB_PORT="8443"
-
 # -- SSH Jail Management -----------------------------------------------------
 
 # Enable SSH jail (chroot) management

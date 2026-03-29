@@ -30,7 +30,6 @@ A lightweight, panel-agnostic alternative to Imunify360.
 | **RapidScan** | Parallel directory scanner with mtime cache for unchanged-file skipping |
 | **Scheduled scans** | Configurable periodic full-path scanning |
 | **Multi-tenant** | Automatic file-to-user mapping for shared hosting accounts |
-| **Web dashboard** | Flask UI on port 8443 with feature toggles, incident browser, scan UI |
 | **REST API** | aiohttp on port 9876 with API key auth, 40+ endpoints |
 | **CLI** | 30+ click commands for full management |
 
@@ -55,11 +54,7 @@ journalctl -u jabali-security -f    # watch live logs
 ## Architecture
 
 ```
-                        +-------------------+
-                        |   Web Dashboard   |  (Flask + Waitress, :8443)
-                        +--------+----------+
-                                 |
-+------------------+    +--------+----------+    +------------------+
++------------------+    +-------------------+    +------------------+
 | File Watcher     +--->|                   +--->| Response Engine  |
 | (inotify)        |    |                   |    | - Quarantine     |
 +------------------+    |   Scan Queue      |    | - Process kill   |
@@ -144,14 +139,6 @@ Full reference: [docs/API.md](docs/API.md)
 | `/firewall/ufw/*` | GET/POST/PUT/DELETE | UFW firewall rule management |
 | `/scan/database` | POST | MySQL database scan |
 | `/scan/rapid` | POST | Fast parallel scan |
-
-## Web Dashboard
-
-Served by Waitress on port 8443 (configurable). Login uses the API key as the password.
-
-Navigation is organized into 5 groups: **Overview** (stats + module toggles), **Threats** (Incidents, Quarantine, Scan, Cleanup), **Defense** (Blocklist, Firewall, WAF, Brute-Force, WebShield), **Intelligence** (Users, Threat Intel, Rules), and **Settings** (Proactive, Config).
-
-Features: real-time stats, feature enable/disable toggles, incident drill-down, one-click quarantine restore, config editor with tabs and reset button.
 
 ## Configuration
 

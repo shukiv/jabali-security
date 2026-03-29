@@ -34,11 +34,6 @@ Technical architecture of Jabali Security.
 |  +-----------+   +------------+   +-----------+                    |
 +------------------------------------------------------------------+
 
-+------------------------------------------------------------------+
-|                    Web Dashboard (separate process)                |
-|                    Flask + Waitress on :8443                       |
-|                    Communicates via REST API                       |
-+------------------------------------------------------------------+
 ```
 
 ## Components
@@ -216,18 +211,6 @@ Disabled by default (`UFW_ENABLED="no"`). Requires `ufw` to be installed on the 
 | `routes/webshield.py` | WebShield status, install, rules |
 | `routes/ufw.py` | UFW firewall status, rules CRUD, enable/disable/reload, app profiles |
 | `routes/helpers.py` | Shared response helpers (`_ok`, `_err`) |
-
-### Web Dashboard (`web/`)
-
-| File | Purpose |
-|---|---|
-| `app.py` | Flask application factory with security headers |
-| `routes.py` | Dashboard routes, feature toggle handlers |
-| `api_client.py` | HTTP client that talks to the REST API |
-| `templates/` | Jinja2 templates (20 pages) |
-| `static/` | CSS and JavaScript |
-
-The web dashboard is a separate process (systemd service `jabali-security-web`). It communicates with the daemon exclusively through the REST API via the Unix socket.
 
 ### Jabali Panel Plugin (`panel/`)
 

@@ -387,7 +387,6 @@ def update() -> None:
 
     # Restart services
     subprocess.run(["/usr/bin/systemctl", "restart", "jabali-security"], capture_output=True)  # noqa: S603
-    subprocess.run(["/usr/bin/systemctl", "restart", "jabali-security-web"], capture_output=True)  # noqa: S603
     # Restart Jabali Panel if plugin was updated (FrankenPHP caches PHP in memory)
     if os.path.isdir("/var/www/jabali/app/JabaliSecurity"):
         subprocess.run(["/usr/bin/systemctl", "restart", "jabali-panel"], capture_output=True)  # noqa: S603
@@ -1510,23 +1509,6 @@ def webshield_rules(as_json: bool) -> None:
             rule.get("pattern", "")[:25],
             "yes" if rule.get("enabled") else "no",
         ))
-
-
-@cli.command("web")
-@click.option("--bind", default=None, help="Bind address")
-@click.option("--port", default=None, type=int, help="Port")
-def web_server(bind, port):
-    """Start the web dashboard."""
-    from waitress import serve
-
-    from web.app import create_app
-
-    config = load_config()
-    app = create_app()
-    host = bind or config.web_bind
-    p = port or config.web_port
-    click.echo("Jabali Security web dashboard: http://%s:%d" % (host, p))
-    serve(app, host=host, port=p)
 
 
 if __name__ == "__main__":

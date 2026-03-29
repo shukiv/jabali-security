@@ -13,7 +13,6 @@ DATA_DIR="/var/lib/jabali-security"
 QUARANTINE_DIR="/var/security/quarantine"
 SERVICE_NAME="jabali-security"
 SYSCTL_CONF="/etc/sysctl.d/99-jabali-security.conf"
-INSTALL_WEB="${JABALI_WEB:-yes}"   # set JABALI_WEB=no to skip web dashboard
 
 # ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -142,7 +141,7 @@ do_uninstall() {
     bold "Uninstalling Jabali Security..."
 
     # Stop and disable services
-    for svc in "$SERVICE_NAME" jabali-security-web; do
+    for svc in "$SERVICE_NAME"; do
         systemctl stop "$svc" 2>/dev/null || true
         systemctl disable "$svc" 2>/dev/null || true
         rm -f "/etc/systemd/system/${svc}.service"
@@ -248,10 +247,6 @@ do_install() {
     section "Installing Application Files"
     mkdir -p "$INSTALL_DIR"/{daemon,api,rules,etc,bin}
     mkdir -p "$INSTALL_DIR"/lib/{watcher,scanner,bruteforce,waf,proactive,cleanup,threat_intel,webshield,ufw}
-    if [ "$INSTALL_WEB" = "yes" ]; then
-        mkdir -p "$INSTALL_DIR"/web/{templates,static/css,static/js}
-    fi
-
     cp "$tmp_dir"/daemon/*.py "$INSTALL_DIR/daemon/"
     cp "$tmp_dir"/lib/*.py "$INSTALL_DIR/lib/"
     cp "$tmp_dir"/lib/watcher/*.py "$INSTALL_DIR/lib/watcher/"
@@ -268,15 +263,8 @@ do_install() {
     cp "$tmp_dir"/api/*.py "$INSTALL_DIR/api/"
     mkdir -p "$INSTALL_DIR/api/routes"
     cp "$tmp_dir"/api/routes/*.py "$INSTALL_DIR/api/routes/"
-    if [ "$INSTALL_WEB" = "yes" ]; then
-        cp "$tmp_dir"/web/*.py "$INSTALL_DIR/web/"
-        cp "$tmp_dir"/web/templates/*.html "$INSTALL_DIR/web/templates/"
-        cp -r "$tmp_dir"/web/static/* "$INSTALL_DIR/web/static/"
-    fi
     cp "$tmp_dir"/rules/*.yar "$INSTALL_DIR/rules/"
     cp "$tmp_dir"/etc/jabali-security.conf.example "$INSTALL_DIR/etc/"
-    cp "$tmp_dir"/etc/jabali-security.service "$INSTALL_DIR/etc/"
-    cp "$tmp_dir"/etc/jabali-security-web.service "$INSTALL_DIR/etc/"
     cp "$tmp_dir"/etc/jabali-security.service "$INSTALL_DIR/etc/"
     cp -r "$tmp_dir"/etc/webshield "$INSTALL_DIR/etc/" 2>/dev/null || true
     cp "$tmp_dir"/bin/jabali-security "$INSTALL_DIR/bin/"
@@ -647,9 +635,6 @@ SSHJAIL
 
     if [ -f "$_venv_dir/bin/pip" ]; then
         local pip_pkgs="pydantic>=2.0 yara-x>=0.11 click>=8.0 aiohttp>=3.9 pyyaml>=6.0 aiosqlite>=0.20"
-        if [ "$INSTALL_WEB" = "yes" ]; then
-            pip_pkgs="$pip_pkgs flask>=3.0 waitress>=3.0"
-        fi
         if command -v uv &>/dev/null; then
             # shellcheck disable=SC2086
             run_with_spinner "Installing Python packages (uv)" \
@@ -668,25 +653,6 @@ SSHJAIL
     systemctl restart "$SERVICE_NAME" 2>/dev/null || true
     echo "  jabali-security daemon .... started"
 
-    if [ "$INSTALL_WEB" = "yes" ]; then
-        cp "$INSTALL_DIR/etc/jabali-security-web.service" /etc/systemd/system/
-        systemctl daemon-reload 2>/dev/null || true
-        systemctl enable jabali-security-web 2>/dev/null || true
-        systemctl restart jabali-security-web 2>/dev/null || true
-        echo "  jabali-security-web ...... started"
-        # Open web dashboard port in UFW if active
-        if command -v ufw &>/dev/null && ufw status | grep -q "^Status: active"; then
-            local web_port
-            web_port=$(grep "^WEB_PORT=" "$CONFIG_DIR/jabali-security.conf" 2>/dev/null | cut -d'"' -f2)
-            web_port="${web_port:-8443}"
-            ufw allow "$web_port/tcp" comment "Jabali Security Dashboard" 2>/dev/null || true
-            echo "  UFW: port $web_port/tcp opened for dashboard"
-        fi
-    else
-        systemctl stop jabali-security-web 2>/dev/null || true
-        systemctl disable jabali-security-web 2>/dev/null || true
-        echo "  Web dashboard ............ skipped (JABALI_WEB=no)"
-    fi
     done_ok "Services started"
 
     # ── Summary ───────────────────────────────────────────────────────
@@ -701,9 +667,6 @@ SSHJAIL
     green "  Jabali Security installed successfully!"
     echo ""
     echo "  Daemon:    systemctl status $SERVICE_NAME"
-    if [ "$INSTALL_WEB" = "yes" ]; then
-        echo "  Dashboard: http://0.0.0.0:8443"
-    fi
     echo "  API Key:   $api_key"
     echo "  Config:    $CONFIG_DIR/jabali-security.conf"
     echo "  CLI:       jabali-security --help"
@@ -731,8 +694,6 @@ do_update() {
 
     # Stop services before updating files
     systemctl stop "$SERVICE_NAME" 2>/dev/null || true
-    systemctl stop jabali-security-web 2>/dev/null || true
-
     # -- Update application files (preserve config/data/venv) --
     cp "$tmp_dir"/daemon/*.py "$INSTALL_DIR/daemon/"
     cp "$tmp_dir"/lib/*.py "$INSTALL_DIR/lib/"
@@ -743,15 +704,8 @@ do_update() {
     mkdir -p "$INSTALL_DIR/api/routes"
     cp "$tmp_dir"/api/*.py "$INSTALL_DIR/api/"
     cp "$tmp_dir"/api/routes/*.py "$INSTALL_DIR/api/routes/"
-    if [ "$INSTALL_WEB" = "yes" ]; then
-        mkdir -p "$INSTALL_DIR"/web/{templates,static/css,static/js}
-        cp "$tmp_dir"/web/*.py "$INSTALL_DIR/web/"
-        cp "$tmp_dir"/web/templates/*.html "$INSTALL_DIR/web/templates/"
-        cp -r "$tmp_dir"/web/static/* "$INSTALL_DIR/web/static/"
-    fi
     cp "$tmp_dir"/rules/*.yar "$INSTALL_DIR/rules/" 2>/dev/null || true
     cp "$tmp_dir"/etc/jabali-security.service "$INSTALL_DIR/etc/"
-    cp "$tmp_dir"/etc/jabali-security-web.service "$INSTALL_DIR/etc/"
     cp -r "$tmp_dir"/etc/webshield "$INSTALL_DIR/etc/" 2>/dev/null || true
     cp "$tmp_dir"/bin/jabali-security "$INSTALL_DIR/bin/"
     chmod +x "$INSTALL_DIR/bin/jabali-security"
@@ -776,14 +730,10 @@ do_update() {
 
     # -- Update systemd service files --
     cp "$INSTALL_DIR/etc/jabali-security.service" /etc/systemd/system/
-    cp "$INSTALL_DIR/etc/jabali-security-web.service" /etc/systemd/system/
     systemctl daemon-reload 2>/dev/null || true
 
     # -- Restart services --
     systemctl start "$SERVICE_NAME" 2>/dev/null || true
-    if [ "$INSTALL_WEB" = "yes" ]; then
-        systemctl start jabali-security-web 2>/dev/null || true
-    fi
 
     echo ""
     green "Jabali Security updated successfully!"
