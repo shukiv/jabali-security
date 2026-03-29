@@ -328,6 +328,8 @@ class SSHJailManager:
         real_home = f"/home/{username}"
 
         os.makedirs(jail_home, mode=0o755, exist_ok=True)
+        # Ensure /tmp exists in jail (needed by PHP proc_open / wp-cli)
+        os.makedirs(os.path.join(self._jail_dir, "tmp"), mode=0o1777, exist_ok=True)
 
         fstab_line = (
             f"{real_home} {jail_home} none bind 0 0"
