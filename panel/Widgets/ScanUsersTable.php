@@ -35,11 +35,47 @@ class ScanUsersTable extends Component implements HasActions, HasSchemas, HasTab
         $path = '/home/' . $username;
         $result = $this->client()->post('/scan', ['path' => $path]);
 
+        $threats = [];
+        if ($result && ! empty($result['results'])) {
+            foreach ($result['results'] as $r) {
+                $threats[] = [
+                    'path' => $r['path'] ?? '',
+                    'score' => $r['score'] ?? 0,
+                    'action' => $r['action'] ?? '',
+                    'findings' => $r['findings'] ?? [],
+                ];
+            }
+        }
+
         return [
             'success' => $result !== null,
             'files' => $result['files_scanned'] ?? 0,
-            'threats' => $result['threats_found'] ?? $result['score'] ?? 0,
+            'threats_count' => $result['threats_found'] ?? $result['score'] ?? 0,
+            'threats' => $threats,
         ];
+    }
+
+    protected function formatThreatBody(array $threats): string
+    {
+        if (empty($threats)) {
+            return __('No threats found');
+        }
+
+        $lines = [];
+        foreach (array_slice($threats, 0, 10) as $t) {
+            $path = basename($t['path'] ?? '');
+            $score = $t['score'] ?? 0;
+            $findings = collect($t['findings'] ?? [])
+                ->pluck('rule')
+                ->implode(', ');
+            $lines[] = "• {$path} (score: {$score}) — {$findings}";
+        }
+
+        if (count($threats) > 10) {
+            $lines[] = __('... and :more more', ['more' => count($threats) - 10]);
+        }
+
+        return implode("\n", $lines);
     }
 
     public function table(Table $table): Table
@@ -140,13 +176,20 @@ class ScanUsersTable extends Component implements HasActions, HasSchemas, HasTab
 
                         $r = $this->scanPath($username);
 
-                        Notification::make()
+                        $notification = Notification::make()
                             ->title($r['success']
-                                ? __(':user — :files files, :threats threats', ['user' => $username, 'files' => $r['files'], 'threats' => $r['threats']])
+                                ? __(':user — :files files, :threats threats', ['user' => $username, 'files' => $r['files'], 'threats' => $r['threats_count']])
                                 : __('Scan failed for :user', ['user' => $username]))
-                            ->{$r['success'] ? ($r['threats'] > 0 ? 'warning' : 'success') : 'danger'}()
-                            ->duration(10000)
-                            ->send();
+                            ->{$r['success'] ? ($r['threats_count'] > 0 ? 'warning' : 'success') : 'danger'}();
+
+                        if ($r['threats_count'] > 0) {
+                            $notification->body($this->formatThreatBody($r['threats']))
+                                ->persistent();
+                        } else {
+                            $notification->duration(10000);
+                        }
+
+                        $notification->send();
                     }),
             ])
             ->headerActions([
@@ -160,6 +203,7 @@ class ScanUsersTable extends Component implements HasActions, HasSchemas, HasTab
                         $sshUsers = $this->client()->get('/ssh/users') ?? [];
                         $totalFiles = 0;
                         $totalThreats = 0;
+                        $allThreats = [];
                         $scanned = 0;
                         $count = count($sshUsers);
 
@@ -178,16 +222,26 @@ class ScanUsersTable extends Component implements HasActions, HasSchemas, HasTab
                             $r = $this->scanPath($username);
                             if ($r['success']) {
                                 $totalFiles += $r['files'];
-                                $totalThreats += $r['threats'];
+                                $totalThreats += $r['threats_count'];
+                                $allThreats = array_merge($allThreats, $r['threats']);
                             }
                         }
 
-                        Notification::make()
+                        $notification = Notification::make()
                             ->title(__('Scan complete — :users users', ['users' => $scanned]))
-                            ->body(__(':files files scanned, :threats threats found', ['files' => $totalFiles, 'threats' => $totalThreats]))
-                            ->{$totalThreats > 0 ? 'warning' : 'success'}()
-                            ->duration(15000)
-                            ->send();
+                            ->body(
+                                __(':files files scanned, :threats threats found', ['files' => $totalFiles, 'threats' => $totalThreats])
+                                . ($totalThreats > 0 ? "\n\n" . $this->formatThreatBody($allThreats) : '')
+                            )
+                            ->{$totalThreats > 0 ? 'warning' : 'success'}();
+
+                        if ($totalThreats > 0) {
+                            $notification->persistent();
+                        } else {
+                            $notification->duration(15000);
+                        }
+
+                        $notification->send();
                     }),
             ])
             ->bulkActions([
@@ -200,6 +254,7 @@ class ScanUsersTable extends Component implements HasActions, HasSchemas, HasTab
                     ->action(function (Collection $records): void {
                         $totalFiles = 0;
                         $totalThreats = 0;
+                        $allThreats = [];
                         $scanned = 0;
                         $count = $records->count();
 
@@ -218,16 +273,26 @@ class ScanUsersTable extends Component implements HasActions, HasSchemas, HasTab
                             $r = $this->scanPath($username);
                             if ($r['success']) {
                                 $totalFiles += $r['files'];
-                                $totalThreats += $r['threats'];
+                                $totalThreats += $r['threats_count'];
+                                $allThreats = array_merge($allThreats, $r['threats']);
                             }
                         }
 
-                        Notification::make()
+                        $notification = Notification::make()
                             ->title(__('Scan complete — :users users', ['users' => $scanned]))
-                            ->body(__(':files files scanned, :threats threats found', ['files' => $totalFiles, 'threats' => $totalThreats]))
-                            ->{$totalThreats > 0 ? 'warning' : 'success'}()
-                            ->duration(15000)
-                            ->send();
+                            ->body(
+                                __(':files files scanned, :threats threats found', ['files' => $totalFiles, 'threats' => $totalThreats])
+                                . ($totalThreats > 0 ? "\n\n" . $this->formatThreatBody($allThreats) : '')
+                            )
+                            ->{$totalThreats > 0 ? 'warning' : 'success'}();
+
+                        if ($totalThreats > 0) {
+                            $notification->persistent();
+                        } else {
+                            $notification->duration(15000);
+                        }
+
+                        $notification->send();
                     }),
             ])
             ->emptyStateHeading(__('No users found'))
