@@ -40,6 +40,21 @@ class BruteforceBlockedTable extends Component implements HasActions, HasSchemas
                     ->label(__('IP Address'))
                     ->state(fn ($record): string => is_string($record) ? $record : ($record['ip'] ?? '')),
             ])
+            ->actions([
+                \Filament\Tables\Actions\Action::make('unblock')
+                    ->label(__('Unblock'))
+                    ->icon('heroicon-o-lock-open')
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->action(function ($record): void {
+                        $ip = is_string($record) ? $record : ($record['ip'] ?? '');
+                        if ($ip) {
+                            $this->client()->delete('/block/' . urlencode($ip));
+                            Notification::make()->title(__('IP unblocked: :ip', ['ip' => $ip]))->success()->send();
+                            $this->resetTable();
+                        }
+                    }),
+            ])
             ->headerActions([
                 Action::make('whitelist')
                     ->label(__('Whitelist IP'))
