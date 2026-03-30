@@ -80,7 +80,7 @@ DEFAULTS: dict[str, str] = {
     "THREAT_INTEL_ENABLED": "yes",
     "THREAT_INTEL_UPDATE_INTERVAL": "6",
     "THREAT_INTEL_FEEDS": "spamhaus_drop,blocklist_de_all,tor_exit_nodes,malwarebazaar_recent",
-    "THREAT_INTEL_AUTO_BLOCK": "yes",
+    "THREAT_INTEL_AUTO_BLOCK": "no",
     "THREAT_INTEL_AUTO_BLOCK_THRESHOLD": "3",
     "WEBSHIELD_ENABLED": "no",
     "WEBSHIELD_RATE_LIMIT": "10",

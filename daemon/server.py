@@ -153,11 +153,36 @@ class SecurityDaemon:
                 reg.scan_queue.task_done()
 
     @staticmethod
-    def _make_auth_callback(detector, firewall, incidents, crowdsec=None):
+    def _make_auth_callback(detector, firewall, incidents, crowdsec=None, feed_manager=None, config=None):
         """Build the async callback that bridges log parser -> detector -> firewall."""
         from datetime import datetime, timedelta, timezone
 
+        _auto_block = config.threat_intel_auto_block if config else False
+        _auto_block_threshold = config.threat_intel_auto_block_threshold if config else 3
+
         async def _on_auth_event(event):
+            # Threat intel auto-block: block immediately if IP hits enough feeds
+            if _auto_block and feed_manager is not None:
+                rep = feed_manager.check_ip(event.ip)
+                if len(rep.feeds) >= _auto_block_threshold:
+                    if event.ip not in detector._blocked:
+                        detector._blocked.add(event.ip)
+                        duration = 86400  # 24 hours for feed-based blocks
+                        await firewall.block_ip(event.ip, duration)
+                        now = datetime.now(timezone.utc)
+                        expires_at = (now + timedelta(seconds=duration)).isoformat()
+                        await incidents.save_blocked_ip(
+                            event.ip,
+                            "Threat intel: matched %d feeds (%s)" % (len(rep.feeds), ", ".join(rep.feeds)),
+                            now.isoformat(), expires_at, "threat_intel",
+                        )
+                        import logging
+                        logging.getLogger(__name__).warning(
+                            "THREAT_INTEL: auto-blocked %s (matched %d feeds: %s)",
+                            event.ip, len(rep.feeds), ", ".join(rep.feeds),
+                        )
+                        return
+
             # Enrich with CrowdSec: known attackers get shorter fuse
             if crowdsec is not None:
                 cs_score = crowdsec.check_ip_score(event.ip)
