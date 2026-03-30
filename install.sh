@@ -543,6 +543,7 @@ WAFEOF
 Match Group sftpusers
     ChrootDirectory /home/%u
     ForceCommand internal-sftp
+    PasswordAuthentication no
     AllowTcpForwarding no
     AllowAgentForwarding no
     PermitTTY no
@@ -551,6 +552,7 @@ Match Group sftpusers
 # Shell users (jailed with limited commands)
 Match Group shellusers
     ChrootDirectory /var/jail
+    PasswordAuthentication no
     AllowTcpForwarding no
     AllowAgentForwarding no
     X11Forwarding no

@@ -293,6 +293,10 @@ class SSHJailManager:
         if not updates:
             return True
 
+        # PasswordAuthentication must be updated in Match blocks too,
+        # otherwise sshd uses its default (yes) inside them.
+        match_block_keys = {"PasswordAuthentication"}
+
         async with self._lock:
             try:
                 with open(self._SSHD_CONFIG, "r") as fh:
@@ -308,12 +312,18 @@ class SSHJailManager:
                 # Match both active and commented-out directives
                 parts = stripped.lstrip("#").strip().split()
                 if len(parts) >= 2:
+                    replaced = False
                     for sshd_key, new_val in updates.items():
-                        if parts[0].lower() == sshd_key.lower() and sshd_key not in applied:
-                            new_lines.append(f"{sshd_key} {new_val}\n")
-                            applied.add(sshd_key)
-                            break
-                    else:
+                        if parts[0].lower() == sshd_key.lower():
+                            # For match-block keys, replace ALL occurrences
+                            # For other keys, replace only the first (global) one
+                            if sshd_key in match_block_keys or sshd_key not in applied:
+                                indent = line[: len(line) - len(line.lstrip())]
+                                new_lines.append(f"{indent}{sshd_key} {new_val}\n")
+                                applied.add(sshd_key)
+                                replaced = True
+                                break
+                    if not replaced:
                         new_lines.append(line)
                 else:
                     new_lines.append(line)
