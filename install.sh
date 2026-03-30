@@ -779,6 +779,14 @@ do_update() {
     # Clean up
     rm -rf "$tmp_dir"
 
+    # -- Migrate config: enable SSHJAIL if jail infrastructure exists --
+    if [ -f "$CONFIG_DIR/jabali-security.conf" ] && grep -q 'SSHJAIL_ENABLED="no"' "$CONFIG_DIR/jabali-security.conf"; then
+        if grep -q "Jabali SSH Jail" /etc/ssh/sshd_config 2>/dev/null; then
+            sed -i 's/SSHJAIL_ENABLED="no"/SSHJAIL_ENABLED="yes"/' "$CONFIG_DIR/jabali-security.conf"
+            echo "  Enabled SSHJAIL (jail infrastructure already configured)"
+        fi
+    fi
+
     # -- Remove PasswordAuthentication overrides from sshd_config.d/ drop-ins --
     for dropfile in /etc/ssh/sshd_config.d/*.conf; do
         [ -f "$dropfile" ] || continue
