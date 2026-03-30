@@ -529,6 +529,16 @@ WAFEOF
             echo "  Password authentication disabled (key-based only)"
         fi
 
+        # Remove PasswordAuthentication overrides from sshd_config.d/ drop-ins
+        # (e.g. cloud-init sets PasswordAuthentication yes which takes precedence)
+        for dropfile in /etc/ssh/sshd_config.d/*.conf; do
+            [ -f "$dropfile" ] || continue
+            if grep -q "^PasswordAuthentication" "$dropfile"; then
+                sed -i '/^PasswordAuthentication/d' "$dropfile"
+                echo "  Removed PasswordAuthentication override from $(basename "$dropfile")"
+            fi
+        done
+
         # Remove any existing Jabali SSH config block
         sed -i '/# Jabali SSH Jail Configuration/,/# End Jabali SSH Jail/d' /etc/ssh/sshd_config
 
@@ -764,6 +774,16 @@ do_update() {
 
     # Clean up
     rm -rf "$tmp_dir"
+
+    # -- Remove PasswordAuthentication overrides from sshd_config.d/ drop-ins --
+    for dropfile in /etc/ssh/sshd_config.d/*.conf; do
+        [ -f "$dropfile" ] || continue
+        if grep -q "^PasswordAuthentication" "$dropfile"; then
+            sed -i '/^PasswordAuthentication/d' "$dropfile"
+            echo "  Removed PasswordAuthentication override from $(basename "$dropfile")"
+            systemctl reload sshd 2>/dev/null || systemctl reload ssh 2>/dev/null || true
+        fi
+    done
 
     # -- Patch sshd_config: ensure PasswordAuthentication no in Match blocks --
     if [ -f /etc/ssh/sshd_config ] && grep -q "Jabali SSH Jail" /etc/ssh/sshd_config; then

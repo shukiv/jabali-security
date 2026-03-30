@@ -245,31 +245,47 @@ class SSHJailManager:
     }
 
     async def get_sshd_settings(self) -> dict:
-        """Read managed settings from sshd_config."""
+        """Read effective sshd settings (drop-in files + main config).
+
+        In sshd, the first occurrence of a setting wins. Since Include
+        for sshd_config.d/ is usually at the top, drop-in files take
+        precedence over the main config. We read them in the same order.
+        """
         defaults = {k: v[1] for k, v in self._SSHD_SETTINGS.items()}
         result = dict(defaults)
+        seen: set[str] = set()
 
-        try:
-            with open(self._SSHD_CONFIG, "r") as fh:
-                for line in fh:
-                    stripped = line.strip()
-                    if stripped.startswith("#"):
-                        continue
-                    parts = stripped.split()
-                    if len(parts) < 2:
-                        continue
-                    key_lower = parts[0].lower()
-                    for name, (sshd_key, _default) in self._SSHD_SETTINGS.items():
-                        if key_lower == sshd_key.lower():
-                            if isinstance(_default, bool):
-                                result[name] = parts[1].lower() == "yes"
-                            elif isinstance(_default, int):
-                                try:
-                                    result[name] = int(parts[1])
-                                except ValueError:
-                                    pass
-        except OSError as exc:
-            logger.warning("Failed to read sshd_config: %s", exc)
+        # Read drop-in files first (they take precedence via Include)
+        config_files: list[str] = []
+        if os.path.isdir(self._SSHD_CONFIG_D):
+            for entry in sorted(os.listdir(self._SSHD_CONFIG_D)):
+                if entry.endswith(".conf"):
+                    config_files.append(os.path.join(self._SSHD_CONFIG_D, entry))
+        config_files.append(self._SSHD_CONFIG)
+
+        for config_file in config_files:
+            try:
+                with open(config_file, "r") as fh:
+                    for line in fh:
+                        stripped = line.strip()
+                        if stripped.startswith("#"):
+                            continue
+                        parts = stripped.split()
+                        if len(parts) < 2:
+                            continue
+                        key_lower = parts[0].lower()
+                        for name, (sshd_key, _default) in self._SSHD_SETTINGS.items():
+                            if key_lower == sshd_key.lower() and name not in seen:
+                                seen.add(name)
+                                if isinstance(_default, bool):
+                                    result[name] = parts[1].lower() == "yes"
+                                elif isinstance(_default, int):
+                                    try:
+                                        result[name] = int(parts[1])
+                                    except ValueError:
+                                        pass
+            except OSError as exc:
+                logger.warning("Failed to read %s: %s", config_file, exc)
 
         return result
 
@@ -289,6 +305,10 @@ class SSHJailManager:
                 updates[sshd_key] = "yes" if value else "no"
             elif isinstance(default, int):
                 updates[sshd_key] = str(value)
+
+        # Remove conflicting overrides from sshd_config.d/ drop-in files
+        # (e.g. cloud-init sets PasswordAuthentication yes)
+        await self._clean_sshd_dropins(updates)
 
         if not updates:
             return True
@@ -661,6 +681,51 @@ class SSHJailManager:
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
+
+    _SSHD_CONFIG_D = "/etc/ssh/sshd_config.d"
+
+    async def _clean_sshd_dropins(self, updates: dict[str, str]) -> None:
+        """Remove conflicting directives from sshd_config.d/ drop-in files.
+
+        Cloud-init and other tools write overrides like PasswordAuthentication yes
+        to drop-in files. Since Include is processed before the main config,
+        these overrides take precedence. We must remove them.
+        """
+        if not os.path.isdir(self._SSHD_CONFIG_D):
+            return
+
+        for entry in os.listdir(self._SSHD_CONFIG_D):
+            if not entry.endswith(".conf"):
+                continue
+            dropin = os.path.join(self._SSHD_CONFIG_D, entry)
+            try:
+                with open(dropin, "r") as fh:
+                    lines = fh.readlines()
+            except OSError:
+                continue
+
+            new_lines = []
+            changed = False
+            for line in lines:
+                stripped = line.strip()
+                parts = stripped.split()
+                if len(parts) >= 2 and parts[0] in updates:
+                    changed = True
+                    logger.info("Removing %s override from %s", parts[0], entry)
+                    continue
+                new_lines.append(line)
+
+            if changed:
+                try:
+                    fd, tmp_path = tempfile.mkstemp(
+                        dir=self._SSHD_CONFIG_D, prefix=f".{entry}."
+                    )
+                    with os.fdopen(fd, "w") as fh:
+                        fh.writelines(new_lines)
+                    os.chmod(tmp_path, 0o600)
+                    os.rename(tmp_path, dropin)
+                except OSError as exc:
+                    logger.warning("Failed to clean drop-in %s: %s", entry, exc)
 
     async def _verify_user(self, username: str) -> None:
         """Verify that user exists and has UID >= 1000."""
