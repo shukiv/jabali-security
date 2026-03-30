@@ -41,7 +41,7 @@ class BruteforceBlockedTable extends Component implements HasActions, HasSchemas
                     ->state(fn ($record): string => is_string($record) ? $record : ($record['ip'] ?? '')),
             ])
             ->actions([
-                \Filament\Tables\Actions\Action::make('unblock')
+                \Filament\Actions\Action::make('unblock')
                     ->label(__('Unblock'))
                     ->icon('heroicon-o-lock-open')
                     ->color('danger')
