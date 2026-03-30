@@ -5,6 +5,8 @@ from __future__ import annotations
 from aiohttp import web
 
 from api.routes.helpers import _err, _ok, _validate_ip
+from lib.config import update_conf_key
+from lib.constants import CONFIG_FILE
 
 
 def setup_routes(app: web.Application) -> None:
@@ -67,6 +69,9 @@ async def post_bruteforce_whitelist(request: web.Request) -> web.Response:
         await firewall.unblock_ip(ip)
     detector.unblock(ip)
 
+    # Persist to config file so whitelist survives daemon restarts
+    _persist_whitelist(detector)
+
     return _ok({"whitelisted": True, "ip": ip})
 
 
@@ -84,4 +89,14 @@ async def delete_bruteforce_whitelist(request: web.Request) -> web.Response:
         return _err("IP not in whitelist", 404)
 
     detector.remove_from_whitelist(ip)
+
+    # Persist to config file
+    _persist_whitelist(detector)
+
     return _ok({"removed": True, "ip": ip})
+
+
+def _persist_whitelist(detector) -> None:
+    """Write current whitelist to config file so it survives restarts."""
+    ips = detector.get_whitelist()
+    update_conf_key(CONFIG_FILE, "BRUTEFORCE_WHITELIST_IPS", ",".join(ips))
