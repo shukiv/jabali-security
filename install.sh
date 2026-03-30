@@ -615,7 +615,8 @@ SSHJAIL
     mkdir -p /var/jail/usr/lib/x86_64-linux-gnu
 
     # Copy essential binaries to jail
-    JAIL_BINS="bash sh ls cat cp mv rm mkdir rmdir pwd echo head tail grep sed awk wc sort uniq cut tr touch chmod find which"
+    # Core shell utilities + VS Code Remote SSH requirements (tar, gzip, wget, curl, etc.)
+    JAIL_BINS="bash sh ls cat cp mv rm mkdir rmdir pwd echo head tail grep sed awk wc sort uniq cut tr touch chmod find which tar gzip gunzip wget curl dirname basename uname id readlink hostname date xargs tee dd"
     for bin in $JAIL_BINS; do
         if [ -f "/bin/$bin" ]; then
             cp "/bin/$bin" /var/jail/bin/ 2>/dev/null || true
@@ -647,6 +648,27 @@ SSHJAIL
     for bin in /var/jail/bin/* /var/jail/usr/bin/*; do
         [ -f "$bin" ] && _copy_libs "$bin"
     done
+
+    # Copy NSS libraries (needed for id, hostname, DNS resolution in jail)
+    for nss_lib in libnss_files libnss_dns libresolv; do
+        for f in /lib/x86_64-linux-gnu/${nss_lib}* /usr/lib/x86_64-linux-gnu/${nss_lib}*; do
+            [ -f "$f" ] || continue
+            local dest_dir="/var/jail$(dirname "$f")"
+            mkdir -p "$dest_dir"
+            cp -n "$f" "$dest_dir/" 2>/dev/null || true
+        done
+    done
+
+    # Copy CA certificates (needed by wget/curl for HTTPS in VS Code Remote)
+    if [ -d /etc/ssl/certs ]; then
+        mkdir -p /var/jail/etc/ssl
+        cp -r /etc/ssl/certs /var/jail/etc/ssl/ 2>/dev/null || true
+        [ -f /etc/ssl/cert.pem ] && cp /etc/ssl/cert.pem /var/jail/etc/ssl/ 2>/dev/null || true
+    fi
+    [ -d /usr/share/ca-certificates ] && {
+        mkdir -p /var/jail/usr/share
+        cp -r /usr/share/ca-certificates /var/jail/usr/share/ 2>/dev/null || true
+    }
 
     # Copy PHP extensions for wp-cli
     PHP_EXT_DIR=$(php -i 2>/dev/null | grep "^extension_dir" | awk '{print $3}')
@@ -681,6 +703,23 @@ SSHJAIL
     mknod -m 666 /var/jail/dev/random c 1 8 2>/dev/null || true
     mknod -m 666 /var/jail/dev/urandom c 1 9 2>/dev/null || true
     mknod -m 666 /var/jail/dev/tty c 5 0 2>/dev/null || true
+
+    # Mount /proc in jail (needed by VS Code Remote + node.js)
+    mkdir -p /var/jail/proc
+    if ! mountpoint -q /var/jail/proc 2>/dev/null; then
+        mount -t proc proc /var/jail/proc 2>/dev/null || true
+    fi
+    # Add /proc mount to fstab for persistence
+    if ! grep -q "jabali-jail-proc" /etc/fstab 2>/dev/null; then
+        echo "proc /var/jail/proc proc defaults 0 0 # jabali-jail-proc" >> /etc/fstab
+    fi
+
+    # /dev/fd symlink (needed by bash process substitution)
+    ln -sf /proc/self/fd /var/jail/dev/fd 2>/dev/null || true
+
+    # Ensure /tmp is writable in jail
+    mkdir -p /var/jail/tmp
+    chmod 1777 /var/jail/tmp
 
     # Create minimal /etc files in jail
     grep -E "^(root|nobody)" /etc/passwd > /var/jail/etc/passwd 2>/dev/null || true
