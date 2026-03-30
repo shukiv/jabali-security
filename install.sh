@@ -138,7 +138,7 @@ pkg_install() {
 
 do_uninstall() {
     require_root
-    bold "Uninstalling Jabali Security..."
+    yellow "Uninstalling Jabali Security..."
 
     # Stop and disable services
     for svc in "$SERVICE_NAME"; do
@@ -176,15 +176,15 @@ do_uninstall() {
 
 # ── Install ────────────────────────────────────────────────────────────────
 
-section() { echo ""; bold "=== $* ==="; }
+section() { echo ""; yellow "=== $* ==="; }
 done_ok() { green "[✓] $*"; }
 
 do_install() {
     require_root
     echo ""
-    bold "╔════════════════════════════════════════════════════════════╗"
-    bold "║          Jabali Security — Installer                      ║"
-    bold "╚════════════════════════════════════════════════════════════╝"
+    yellow "╔════════════════════════════════════════════════════════════╗"
+    yellow "║          Jabali Security — Installer                      ║"
+    yellow "╚════════════════════════════════════════════════════════════╝"
     echo ""
 
     # -- Detect OS --
@@ -712,9 +712,9 @@ SSHJAIL
 
     # ── Summary ───────────────────────────────────────────────────────
     echo ""
-    bold "╔════════════════════════════════════════════════════════════╗"
-    bold "║          Installation Complete                             ║"
-    bold "╚════════════════════════════════════════════════════════════╝"
+    yellow "╔════════════════════════════════════════════════════════════╗"
+    yellow "║          Installation Complete                             ║"
+    yellow "╚════════════════════════════════════════════════════════════╝"
     echo ""
     green "  Jabali Security installed successfully!"
     echo ""
@@ -729,7 +729,7 @@ SSHJAIL
 
 do_update() {
     require_root
-    bold "Updating Jabali Security..."
+    yellow "Updating Jabali Security..."
 
     if [ ! -d "$INSTALL_DIR" ]; then
         red "Error: Jabali Security is not installed at $INSTALL_DIR"
