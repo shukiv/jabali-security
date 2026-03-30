@@ -11,6 +11,7 @@ from api.routes import (
     cleanup,
     config,
     core,
+    crowdsec,
     incidents,
     proactive,
     quarantine,
@@ -27,6 +28,7 @@ from api.routes import (
 _MODULES = (
     core,
     attack_mode,
+    crowdsec,
     incidents,
     scanning,
     quarantine,

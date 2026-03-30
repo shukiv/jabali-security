@@ -1,6 +1,7 @@
 [Unit]
 Description=Jabali Security Daemon
-After=network.target
+After=network.target crowdsec.service
+Wants=crowdsec.service
 
 [Service]
 Type=simple

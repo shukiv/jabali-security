@@ -240,13 +240,35 @@ do_install() {
         green "[✓] ClamAV already installed"
     fi
 
+    # -- CrowdSec (community threat intelligence) --
+    if ! command -v cscli &>/dev/null; then
+        case "$pkg_mgr" in
+            apt)
+                run_with_spinner "Installing CrowdSec" bash -c '
+                    curl -fsSL https://install.crowdsec.net | bash 2>/dev/null
+                    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq crowdsec 2>/dev/null
+                '
+                ;;
+        esac
+    else
+        green "[✓] CrowdSec already installed"
+    fi
+
+    # Install hosting-relevant CrowdSec collections
+    if command -v cscli &>/dev/null; then
+        for col in linux sshd nginx base-http-scenarios postfix dovecot; do
+            cscli collections install "crowdsecurity/$col" 2>/dev/null || true
+        done
+        done_ok "CrowdSec collections installed"
+    fi
+
     local tmp_dir
     tmp_dir="$(mktemp -d)"
     run_with_spinner "Downloading Jabali Security" git clone --depth 1 --quiet "$REPO_URL" "$tmp_dir"
 
     section "Installing Application Files"
     mkdir -p "$INSTALL_DIR"/{daemon,api,rules,etc,bin}
-    mkdir -p "$INSTALL_DIR"/lib/{watcher,scanner,bruteforce,waf,proactive,cleanup,threat_intel,webshield,ufw}
+    mkdir -p "$INSTALL_DIR"/lib/{watcher,scanner,bruteforce,waf,proactive,cleanup,threat_intel,webshield,ufw,crowdsec}
     cp "$tmp_dir"/daemon/*.py "$INSTALL_DIR/daemon/"
     cp "$tmp_dir"/lib/*.py "$INSTALL_DIR/lib/"
     cp "$tmp_dir"/lib/watcher/*.py "$INSTALL_DIR/lib/watcher/"
@@ -260,6 +282,7 @@ do_install() {
     cp "$tmp_dir"/lib/ufw/*.py "$INSTALL_DIR/lib/ufw/"
     mkdir -p "$INSTALL_DIR/lib/sshjail"
     cp "$tmp_dir"/lib/sshjail/*.py "$INSTALL_DIR/lib/sshjail/"
+    cp "$tmp_dir"/lib/crowdsec/*.py "$INSTALL_DIR/lib/crowdsec/"
     cp "$tmp_dir"/api/*.py "$INSTALL_DIR/api/"
     mkdir -p "$INSTALL_DIR/api/routes"
     cp "$tmp_dir"/api/routes/*.py "$INSTALL_DIR/api/routes/"
@@ -370,6 +393,21 @@ if 'JabaliSecurityPlugin' not in c and '->middleware([' in c:
             chmod 600 "$CONFIG_DIR/jabali-security.conf"
         fi
         echo "  API key generated."
+    fi
+
+    # Generate CrowdSec bouncer API key
+    if command -v cscli &>/dev/null; then
+        if ! grep -q '^CROWDSEC_BOUNCER_KEY="..*"' "$CONFIG_DIR/jabali-security.conf" 2>/dev/null; then
+            bouncer_key=$(cscli bouncers add jabali-security -o raw 2>/dev/null || echo "")
+            if [ -n "$bouncer_key" ]; then
+                if grep -q "^CROWDSEC_BOUNCER_KEY=" "$CONFIG_DIR/jabali-security.conf"; then
+                    sed -i "s|^CROWDSEC_BOUNCER_KEY=.*|CROWDSEC_BOUNCER_KEY=\"${bouncer_key}\"|" "$CONFIG_DIR/jabali-security.conf"
+                else
+                    echo "CROWDSEC_BOUNCER_KEY=\"${bouncer_key}\"" >> "$CONFIG_DIR/jabali-security.conf"
+                fi
+                echo "  CrowdSec bouncer key generated."
+            fi
+        fi
     fi
 
     # -- Set Unix socket path if not already present --
@@ -748,7 +786,7 @@ do_update() {
     # -- Update application files (preserve config/data/venv) --
     cp "$tmp_dir"/daemon/*.py "$INSTALL_DIR/daemon/"
     cp "$tmp_dir"/lib/*.py "$INSTALL_DIR/lib/"
-    for subdir in watcher scanner bruteforce waf proactive cleanup threat_intel webshield ufw sshjail; do
+    for subdir in watcher scanner bruteforce waf proactive cleanup threat_intel webshield ufw sshjail crowdsec; do
         mkdir -p "$INSTALL_DIR/lib/$subdir"
         cp "$tmp_dir"/lib/$subdir/*.py "$INSTALL_DIR/lib/$subdir/" 2>/dev/null || true
     done

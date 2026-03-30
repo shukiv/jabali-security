@@ -94,6 +94,10 @@ DEFAULTS: dict[str, str] = {
     "SSHJAIL_ENABLED": "yes",
     "SSHJAIL_JAIL_DIR": "/var/jail",
     "SSH_SHELL_ACCESS_ENABLED": "no",
+    "CROWDSEC_ENABLED": "auto",
+    "CROWDSEC_LAPI_URL": "http://127.0.0.1:8080",
+    "CROWDSEC_BOUNCER_KEY": "",
+    "CROWDSEC_SYNC_INTERVAL": "10",
 }
 
 
@@ -278,6 +282,10 @@ class JabaliConfig:
     sshjail_enabled: bool = True
     sshjail_jail_dir: str = "/var/jail"
     ssh_shell_access_enabled: bool = True
+    crowdsec_enabled: str = "auto"
+    crowdsec_lapi_url: str = "http://127.0.0.1:8080"
+    crowdsec_bouncer_key: str = ""
+    crowdsec_sync_interval: int = 10
 
 
 def _safe_int(value: str, default: int, min_val: int | None = None, max_val: int | None = None) -> int:
@@ -401,4 +409,8 @@ def load_config(filepath: Path | None = None) -> JabaliConfig:
         sshjail_enabled=_bool(merged["SSHJAIL_ENABLED"]),
         sshjail_jail_dir=merged["SSHJAIL_JAIL_DIR"],
         ssh_shell_access_enabled=_bool(merged["SSH_SHELL_ACCESS_ENABLED"]),
+        crowdsec_enabled=merged["CROWDSEC_ENABLED"],
+        crowdsec_lapi_url=merged["CROWDSEC_LAPI_URL"],
+        crowdsec_bouncer_key=merged["CROWDSEC_BOUNCER_KEY"],
+        crowdsec_sync_interval=_safe_int(merged["CROWDSEC_SYNC_INTERVAL"], 10, min_val=5, max_val=300),
     )

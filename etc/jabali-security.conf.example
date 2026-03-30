@@ -274,3 +274,17 @@ SSHJAIL_JAIL_DIR="/var/jail"
 # Allow shell access for hosting users (disable to force SFTP-only)
 SSH_SHELL_ACCESS_ENABLED="no"
 
+# -- CrowdSec (Community Threat Intelligence) --------------------------------
+
+# Enable CrowdSec LAPI integration: "auto" (detect if running), "yes", "no"
+CROWDSEC_ENABLED="auto"
+
+# CrowdSec Local API URL (default: localhost:8080)
+CROWDSEC_LAPI_URL="http://127.0.0.1:8080"
+
+# Bouncer API key (generated via: cscli bouncers add jabali-security -o raw)
+CROWDSEC_BOUNCER_KEY=""
+
+# Polling interval in seconds for decision stream updates
+CROWDSEC_SYNC_INTERVAL="10"
+

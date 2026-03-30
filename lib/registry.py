@@ -24,6 +24,7 @@ from lib.queue import ScanQueue
 from lib.response import ResponseEngine
 from lib.scanner import ScanOrchestrator
 from lib.scoring import ScoringEngine
+from lib.crowdsec.client import CrowdSecClient
 from lib.threat_intel.feed_manager import FeedManager
 from lib.waf.audit_log_parser import ModSecAuditLogParser
 from lib.waf.rule_manager import WafRuleManager
@@ -65,6 +66,7 @@ class ComponentRegistry:
     webshield: WebShieldManager | None = None
     ufw: UFWManager | None = None
     sshjail: SSHJailManager | None = None
+    crowdsec: CrowdSecClient | None = None
 
     @classmethod
     async def build(cls, config: JabaliConfig, disabled: set[str] | None = None) -> ComponentRegistry:
@@ -122,6 +124,9 @@ class ComponentRegistry:
         sshjail = (
             _build_sshjail(config) if "sshjail" not in disabled else None
         )
+        crowdsec = (
+            _build_crowdsec(config) if "crowdsec" not in disabled else None
+        )
 
         return cls(
             config=config,
@@ -148,6 +153,7 @@ class ComponentRegistry:
             webshield=webshield,
             ufw=ufw,
             sshjail=sshjail,
+            crowdsec=crowdsec,
         )
 
     async def __aenter__(self) -> ComponentRegistry:
@@ -193,6 +199,7 @@ class ComponentRegistry:
         app["webshield"] = self.webshield
         app["ufw"] = self.ufw
         app["sshjail"] = self.sshjail
+        app["crowdsec"] = self.crowdsec
 
     def background_tasks(self, daemon) -> list:
         tasks = []
@@ -213,6 +220,10 @@ class ComponentRegistry:
         if self.feed_manager is not None:
             tasks.append(self.feed_manager.run_periodic_updates(
                 interval_hours=self.config.threat_intel_update_interval,
+            ))
+        if self.crowdsec is not None:
+            tasks.append(self.crowdsec.run_sync_loop(
+                interval=self.config.crowdsec_sync_interval,
             ))
         return tasks
 
@@ -322,6 +333,20 @@ def _build_sshjail(config: JabaliConfig) -> SSHJailManager | None:
         return None
     logger.info("SSH jail management enabled -- jail dir: %s", config.sshjail_jail_dir)
     return SSHJailManager(jail_dir=config.sshjail_jail_dir)
+
+
+def _build_crowdsec(config: JabaliConfig) -> CrowdSecClient | None:
+    if config.crowdsec_enabled == "no":
+        return None
+    if not config.crowdsec_bouncer_key:
+        if config.crowdsec_enabled == "yes":
+            logger.warning("CrowdSec enabled but no bouncer key configured")
+        return None
+    logger.info("CrowdSec LAPI client initialized: %s", config.crowdsec_lapi_url)
+    return CrowdSecClient(
+        lapi_url=config.crowdsec_lapi_url,
+        api_key=config.crowdsec_bouncer_key,
+    )
 
 
 def _build_ufw(config: JabaliConfig) -> UFWManager | None:
