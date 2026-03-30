@@ -439,7 +439,7 @@ class Security extends Page implements HasActions, HasForms
     {
         $s = $this->client()->get('/ssh/sshd-settings') ?? [];
         $passAuth = $s['password_auth'] ?? true;
-        $port = $s['port'] ?? 22;
+        $port = (int) ($s['port'] ?? 22);
 
         $jailEnabled = in_array($this->moduleStates['SSHJAIL_ENABLED'] ?? false, [true, 'yes', '1', 1]);
 

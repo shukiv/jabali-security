@@ -36,10 +36,12 @@ class NginxConfigGenerator:
         for rule in rules:
             if not rule.enabled:
                 continue
+            # Sanitize pattern to prevent nginx config injection
+            safe_pattern = rule.pattern.replace("'", "").replace(";", "").replace("{", "").replace("}", "").replace("\n", "")
             if rule.action == "block":
-                lines.append("    '~*%s' 'block';" % rule.pattern)
+                lines.append("    '~*%s' 'block';" % safe_pattern)
             elif rule.action == "challenge":
-                lines.append("    '~*%s' 'challenge';" % rule.pattern)
+                lines.append("    '~*%s' 'challenge';" % safe_pattern)
             # "allow" rules don't need map entries (default is pass)
         lines.append("}")
         lines.append("")

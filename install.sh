@@ -380,12 +380,18 @@ if 'JabaliSecurityPlugin' not in c and '->middleware([' in c:
     # -- Generate API_KEY if not set --
     if ! grep -q "^API_KEY=" "$CONFIG_DIR/jabali-security.conf" 2>/dev/null || \
        grep -q '^API_KEY=""' "$CONFIG_DIR/jabali-security.conf" 2>/dev/null; then
-        api_key="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))' 2>/dev/null || head -c 32 /dev/urandom | base64 | tr -d '/+=' | head -c 43)"
-        if grep -q "^API_KEY=" "$CONFIG_DIR/jabali-security.conf"; then
-            sed -i "s|^API_KEY=.*|API_KEY=\"${api_key}\"|" "$CONFIG_DIR/jabali-security.conf"
-        else
-            echo "API_KEY=\"${api_key}\"" >> "$CONFIG_DIR/jabali-security.conf"
-        fi
+        # Generate key and write directly to config (avoid exposing in /proc/*/cmdline)
+        python3 -c "
+import secrets, re, sys
+key = secrets.token_urlsafe(32)
+path = sys.argv[1]
+with open(path) as f: content = f.read()
+if 'API_KEY=' in content:
+    content = re.sub(r'^API_KEY=.*', 'API_KEY=\"' + key + '\"', content, flags=re.MULTILINE)
+else:
+    content += '\nAPI_KEY=\"' + key + '\"\n'
+with open(path, 'w') as f: f.write(content)
+" "$CONFIG_DIR/jabali-security.conf"
         if id www-data &>/dev/null; then
             chown root:www-data "$CONFIG_DIR/jabali-security.conf"
             chmod 640 "$CONFIG_DIR/jabali-security.conf"
@@ -587,6 +593,9 @@ WAFEOF
         cat >> /etc/ssh/sshd_config << 'SSHJAIL'
 
 # Jabali SSH Jail Configuration
+LoginGraceTime 60
+MaxStartups 10:30:60
+
 # SFTP-only users (default for all panel users)
 Match Group sftpusers
     ChrootDirectory /home/%u
@@ -911,6 +920,9 @@ do_update() {
             cat >> /etc/ssh/sshd_config << 'SSHJAIL'
 
 # Jabali SSH Jail Configuration
+LoginGraceTime 60
+MaxStartups 10:30:60
+
 # SFTP-only users (default for all panel users)
 Match Group sftpusers
     ChrootDirectory /home/%u

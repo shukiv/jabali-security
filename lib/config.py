@@ -319,6 +319,18 @@ def load_config(filepath: Path | None = None) -> JabaliConfig:
     merged = dict(DEFAULTS)
     merged.update(parse_conf(filepath))
 
+    # Warn if config file is world-readable while containing an API key
+    import stat
+    try:
+        mode = os.stat(filepath).st_mode
+        if mode & stat.S_IROTH and merged.get("API_KEY"):
+            logger.warning(
+                "Config file %s is world-readable (mode %04o) but contains API_KEY. "
+                "Fix with: chmod 640 %s", filepath, stat.S_IMODE(mode), filepath,
+            )
+    except OSError:
+        pass
+
     api_bind = merged["API_BIND"]
     if api_bind and api_bind not in ("127.0.0.1", "::1", "localhost", "0.0.0.0"):  # noqa: S104
         logger.warning(

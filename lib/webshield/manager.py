@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import re
 import shutil
 from datetime import datetime, timedelta, timezone
@@ -175,7 +176,21 @@ class WebShieldManager:
         for marker in ("modsecurity on;", "http {"):
             if marker in content:
                 content = content.replace(marker, marker + "\n" + include_line, 1)
-                self._NGINX_CONF.write_text(content)
+                # Atomic write to prevent corruption on crash
+                import tempfile
+                fd, tmp = tempfile.mkstemp(dir=str(self._NGINX_CONF.parent), prefix=".nginx.jabali.")
+                try:
+                    os.write(fd, content.encode())
+                    os.close(fd)
+                    os.chmod(tmp, 0o644)
+                    os.rename(tmp, str(self._NGINX_CONF))
+                except OSError:
+                    os.close(fd) if not os.get_inheritable(fd) else None
+                    try:
+                        os.unlink(tmp)
+                    except OSError:
+                        pass
+                    raise
                 logger.info("Added WebShield http include to nginx.conf")
                 return
 

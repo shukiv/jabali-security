@@ -117,6 +117,19 @@ class NotificationEngine:
             logger.error("Invalid webhook scheme: %s (must be http or https)", parsed.scheme)
             return
 
+        # Reject private/loopback IPs to prevent SSRF
+        import ipaddress
+        import socket
+        try:
+            resolved = socket.getaddrinfo(parsed.hostname, None)[0][4][0]
+            addr = ipaddress.ip_address(resolved)
+            if addr.is_private or addr.is_loopback or addr.is_link_local:
+                logger.error("Webhook URL resolves to private/loopback address: %s -> %s", parsed.hostname, resolved)
+                return
+        except (socket.gaierror, ValueError):
+            logger.error("Cannot resolve webhook hostname: %s", parsed.hostname)
+            return
+
         payload = {
             "event": "security_incident",
             "incident": {

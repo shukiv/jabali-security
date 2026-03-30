@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hmac
 import resource
 import time
 from datetime import datetime, timezone
@@ -20,9 +21,25 @@ def setup_routes(app: web.Application) -> None:
 
 
 async def get_health(request: web.Request) -> web.Response:
+    # Unauthenticated endpoint — return minimal status only
+    config = request.app.get("config")
+    has_key = bool(config and config.api_key)
+    provided = request.headers.get("X-API-Key", "")
+
+    # If authenticated, return detailed status
+    if has_key and provided and hmac.compare_digest(provided, config.api_key):
+        return await _get_health_detailed(request)
+
+    # Unauthenticated: minimal status only (no component details)
+    start_time = request.app.get("start_time")
+    uptime_seconds = round(time.time() - start_time, 1) if start_time else 0
+    return _ok({"status": "healthy" if uptime_seconds > 0 else "unknown"})
+
+
+async def _get_health_detailed(request: web.Request) -> web.Response:
+    """Detailed health check — requires authentication."""
     components: dict[str, str] = {}
 
-    # Database check (short timeout)
     incidents = request.app.get("incidents")
     if incidents and incidents._db is not None:
         try:
@@ -33,11 +50,9 @@ async def get_health(request: web.Request) -> web.Response:
     else:
         components["database"] = "unavailable"
 
-    # Scanner check
     scanner = request.app.get("scanner")
     components["scanner"] = "ok" if scanner is not None else "unavailable"
 
-    # Watcher check
     daemon = request.app.get("daemon")
     if daemon and daemon._registry and daemon._registry.watcher:
         watcher = daemon._registry.watcher
@@ -45,11 +60,9 @@ async def get_health(request: web.Request) -> web.Response:
     else:
         components["watcher"] = "unavailable"
 
-    # Uptime
     start_time = request.app.get("start_time")
     uptime_seconds = round(time.time() - start_time, 1) if start_time else 0
 
-    # Overall status
     has_error = any(v.startswith("error") for v in components.values())
     status = "degraded" if has_error else "healthy"
 
