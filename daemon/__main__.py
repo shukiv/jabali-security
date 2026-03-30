@@ -462,8 +462,19 @@ def update() -> None:
 
     # Restart services
     subprocess.run(["/usr/bin/systemctl", "restart", "jabali-security"], capture_output=True)  # noqa: S603
-    # Restart Jabali Panel if plugin was updated (FrankenPHP caches PHP in memory)
+    # Clear Laravel caches + restart panel (FrankenPHP caches PHP in worker mode)
     if os.path.isdir("/var/www/jabali/app/JabaliSecurity"):
+        # Regenerate autoload so Filament discovers the updated plugin classes
+        subprocess.run(  # noqa: S603
+            ["/usr/local/bin/composer", "dump-autoload", "-q"],
+            cwd="/var/www/jabali", capture_output=True, timeout=30,
+        )
+        # Clear Filament component cache + views
+        for artisan_cmd in [["filament:cache-components"], ["view:clear"]]:
+            subprocess.run(  # noqa: S603
+                ["/usr/bin/php", "artisan"] + artisan_cmd,
+                cwd="/var/www/jabali", capture_output=True, timeout=15,
+            )
         subprocess.run(["/usr/bin/systemctl", "restart", "jabali-panel"], capture_output=True)  # noqa: S603
 
     click.echo("Updated successfully. Services restarted.")
