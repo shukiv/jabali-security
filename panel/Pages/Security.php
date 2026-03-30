@@ -52,6 +52,11 @@ class Security extends Page implements HasActions, HasForms
 
     protected static ?string $slug = 'security';
 
+    public static function canAccess(): bool
+    {
+        return auth()->user()?->isAdmin() ?? false;
+    }
+
     protected string $view = 'jabali-security::security';
 
     #[Url(as: 'tab')]
@@ -90,8 +95,24 @@ class Security extends Page implements HasActions, HasForms
         $this->moduleStates['SSHJAIL_ENABLED'] = in_array($config['SSHJAIL_ENABLED'] ?? 'no', ['yes', 'true', '1']);
     }
 
+    /** Keys allowed through moduleStates Livewire binding. */
+    private static function allowedModuleKeys(): array
+    {
+        $keys = ['SSHJAIL_ENABLED'];
+        foreach (static::getModuleToggles() as $group) {
+            foreach ($group as $key => $mod) {
+                $keys[] = $key;
+            }
+        }
+        return $keys;
+    }
+
     public function updatedModuleStates($value, string $key): void
     {
+        if (! in_array($key, static::allowedModuleKeys(), true)) {
+            return;
+        }
+
         $newValue = $value ? 'yes' : 'no';
         $this->client()->patch('/config', [$key => $newValue]);
 

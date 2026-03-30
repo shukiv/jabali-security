@@ -659,8 +659,12 @@ SSHJAIL
     chown root:root /var/jail
     chmod 755 /var/jail
 
-    # Restart SSH
-    systemctl restart sshd 2>/dev/null || systemctl restart ssh 2>/dev/null || true
+    # Validate config before restarting SSH
+    if sshd -t 2>/dev/null; then
+        systemctl restart sshd 2>/dev/null || systemctl restart ssh 2>/dev/null || true
+    else
+        red "WARNING: sshd config test failed! SSH not restarted. Fix /etc/ssh/sshd_config manually."
+    fi
     ) || true
     done_ok "SSH hardened (SFTP jail + shell jail with wp-cli)"
 

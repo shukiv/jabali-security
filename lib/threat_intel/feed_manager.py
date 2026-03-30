@@ -107,7 +107,10 @@ class FeedManager:
                 req = Request(_HASH_FEEDS["malwarebazaar_recent"], data=data, method="POST")  # noqa: S310
                 req.add_header("Content-Type", "application/x-www-form-urlencoded")
                 with urlopen(req, timeout=30) as resp:  # noqa: S310
-                    return json.loads(resp.read().decode())
+                    raw = resp.read(50 * 1024 * 1024 + 1)
+                    if len(raw) > 50 * 1024 * 1024:
+                        raise ValueError("MalwareBazaar response too large")
+                    return json.loads(raw.decode())
 
             result = await asyncio.to_thread(_fetch)
             if result.get("query_status") != "ok":
@@ -132,12 +135,17 @@ class FeedManager:
             logger.exception("Failed to update MalwareBazaar feed")
             return False
 
+    _MAX_FEED_SIZE = 50 * 1024 * 1024  # 50MB
+
     @staticmethod
-    def _http_get(url: str) -> str:
-        """Download URL content. Synchronous -- run in executor."""
+    def _http_get(url: str, max_size: int = 50 * 1024 * 1024) -> str:
+        """Download URL content with size limit. Synchronous -- run in executor."""
         req = Request(url, headers={"User-Agent": "jabali-security"})  # noqa: S310
         with urlopen(req, timeout=30) as resp:  # noqa: S310
-            return resp.read().decode("utf-8", errors="replace")
+            data = resp.read(max_size + 1)
+            if len(data) > max_size:
+                raise ValueError("Feed response exceeds %d bytes" % max_size)
+            return data.decode("utf-8", errors="replace")
 
     def check_ip(self, ip: str) -> ReputationResult:
         """Check an IP against all loaded feeds."""

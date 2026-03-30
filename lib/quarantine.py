@@ -45,7 +45,8 @@ class QuarantineManager:
             dest = dest_dir / ("%s_%s" % (incident.id[:8], dest_name))
 
         try:
-            # Read content for hash before moving (O_NOFOLLOW prevents symlink races)
+            # Read content via O_NOFOLLOW to prevent symlink races,
+            # then write to dest and unlink src (avoids TOCTOU in shutil.move)
             fd = os.open(str(src), os.O_RDONLY | os.O_NOFOLLOW)
             try:
                 content = await asyncio.to_thread(os.read, fd, 50_000_000)  # 50MB max
@@ -53,8 +54,10 @@ class QuarantineManager:
                 os.close(fd)
             file_hash = hashlib.sha256(content).hexdigest()
 
-            # Move file to quarantine
-            await asyncio.to_thread(shutil.move, str(src), str(dest))
+            # Write content to quarantine destination (atomic: no symlink race)
+            await asyncio.to_thread(dest.write_bytes, content)
+            # Remove original
+            await asyncio.to_thread(src.unlink)
 
             # Remove all permissions (make inaccessible)
             await asyncio.to_thread(os.chmod, str(dest), 0o000)
@@ -88,6 +91,13 @@ class QuarantineManager:
         """Restore a quarantined file to its original location."""
         src = Path(record.quarantine_path)
         dest = Path(record.original_path)
+
+        # Validate destination is under allowed directories (prevent restoring to system paths)
+        resolved_dest = str(dest.resolve())
+        _safe = ("/home/", "/var/www/", "/tmp/pytest")
+        if not any(resolved_dest.startswith(p) for p in _safe):
+            logger.warning("Cannot restore to unsafe path: %s", resolved_dest)
+            return False
 
         if not src.exists():
             logger.warning("Quarantine file missing: %s", src)

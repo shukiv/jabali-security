@@ -20,7 +20,9 @@ async def api_key_auth(request: web.Request, handler):
 
     config = request.app["config"]
     if not config.api_key:
-        # No key configured -- warn but allow (Phase 1 compat)
+        # No key configured — allow only via Unix socket (localhost-only fallback)
+        if config.api_bind not in ("127.0.0.1", "::1", "localhost", ""):
+            raise web.HTTPForbidden(text="API key required when binding to non-loopback address")
         return await handler(request)
 
     provided = request.headers.get("X-API-Key", "")

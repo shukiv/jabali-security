@@ -2,11 +2,26 @@
 
 from __future__ import annotations
 
+import re
+
 from aiohttp import web
 
 from api.routes.helpers import _err, _ok
 from lib.config import DEFAULTS, load_config, update_conf_key
 from lib.constants import CONFIG_FILE
+
+# Keys that cannot be changed via the REST API
+_READONLY_KEYS = {"API_KEY", "API_BIND", "API_PORT"}
+
+# Keys whose values must be valid filesystem paths under safe directories
+_PATH_KEYS = {
+    "LOG_DIR", "DATA_DIR", "QUARANTINE_DIR", "YARA_RULES_DIR",
+    "WAF_RULES_DIR", "WAF_OVERRIDES_FILE", "WAF_NGINX_INCLUDE", "WAF_AUDIT_LOG",
+    "SSHJAIL_JAIL_DIR", "CLAMAV_SOCKET",
+}
+_SAFE_PATH_PREFIXES = ("/var/", "/etc/jabali-security/", "/usr/local/jabali-security/")
+
+_SAFE_PATH_RE = re.compile(r"^[a-zA-Z0-9/_.\-]+$")
 
 
 def setup_routes(app: web.Application) -> None:
@@ -47,6 +62,19 @@ async def patch_config(request: web.Request) -> web.Response:
     invalid_keys = [k for k in body if k not in DEFAULTS]
     if invalid_keys:
         return _err("Unknown config keys: %s" % ", ".join(invalid_keys))
+
+    readonly_hit = [k for k in body if k in _READONLY_KEYS]
+    if readonly_hit:
+        return _err("Cannot modify read-only keys via API: %s" % ", ".join(readonly_hit))
+
+    # Validate path-type values
+    for key, value in body.items():
+        if key in _PATH_KEYS:
+            sv = str(value)
+            if ".." in sv or not _SAFE_PATH_RE.match(sv):
+                return _err("Invalid path for %s" % key)
+            if not any(sv.startswith(p) for p in _SAFE_PATH_PREFIXES):
+                return _err("Path for %s must be under a system directory" % key)
 
     updated = {}
     for key, value in body.items():

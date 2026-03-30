@@ -184,14 +184,28 @@ class SSHJailManager:
         key_path = os.path.join(tmp_dir, "key")
 
         try:
+            # Generate key with empty passphrase first, then set passphrase
+            # via stdin to avoid leaking it in /proc/*/cmdline
             cmd = [
                 "ssh-keygen",
                 "-t", key_type,
                 "-f", key_path,
-                "-N", passphrase,
+                "-N", "",
                 "-C", name,
             ]
             rc, stdout, stderr = await self._run(cmd)
+            if rc != 0:
+                raise RuntimeError("ssh-keygen failed")
+
+            # Set passphrase via stdin if provided
+            if passphrase:
+                rc2, _, stderr2 = await self._run(
+                    ["ssh-keygen", "-p", "-f", key_path],
+                    stdin_data="\n%s\n%s\n" % (passphrase, passphrase),
+                )
+                if rc2 != 0:
+                    logger.warning("Failed to set passphrase: %s", stderr2)
+            rc = 0  # Already checked above
             if rc != 0:
                 raise RuntimeError("ssh-keygen failed")
 
@@ -746,7 +760,9 @@ class SSHJailManager:
             raise ValueError(f"System user {username!r} (UID {uid}) is not allowed")
 
     @staticmethod
-    async def _run(cmd: list[str], timeout: int = 30) -> tuple[int, str, str]:
+    async def _run(
+        cmd: list[str], timeout: int = 30, stdin_data: str | None = None,
+    ) -> tuple[int, str, str]:
         """Run a command, return (exit_code, stdout, stderr). Never uses shell.
 
         Note: stdout/stderr may contain internal system details and must
@@ -755,10 +771,14 @@ class SSHJailManager:
         try:
             proc = await asyncio.create_subprocess_exec(
                 *cmd,
+                stdin=asyncio.subprocess.PIPE if stdin_data else asyncio.subprocess.DEVNULL,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+            stdin_bytes = stdin_data.encode() if stdin_data else None
+            stdout, stderr = await asyncio.wait_for(
+                proc.communicate(input=stdin_bytes), timeout=timeout,
+            )
             return (
                 proc.returncode or 0,
                 stdout.decode(errors="replace"),

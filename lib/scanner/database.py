@@ -32,6 +32,9 @@ _JOOMLA_SCAN_TARGETS = [
 ]
 
 
+_SAFE_IDENTIFIER_RE = re.compile(r"^[a-zA-Z0-9_]{1,64}$")
+
+
 class DatabaseScanner:
     """Scan MySQL databases for injected malware payloads."""
 
@@ -51,6 +54,12 @@ class DatabaseScanner:
         """Scan a database for malware. Returns list of findings."""
         if not self._enabled:
             return []
+
+        # Defense-in-depth: validate all identifiers internally
+        for label, val in [("db_name", db_name), ("db_user", db_user), ("db_host", db_host), ("table_prefix", table_prefix)]:
+            if not _SAFE_IDENTIFIER_RE.match(val.rstrip("_")):
+                logger.warning("Rejected unsafe %s: %r", label, val)
+                return []
 
         targets = _WP_SCAN_TARGETS if cms_type == "wordpress" else _JOOMLA_SCAN_TARGETS
         findings: list[dict] = []

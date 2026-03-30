@@ -5,6 +5,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import os
 from pathlib import Path
 from urllib.request import Request, urlopen
 
@@ -60,14 +61,21 @@ class CMSCleaner:
         if not p.is_file():
             return CleanupResult(path=path, strategy="error", success=False, error="File not found")
 
+        if p.is_symlink():
+            return CleanupResult(path=path, strategy="error", success=False, error="Symlinks not allowed")
+
         username = resolve_user(path)
 
         # Detect CMS
         cms = self.detect_cms(path)
 
-        # Read content
+        # Read content via O_NOFOLLOW to prevent TOCTOU symlink races
         try:
-            content = await asyncio.to_thread(p.read_bytes)
+            fd = os.open(str(p), os.O_RDONLY | os.O_NOFOLLOW)
+            try:
+                content = os.read(fd, 50_000_000)  # 50MB max
+            finally:
+                os.close(fd)
         except OSError as exc:
             return CleanupResult(path=path, strategy="error", success=False, error=str(exc), username=username)
 
@@ -155,10 +163,14 @@ class CMSCleaner:
                 error="No known injection patterns found", username=username,
             )
 
-        # Create backup before cleaning
+        # Create backup before cleaning (O_CREAT|O_EXCL prevents symlink attack)
         backup_path = str(p) + ".jabali-backup"
         try:
-            await asyncio.to_thread(Path(backup_path).write_bytes, content)
+            bfd = os.open(backup_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o644)
+            try:
+                os.write(bfd, content)
+            finally:
+                os.close(bfd)
         except OSError:
             backup_path = ""
 
