@@ -765,6 +765,43 @@ do_update() {
     # Clean up
     rm -rf "$tmp_dir"
 
+    # -- Patch sshd_config: ensure PasswordAuthentication no in Match blocks --
+    if [ -f /etc/ssh/sshd_config ] && grep -q "Jabali SSH Jail" /etc/ssh/sshd_config; then
+        # Check if Match blocks already have PasswordAuthentication
+        if ! sed -n '/Match Group sftpusers/,/Match Group\|# End/p' /etc/ssh/sshd_config | grep -q "PasswordAuthentication"; then
+            echo "Patching sshd_config: adding PasswordAuthentication to Match blocks..."
+            sed -i '/# Jabali SSH Jail Configuration/,/# End Jabali SSH Jail/d' /etc/ssh/sshd_config
+            cat >> /etc/ssh/sshd_config << 'SSHJAIL'
+
+# Jabali SSH Jail Configuration
+# SFTP-only users (default for all panel users)
+Match Group sftpusers
+    ChrootDirectory /home/%u
+    ForceCommand internal-sftp
+    PasswordAuthentication no
+    AllowTcpForwarding no
+    AllowAgentForwarding no
+    PermitTTY no
+    X11Forwarding no
+
+# Shell users (jailed with limited commands)
+Match Group shellusers
+    ChrootDirectory /var/jail
+    PasswordAuthentication no
+    AllowTcpForwarding no
+    AllowAgentForwarding no
+    X11Forwarding no
+# End Jabali SSH Jail
+SSHJAIL
+            if sshd -t 2>/dev/null; then
+                systemctl reload sshd 2>/dev/null || systemctl reload ssh 2>/dev/null || true
+                echo "  sshd_config patched and reloaded."
+            else
+                echo "  WARNING: sshd config test failed after patching!"
+            fi
+        fi
+    fi
+
     # -- Update systemd service files --
     cp "$INSTALL_DIR/etc/jabali-security.service" /etc/systemd/system/
     systemctl daemon-reload 2>/dev/null || true
