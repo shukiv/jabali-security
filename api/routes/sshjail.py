@@ -205,6 +205,8 @@ async def post_ssh_key_generate(request: web.Request) -> web.Response:
     passphrase = body.get("passphrase", "")
     if not isinstance(passphrase, str):
         return _err("Passphrase must be a string")
+    if "\n" in passphrase or "\r" in passphrase or "\0" in passphrase:
+        return _err("Passphrase must not contain newline or null characters")
 
     logger.info("SSH generate key: name=%s type=%s", name, key_type)
     try:

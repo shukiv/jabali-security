@@ -594,8 +594,16 @@ Match Group sftpusers
     PasswordAuthentication no
     AllowTcpForwarding no
     AllowAgentForwarding no
+    AllowStreamLocalForwarding no
     PermitTTY no
+    PermitTunnel no
+    PermitOpen none
+    PermitListen none
+    PermitUserRC no
     X11Forwarding no
+    MaxSessions 2
+    ClientAliveInterval 300
+    ClientAliveCountMax 2
 
 # Shell users (jailed with limited commands)
 Match Group shellusers
@@ -603,7 +611,15 @@ Match Group shellusers
     PasswordAuthentication no
     AllowTcpForwarding no
     AllowAgentForwarding no
+    AllowStreamLocalForwarding no
+    PermitTunnel no
+    PermitOpen none
+    PermitListen none
+    PermitUserRC no
     X11Forwarding no
+    MaxSessions 5
+    ClientAliveInterval 300
+    ClientAliveCountMax 3
 # End Jabali SSH Jail
 SSHJAIL
         echo "  SSH jail rules added (sftpusers + shellusers)"
@@ -615,8 +631,9 @@ SSHJAIL
     mkdir -p /var/jail/usr/lib/x86_64-linux-gnu
 
     # Copy essential binaries to jail
-    # Core shell utilities + VS Code Remote SSH requirements (tar, gzip, wget, curl, etc.)
-    JAIL_BINS="bash sh ls cat cp mv rm mkdir rmdir pwd echo head tail grep sed awk wc sort uniq cut tr touch chmod find which tar gzip gunzip wget curl dirname basename uname id readlink hostname date xargs tee dd"
+    # Core shell utilities + VS Code Remote SSH requirements (tar, gzip, etc.)
+    # No wget/curl/dd — prevents downloading and executing arbitrary binaries
+    JAIL_BINS="bash sh ls cat cp mv rm mkdir rmdir pwd echo head tail grep sed awk wc sort uniq cut tr touch chmod find which tar gzip gunzip dirname basename uname id readlink hostname date xargs tee"
     for bin in $JAIL_BINS; do
         if [ -f "/bin/$bin" ]; then
             cp "/bin/$bin" /var/jail/bin/ 2>/dev/null || true
@@ -659,17 +676,6 @@ SSHJAIL
         done
     done
 
-    # Copy CA certificates (needed by wget/curl for HTTPS in VS Code Remote)
-    if [ -d /etc/ssl/certs ]; then
-        mkdir -p /var/jail/etc/ssl
-        cp -r /etc/ssl/certs /var/jail/etc/ssl/ 2>/dev/null || true
-        [ -f /etc/ssl/cert.pem ] && cp /etc/ssl/cert.pem /var/jail/etc/ssl/ 2>/dev/null || true
-    fi
-    [ -d /usr/share/ca-certificates ] && {
-        mkdir -p /var/jail/usr/share
-        cp -r /usr/share/ca-certificates /var/jail/usr/share/ 2>/dev/null || true
-    }
-
     # Copy PHP extensions for wp-cli
     PHP_EXT_DIR=$(php -i 2>/dev/null | grep "^extension_dir" | awk '{print $3}')
     if [ -d "$PHP_EXT_DIR" ]; then
@@ -687,6 +693,15 @@ SSHJAIL
         mkdir -p "/var/jail/etc/php/$php_ver/cli/conf.d"
         cp "/etc/php/$php_ver/cli/php.ini" "/var/jail/etc/php/$php_ver/cli/" 2>/dev/null || true
         sed -i 's/;date.timezone =/date.timezone = UTC/' "/var/jail/etc/php/$php_ver/cli/php.ini" 2>/dev/null || true
+        # Harden PHP for jail: disable dangerous functions, restrict open_basedir
+        cat >> "/var/jail/etc/php/$php_ver/cli/php.ini" << 'PHPJAIL'
+
+; Jabali jail hardening
+disable_functions = exec,system,shell_exec,passthru,popen,proc_open,pcntl_exec,pcntl_fork,pcntl_signal,pcntl_alarm,dl
+open_basedir = /home/:/tmp/:/var/jail/tmp/
+allow_url_fopen = Off
+allow_url_include = Off
+PHPJAIL
         for f in /etc/php/"$php_ver"/cli/conf.d/*.ini; do
             if [ -L "$f" ]; then
                 cp "$(readlink -f "$f")" "/var/jail/etc/php/$php_ver/cli/conf.d/$(basename "$f")" 2>/dev/null || true
@@ -713,15 +728,22 @@ SSHJAIL
     fi
     # Add /proc mount to fstab for persistence
     if ! grep -q "jabali-jail-proc" /etc/fstab 2>/dev/null; then
-        echo "proc /var/jail/proc proc hidepid=2 0 0 # jabali-jail-proc" >> /etc/fstab
+        echo "proc /var/jail/proc proc hidepid=2,nosuid,nodev,noexec 0 0 # jabali-jail-proc" >> /etc/fstab
     fi
 
     # /dev/fd symlink (needed by bash process substitution)
     ln -sf /proc/self/fd /var/jail/dev/fd 2>/dev/null || true
 
-    # Ensure /tmp is writable in jail
+    # Mount /tmp in jail as tmpfs with noexec (prevents staging downloaded exploits)
     mkdir -p /var/jail/tmp
-    chmod 1777 /var/jail/tmp
+    if ! mountpoint -q /var/jail/tmp 2>/dev/null; then
+        mount -t tmpfs -o size=100M,noexec,nosuid,nodev,mode=1777 tmpfs /var/jail/tmp 2>/dev/null || {
+            chmod 1777 /var/jail/tmp  # Fallback if tmpfs mount fails
+        }
+    fi
+    if ! grep -q "jabali-jail-tmp" /etc/fstab 2>/dev/null; then
+        echo "tmpfs /var/jail/tmp tmpfs size=100M,noexec,nosuid,nodev,mode=1777 0 0 # jabali-jail-tmp" >> /etc/fstab
+    fi
 
     # Create minimal /etc files in jail
     grep -E "^(root|nobody)" /etc/passwd > /var/jail/etc/passwd 2>/dev/null || true
@@ -896,8 +918,16 @@ Match Group sftpusers
     PasswordAuthentication no
     AllowTcpForwarding no
     AllowAgentForwarding no
+    AllowStreamLocalForwarding no
     PermitTTY no
+    PermitTunnel no
+    PermitOpen none
+    PermitListen none
+    PermitUserRC no
     X11Forwarding no
+    MaxSessions 2
+    ClientAliveInterval 300
+    ClientAliveCountMax 2
 
 # Shell users (jailed with limited commands)
 Match Group shellusers
@@ -905,7 +935,15 @@ Match Group shellusers
     PasswordAuthentication no
     AllowTcpForwarding no
     AllowAgentForwarding no
+    AllowStreamLocalForwarding no
+    PermitTunnel no
+    PermitOpen none
+    PermitListen none
+    PermitUserRC no
     X11Forwarding no
+    MaxSessions 5
+    ClientAliveInterval 300
+    ClientAliveCountMax 3
 # End Jabali SSH Jail
 SSHJAIL
             if sshd -t 2>/dev/null; then

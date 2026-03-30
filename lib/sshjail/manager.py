@@ -205,9 +205,6 @@ class SSHJailManager:
                 )
                 if rc2 != 0:
                     logger.warning("Failed to set passphrase: %s", stderr2)
-            rc = 0  # Already checked above
-            if rc != 0:
-                raise RuntimeError("ssh-keygen failed")
 
             with open(key_path, "r") as fh:
                 private_key = fh.read()
@@ -334,7 +331,8 @@ class SSHJailManager:
         async with self._lock:
             try:
                 with open(self._SSHD_CONFIG, "r") as fh:
-                    lines = fh.readlines()
+                    original_content = fh.read()
+                    lines = original_content.splitlines(keepends=True)
             except OSError as exc:
                 logger.error("Failed to read sshd_config: %s", exc)
                 return False
@@ -383,19 +381,21 @@ class SSHJailManager:
                     pass
                 raise
 
-        # Validate config before reloading
-        rc, _, stderr = await self._run(["sshd", "-t"])
-        if rc != 0:
-            logger.error("sshd config test failed: %s", stderr)
-            return False
+            # Validate config before reloading (inside lock to prevent TOCTOU)
+            rc, _, stderr = await self._run(["sshd", "-t"])
+            if rc != 0:
+                logger.error("sshd config test failed, rolling back: %s", stderr)
+                # Restore original config
+                with open(self._SSHD_CONFIG, "w") as fh:
+                    fh.write(original_content)
+                return False
 
-        # Reload sshd
-        rc, _, _ = await self._run(["systemctl", "reload", "sshd"])
-        if rc != 0:
-            # Try ssh service name (Debian/Ubuntu)
-            rc, _, _ = await self._run(["systemctl", "reload", "ssh"])
+            # Reload sshd
+            rc, _, _ = await self._run(["systemctl", "reload", "sshd"])
+            if rc != 0:
+                rc, _, _ = await self._run(["systemctl", "reload", "ssh"])
 
-        return rc == 0
+            return rc == 0
 
     # ------------------------------------------------------------------
     # Shell management
@@ -493,12 +493,12 @@ class SSHJailManager:
         jail_home = os.path.join(self._jail_dir, "home", username)
         real_home = f"/home/{username}"
 
-        os.makedirs(jail_home, mode=0o755, exist_ok=True)
+        os.makedirs(jail_home, mode=0o700, exist_ok=True)
         # Ensure /tmp exists in jail (needed by PHP proc_open / wp-cli)
         os.makedirs(os.path.join(self._jail_dir, "tmp"), mode=0o1777, exist_ok=True)
 
         fstab_line = (
-            f"{real_home} {jail_home} none bind 0 0"
+            f"{real_home} {jail_home} none bind,nosuid,nodev 0 0"
             f" # jabali-ssh:{username}\n"
         )
 
@@ -539,9 +539,10 @@ class SSHJailManager:
 
         os.makedirs(os.path.join(self._jail_dir, "etc"), mode=0o755, exist_ok=True)
 
+        # Use jail-relative paths; clear GECOS to avoid leaking personal info
         passwd_line = (
             f"{pw.pw_name}:x:{pw.pw_uid}:{pw.pw_gid}:"
-            f"{pw.pw_gecos}:{pw.pw_dir}:{pw.pw_shell}\n"
+            f":/home/{pw.pw_name}:/bin/bash\n"
         )
 
         rc, group_out, _ = await self._run(
@@ -578,9 +579,9 @@ class SSHJailManager:
         except OSError:
             lines = []
 
-        # Don't add duplicate
+        # Don't add duplicate (exact match to prevent alice/alice2 confusion)
         for line in lines:
-            if marker in line:
+            if line.rstrip().endswith(marker):
                 return
 
         lines.append(fstab_line)
@@ -611,7 +612,7 @@ class SSHJailManager:
         except OSError:
             return
 
-        new_lines = [line for line in lines if marker not in line]
+        new_lines = [line for line in lines if not line.rstrip().endswith(marker)]
         if len(new_lines) == len(lines):
             return
 
@@ -718,12 +719,13 @@ class SSHJailManager:
             except OSError:
                 continue
 
+            update_keys_lower = {k.lower() for k in updates}
             new_lines = []
             changed = False
             for line in lines:
                 stripped = line.strip()
                 parts = stripped.split()
-                if len(parts) >= 2 and parts[0] in updates:
+                if len(parts) >= 2 and parts[0].lower() in update_keys_lower:
                     changed = True
                     logger.info("Removing %s override from %s", parts[0], entry)
                     continue
