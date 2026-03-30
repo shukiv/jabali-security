@@ -53,10 +53,20 @@ On error:
 
 ### `GET /health`
 
-No authentication required.
+Returns minimal status without authentication. With a valid `X-API-Key`, returns detailed component status.
 
+**Unauthenticated:**
 ```json
-{"status": "ok"}
+{"status": "healthy"}
+```
+
+**Authenticated:**
+```json
+{
+  "status": "healthy",
+  "components": {"database": "ok", "scanner": "ok", "watcher": "ok"},
+  "uptime_seconds": 3661.2
+}
 ```
 
 ### `GET /status`
@@ -441,7 +451,7 @@ Get current configuration. All values are returned as strings. Booleans as `"yes
 
 ### `PATCH /config`
 
-Update configuration keys. Writes to the config file on disk. All values are converted to strings. Keys must exist in the defaults. `API_KEY` is redacted in the response. Daemon restart required for most changes to take effect at runtime.
+Update configuration keys. Writes to the config file on disk. All values are converted to strings. Keys must exist in the defaults. Read-only keys (`API_KEY`, `API_BIND`, `API_PORT`) cannot be changed via the API. Path-type config values are validated against safe prefixes. `API_KEY` is redacted in the response.
 
 **Body:**
 
@@ -1063,11 +1073,153 @@ Deny traffic for an application profile.
 
 ---
 
+## SSH Jail Management
+
+### `GET /ssh/users`
+
+List all hosting users with shell status. Works even when `SSHJAIL_ENABLED=no` (returns basic info from `/etc/passwd`). Excludes admin and root users.
+
+**Response:**
+
+```json
+[
+  {
+    "username": "user1",
+    "shell": "/usr/sbin/nologin",
+    "shell_enabled": false,
+    "sftp_only": true,
+    "key_count": 2
+  }
+]
+```
+
+### `POST /ssh/shell/enable`
+
+Enable shell access for a user (adds to shellusers group, sets bash, creates jail home).
+
+**Body:** `{"username": "user1"}`
+
+### `POST /ssh/shell/disable`
+
+Disable shell access (SFTP-only mode).
+
+**Body:** `{"username": "user1"}`
+
+### `GET /ssh/sshd-settings`
+
+Get effective sshd settings (reads drop-in files + main config).
+
+**Response:**
+
+```json
+{"password_auth": false, "pubkey_auth": true, "port": 22}
+```
+
+### `POST /ssh/sshd-settings`
+
+Update sshd settings. Validates config with `sshd -t` before applying; rolls back on failure.
+
+**Body:** `{"password_auth": false, "port": 2222}`
+
+### SSH Key Management
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/ssh/keys?username=user1` | List SSH keys for user |
+| `POST` | `/ssh/keys` | Add key: `{"username": "...", "name": "...", "public_key": "..."}` |
+| `DELETE` | `/ssh/keys/{key_id}` | Delete key by ID |
+| `POST` | `/ssh/keys/generate` | Generate new keypair: `{"name": "...", "key_type": "ed25519"}` |
+
+---
+
+## Attack Mode
+
+### `GET /attack-mode`
+
+Check attack mode status.
+
+**Response:**
+
+```json
+{"active": false}
+```
+
+### `POST /attack-mode/enable`
+
+Enable "Under Attack" mode. Saves current settings, applies aggressive config (WAF on, WebShield, IP blocking, lowered thresholds).
+
+### `POST /attack-mode/disable`
+
+Disable attack mode and restore previous settings.
+
+---
+
+## CrowdSec
+
+Community threat intelligence powered by CrowdSec LAPI. Requires `CROWDSEC_ENABLED` and a bouncer API key.
+
+### `GET /crowdsec/status`
+
+**Response:**
+
+```json
+{
+  "enabled": true,
+  "connected": true,
+  "lapi_url": "http://127.0.0.1:8080",
+  "active_decisions": 142,
+  "blocked_ips": 89,
+  "last_poll": "2026-03-31T10:00:00+00:00",
+  "error": ""
+}
+```
+
+### `GET /crowdsec/decisions`
+
+List all active CrowdSec decisions.
+
+**Response:**
+
+```json
+{
+  "decisions": [
+    {"id": 1023, "origin": "CAPI", "type": "ban", "scope": "Ip", "value": "1.2.3.4", "duration": "4h0m0s", "scenario": "crowdsecurity/ssh-bf"}
+  ],
+  "count": 1
+}
+```
+
+### `GET /crowdsec/check/{ip}`
+
+Check a specific IP against CrowdSec decisions (cached + live LAPI query).
+
+**Response:**
+
+```json
+{
+  "ip": "1.2.3.4",
+  "cached_decisions": [...],
+  "live_decisions": [...],
+  "score": 60,
+  "is_blocked": true
+}
+```
+
+---
+
+## Daemon Control
+
+### `POST /daemon/restart`
+
+Restart the jabali-security daemon via systemctl. Executes after a 1-second delay.
+
+---
+
 ## Endpoint Summary
 
 | Module | Endpoints | Config Gate |
 |--------|-----------|-------------|
-| Health / Status | 2 | -- |
+| Health / Status | 3 | -- |
 | Incidents | 3 | -- |
 | Scanning | 5 | -- |
 | Quarantine | 3 | -- |
@@ -1079,7 +1231,10 @@ Deny traffic for an application profile.
 | WAF | 6 | `WAF_ENABLED` |
 | Process Killer | 2 | `PROCESS_KILL_ENABLED` |
 | Cleanup | 2 | `CLEANUP_ENABLED` |
+| SSH Jail | 8 | -- |
 | Threat Intel | 4 | `THREAT_INTEL_ENABLED` |
+| CrowdSec | 3 | `CROWDSEC_ENABLED` |
+| Attack Mode | 3 | -- |
 | WebShield | 5 | `WEBSHIELD_ENABLED` |
 | UFW Firewall | 11 | `UFW_ENABLED` |
-| **Total** | **56** | |
+| **Total** | **71** | |

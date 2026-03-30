@@ -154,6 +154,31 @@ Progressive blocking: durations escalate per repeat offense (default: 10m, 1h, 1
 - `feed_manager.py` -- downloads and caches IP/hash feeds on a schedule
 - Supported feeds: Spamhaus DROP/EDROP, blocklist.de, Tor exit nodes, MalwareBazaar
 - IP and hash lookup APIs for real-time checking
+- `THREAT_INTEL_AUTO_BLOCK` -- when enabled, IPs matching >= threshold feeds are blocked immediately on first auth event (24h ban, persisted as `blocked_by=threat_intel`)
+
+### CrowdSec Integration (`lib/crowdsec/`)
+
+| File | Purpose |
+|---|---|
+| `client.py` | Async LAPI bouncer client. Polls `/v1/decisions/stream` every 10 seconds. Maintains in-memory decision cache with O(1) IP lookups. |
+| `models.py` | `CrowdSecDecision` and `CrowdSecStatus` pydantic models |
+
+CrowdSec is jabali-security's primary community intelligence source. The integration works as a signal enrichment layer:
+
+- **Stream polling**: On startup, fetches full decision state. Then polls deltas every 10 seconds.
+- **Scenario weights**: Maps CrowdSec scenarios to scores (ssh-bf=60, sqli=70, backdoors=80, probing=30). Community signals (CAPI origin) get +20 bonus.
+- **Brute-force enrichment**: Known CrowdSec attackers (score >= 60) get halved brute-force thresholds via `set_ip_urgency()`.
+- **Auto mode**: `CROWDSEC_ENABLED=auto` (default) detects LAPI and enables if bouncer key is configured.
+
+### SSH Jail Management (`lib/sshjail/`)
+
+| File | Purpose |
+|---|---|
+| `manager.py` | `SSHJailManager` — shell enable/disable, key management, sshd_config updates, jail home bind mounts with nosuid/nodev |
+| `validators.py` | Allowlist-based input validation (usernames, keys, key types). Rejects newlines in public keys to prevent authorized_keys injection. |
+| `models.py` | `SshKey`, `SshKeyGenResult`, `SshUserStatus` models |
+
+Two user groups: `sftpusers` (SFTP-only, chroot to `/home/%u`) and `shellusers` (jailed shell at `/var/jail`). The jail includes bash, coreutils, tar, gzip, PHP, and wp-cli. No wget/curl/dd to prevent downloading exploits.
 
 ### WebShield (`lib/webshield/`)
 
@@ -210,6 +235,9 @@ Disabled by default (`UFW_ENABLED="no"`). Requires `ufw` to be installed on the 
 | `routes/threat_intel.py` | Threat intel feeds, IP/hash checks |
 | `routes/webshield.py` | WebShield status, install, rules |
 | `routes/ufw.py` | UFW firewall status, rules CRUD, enable/disable/reload, app profiles |
+| `routes/sshjail.py` | SSH jail user management, shell enable/disable, keys, sshd settings |
+| `routes/crowdsec.py` | CrowdSec LAPI status, decisions, IP check |
+| `routes/attack_mode.py` | Attack mode enable/disable |
 | `routes/helpers.py` | Shared response helpers (`_ok`, `_err`) |
 
 ### Jabali Panel Plugin (`panel/`)
@@ -218,7 +246,7 @@ Disabled by default (`UFW_ENABLED="no"`). Requires `ufw` to be installed on the 
 |---|---|
 | `JabaliSecurityPlugin.php` | Filament v5 plugin class |
 | `JabaliSecurityClient.php` | HTTP client for daemon API |
-| `Pages/Security.php` | Single page with 5 grouped tabs: Overview, Threats (Incidents, Quarantine, Cleanup), Defense (Blocklist, Firewall, WAF, Brute-Force, WebShield), Intelligence (Users, Threat Intel, Rules), Settings (Proactive, Config) |
+| `Pages/Security.php` | Single page with 5 grouped tabs: Overview, Threats (Incidents, Quarantine, Cleanup), Scan, Defense (Firewall, Blocklist, WAF, Brute-Force, CrowdSec, Proactive, WebShield, SSH Jail), Intelligence (Users, Threat Intel, Rules), Settings (Config with basic/expert mode) |
 | `Widgets/SecurityStatsWidget.php` | Stats overview widget |
 | `views/security.blade.php` | Blade view template |
 
@@ -367,9 +395,10 @@ The systemd service drops root privileges and uses targeted capabilities:
 
 | Capability | Purpose |
 |---|---|
-| `CAP_DAC_READ_SEARCH` | Read any file for scanning (without write) |
+| `CAP_DAC_READ_SEARCH` | Read any file for scanning |
 | `CAP_DAC_OVERRIDE` | Delete/move files for quarantine |
 | `CAP_FOWNER` | Change permissions on quarantined files |
+| `CAP_CHOWN` | Change ownership on jail files |
 | `CAP_NET_ADMIN` | Manage nftables/iptables rules for IP blocking |
 | `CAP_KILL` | Kill suspicious processes (proactive defense) |
 
@@ -377,15 +406,17 @@ The systemd service drops root privileges and uses targeted capabilities:
 
 ```ini
 NoNewPrivileges=yes
-ProtectSystem=strict
+ProtectSystem=no
 ProtectHome=no
 PrivateTmp=yes
 MemoryMax=256M
 LimitNOFILE=65536
 RuntimeDirectory=jabali-security
+After=network.target crowdsec.service
+Wants=crowdsec.service
 ```
 
-`ProtectHome=no` is required because the security scanner needs write access to quarantine files in `/home`. Writable paths: `/home`, `/var/security/quarantine`, `/var/lib/jabali-security`, and `/var/log/jabali-security`.
+`ProtectSystem=no` is required because `usermod` needs full `/etc` write access for lock files when managing SSH jail users. Weak dependency on `crowdsec.service` (starts after CrowdSec if installed, doesn't fail if absent).
 
 ### API Authentication
 
@@ -403,8 +434,9 @@ RuntimeDirectory=jabali-security
 - Config values sanitized on write (backslash, quote, newline escaping)
 - SQL parameterized queries throughout (no string interpolation)
 
-### Web Dashboard Security
+### Config PATCH Security
 
-- Session cookie: `HttpOnly`, `SameSite=Lax`
-- Headers: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `X-XSS-Protection: 1; mode=block`
-- Login via API key
+- Read-only keys (`API_KEY`, `API_BIND`, `API_PORT`) cannot be changed via the REST API
+- Path-type config values validated against safe prefixes (`/var/`, `/etc/jabali-security/`, `/usr/local/jabali-security/`)
+- Config file permissions checked at load time (warns if world-readable with API_KEY set)
+- Webhook URLs validated against RFC 1918/loopback to prevent SSRF

@@ -608,3 +608,53 @@ jabali-security webshield rules [--json]
 
 ---
 
+## CrowdSec
+
+Community threat intelligence integration. Requires CrowdSec to be installed and a bouncer API key configured.
+
+### crowdsec status
+
+Show CrowdSec LAPI connection status.
+
+```bash
+jabali-security crowdsec status [--json]
+```
+
+```bash
+jabali-security crowdsec status
+# CrowdSec integration:
+#   Enabled:     yes
+#   Connected:   yes
+#   LAPI URL:    http://127.0.0.1:8080
+#   Decisions:   142
+#   Blocked IPs: 89
+#   Last poll:   2026-03-31T10:00:00+00:00
+```
+
+### crowdsec decisions
+
+List active CrowdSec decisions (banned IPs with scenario details).
+
+```bash
+jabali-security crowdsec decisions [--json]
+```
+
+### crowdsec check
+
+Check a specific IP against CrowdSec decisions.
+
+```bash
+jabali-security crowdsec check <IP> [--json]
+```
+
+```bash
+jabali-security crowdsec check 203.0.113.50
+# IP: 203.0.113.50
+# Score: 60
+# Blocked: yes
+# Cached decisions:
+#   ban — crowdsecurity/ssh-bf (4h0m0s)
+```
+
+---
+
