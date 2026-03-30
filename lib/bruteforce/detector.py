@@ -155,6 +155,10 @@ class BruteForceDetector:
         with self._lock:
             return ip in self._whitelist
 
+    def get_whitelist(self) -> list[str]:
+        with self._lock:
+            return sorted(self._whitelist)
+
     def get_all_tracked(self) -> dict[str, dict]:
         """Return all tracked IPs with attempt counts (for attack mode)."""
         with self._lock:

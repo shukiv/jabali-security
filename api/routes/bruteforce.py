@@ -10,6 +10,7 @@ from api.routes.helpers import _err, _ok, _validate_ip
 def setup_routes(app: web.Application) -> None:
     app.router.add_get("/api/v1/bruteforce/stats", get_bruteforce_stats)
     app.router.add_get("/api/v1/bruteforce/blocked", get_bruteforce_blocked)
+    app.router.add_get("/api/v1/bruteforce/whitelist", get_bruteforce_whitelist)
     app.router.add_post("/api/v1/bruteforce/whitelist", post_bruteforce_whitelist)
     app.router.add_delete("/api/v1/bruteforce/whitelist/{ip}", delete_bruteforce_whitelist)
 
@@ -30,6 +31,15 @@ async def get_bruteforce_blocked(request: web.Request) -> web.Response:
         return _err("Incident store not available", 404)
     ips = await incidents.get_blocked_ips()
     return _ok({"blocked_ips": ips, "count": len(ips)})
+
+
+async def get_bruteforce_whitelist(request: web.Request) -> web.Response:
+    """List all whitelisted IPs."""
+    detector = request.app.get("bruteforce_detector")
+    if not detector:
+        return _err("Brute-force protection not enabled", 404)
+    ips = detector.get_whitelist()
+    return _ok({"whitelist": ips, "count": len(ips)})
 
 
 async def post_bruteforce_whitelist(request: web.Request) -> web.Response:

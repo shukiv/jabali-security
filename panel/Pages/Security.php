@@ -17,6 +17,7 @@ use App\JabaliSecurity\Widgets\ThreatFeedsTable;
 use App\JabaliSecurity\Widgets\UsersTable;
 use App\JabaliSecurity\Widgets\WafEventsTable;
 use App\JabaliSecurity\Widgets\WebshieldRulesTable;
+use App\JabaliSecurity\Widgets\WhitelistTable;
 use App\JabaliSecurity\Widgets\YaraRulesTable;
 use BackedEnum;
 use Filament\Actions\Action;
@@ -251,7 +252,18 @@ class Security extends Page implements HasActions, HasForms
                                         ->schema(array_merge(
                                             [Text::make(__('Monitors SSH and mail service logs for repeated failed login attempts. IPs exceeding the threshold are automatically blocked with progressive ban durations.'))->size(TextSize::Small)->color('gray')],
                                             $this->bruteforceStats(),
-                                            [EmbeddedTable::make(BruteforceBlockedTable::class)],
+                                            [
+                                                Tabs::make(__('Brute-Force Lists'))
+                                                    ->contained(false)
+                                                    ->tabs([
+                                                        'blocked' => Tab::make(__('Blocklist'))
+                                                            ->icon('heroicon-o-no-symbol')
+                                                            ->schema([EmbeddedTable::make(BruteforceBlockedTable::class)]),
+                                                        'whitelist' => Tab::make(__('Whitelist'))
+                                                            ->icon('heroicon-o-shield-check')
+                                                            ->schema([EmbeddedTable::make(WhitelistTable::class)]),
+                                                    ]),
+                                            ],
                                         )),
                                     'crowdsec' => Tab::make(__('CrowdSec'))
                                         ->schema(array_merge(
