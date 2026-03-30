@@ -252,18 +252,7 @@ class Security extends Page implements HasActions, HasForms
                                         ->schema(array_merge(
                                             [Text::make(__('Monitors SSH and mail service logs for repeated failed login attempts. IPs exceeding the threshold are automatically blocked with progressive ban durations.'))->size(TextSize::Small)->color('gray')],
                                             $this->bruteforceStats(),
-                                            [
-                                                Tabs::make(__('Brute-Force Lists'))
-                                                    ->contained(false)
-                                                    ->tabs([
-                                                        'blocked' => Tab::make(__('Blocklist'))
-                                                            ->icon('heroicon-o-no-symbol')
-                                                            ->schema([EmbeddedTable::make(BruteforceBlockedTable::class)]),
-                                                        'whitelist' => Tab::make(__('Whitelist'))
-                                                            ->icon('heroicon-o-shield-check')
-                                                            ->schema([EmbeddedTable::make(WhitelistTable::class)]),
-                                                    ]),
-                                            ],
+                                            $this->bruteforceListTabs(),
                                         )),
                                     'crowdsec' => Tab::make(__('CrowdSec'))
                                         ->schema(array_merge(
@@ -431,6 +420,31 @@ class Security extends Page implements HasActions, HasForms
     {
         $data = $this->getWafStatsData();
         return [Grid::make(count($data))->dense()->schema(array_map(fn ($s) => $this->dashboardCard($s), $data))];
+    }
+
+    protected function bruteforceListTabs(): array
+    {
+        $blocked = $this->client()->get('/bruteforce/blocked');
+        $blockedCount = $blocked['count'] ?? count($blocked['blocked_ips'] ?? []);
+        $whitelist = $this->client()->get('/bruteforce/whitelist');
+        $whitelistCount = $whitelist['count'] ?? count($whitelist['whitelist'] ?? []);
+
+        return [
+            Tabs::make(__('Brute-Force Lists'))
+                ->contained(false)
+                ->tabs([
+                    'blocked' => Tab::make(__('Blocklist'))
+                        ->icon('heroicon-o-no-symbol')
+                        ->badge($blockedCount > 0 ? $blockedCount : null)
+                        ->badgeColor('danger')
+                        ->schema([EmbeddedTable::make(BruteforceBlockedTable::class)]),
+                    'whitelist' => Tab::make(__('Whitelist'))
+                        ->icon('heroicon-o-shield-check')
+                        ->badge($whitelistCount > 0 ? $whitelistCount : null)
+                        ->badgeColor('success')
+                        ->schema([EmbeddedTable::make(WhitelistTable::class)]),
+                ]),
+        ];
     }
 
     protected function crowdsecStats(): array
