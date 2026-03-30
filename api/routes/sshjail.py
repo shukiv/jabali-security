@@ -49,8 +49,6 @@ def setup_routes(app: web.Application) -> None:
 async def get_ssh_users(request: web.Request) -> web.Response:
     """List all hosting users (UID >= 1000) with shell status."""
     sshjail = request.app.get("sshjail")
-    if not sshjail:
-        return _err("SSH jail management not enabled", 404)
 
     import pwd
     # Panel admin usernames to exclude from SSH user management
@@ -64,15 +62,27 @@ async def get_ssh_users(request: web.Request) -> web.Response:
         if pw.pw_name in _EXCLUDED:
             continue
         try:
-            status = await sshjail.shell_status(pw.pw_name)
-            key_count = len(await sshjail.list_keys(pw.pw_name))
-            users.append({
-                "username": pw.pw_name,
-                "shell": status.shell,
-                "shell_enabled": status.shell_enabled,
-                "sftp_only": status.sftp_only,
-                "key_count": key_count,
-            })
+            if sshjail:
+                status = await sshjail.shell_status(pw.pw_name)
+                key_count = len(await sshjail.list_keys(pw.pw_name))
+                users.append({
+                    "username": pw.pw_name,
+                    "shell": status.shell,
+                    "shell_enabled": status.shell_enabled,
+                    "sftp_only": status.sftp_only,
+                    "key_count": key_count,
+                })
+            else:
+                # Jail module disabled — return basic info from /etc/passwd
+                shell = pw.pw_shell
+                sftp_only = shell in ("/usr/sbin/nologin", "/bin/false", "/sbin/nologin")
+                users.append({
+                    "username": pw.pw_name,
+                    "shell": shell,
+                    "shell_enabled": not sftp_only,
+                    "sftp_only": sftp_only,
+                    "key_count": 0,
+                })
         except Exception:
             users.append({
                 "username": pw.pw_name,
