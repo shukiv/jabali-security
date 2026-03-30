@@ -508,6 +508,15 @@ WAFEOF
     sed -i 's|^THREAT_INTEL_ENABLED="no"|THREAT_INTEL_ENABLED="yes"|' "$CONFIG_DIR/jabali-security.conf" 2>/dev/null
     echo "  Threat Intelligence ...... enabled"
     sed -i 's|^WEBSHIELD_ENABLED="no"|WEBSHIELD_ENABLED="yes"|' "$CONFIG_DIR/jabali-security.conf" 2>/dev/null
+    # Generate WebShield nginx config snippets
+    if command -v nginx &>/dev/null; then
+        local ws_dir="/etc/nginx/jabali-security"
+        mkdir -p "$ws_dir"
+        # The daemon will generate the full configs on startup;
+        # create a minimal include so nginx doesn't error on missing files
+        [ -f "$ws_dir/jabali-webshield-http.conf" ] || touch "$ws_dir/jabali-webshield-http.conf"
+        [ -f "$ws_dir/jabali-webshield-server.conf" ] || touch "$ws_dir/jabali-webshield-server.conf"
+    fi
     echo "  WebShield ................ enabled"
     sed -i 's|^CLEANUP_ENABLED="no"|CLEANUP_ENABLED="yes"|' "$CONFIG_DIR/jabali-security.conf" 2>/dev/null
     echo "  Auto Cleanup ............. enabled"
