@@ -811,7 +811,7 @@ do_update() {
         cp "$tmp_dir"/panel/Pages/*.php "$JABALI_PANEL_DIR/app/JabaliSecurity/Pages/"
         cp "$tmp_dir"/panel/Widgets/*.php "$JABALI_PANEL_DIR/app/JabaliSecurity/Widgets/"
         cp "$tmp_dir"/panel/views/*.blade.php "$JABALI_PANEL_DIR/app/JabaliSecurity/views/"
-        # Regenerate autoload so Filament discovers updated plugin classes
+        # Clear Laravel caches so Filament discovers updated plugin classes
         composer dump-autoload -q -d "$JABALI_PANEL_DIR" 2>/dev/null || true
         php "$JABALI_PANEL_DIR/artisan" filament:cache-components 2>/dev/null || true
         php "$JABALI_PANEL_DIR/artisan" view:clear 2>/dev/null || true
