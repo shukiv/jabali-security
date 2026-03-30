@@ -201,11 +201,3 @@ class BehaviorTracker:
         ]
         for u in stale_users:
             del self._users[u]
-
-    @property
-    def tracked_files(self) -> int:
-        return len(self._files)
-
-    @property
-    def tracked_users(self) -> int:
-        return len(self._users)

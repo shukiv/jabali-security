@@ -42,8 +42,6 @@ def setup_routes(app: web.Application) -> None:
     app.router.add_get("/api/v1/ssh/shell/status", get_shell_status)
     app.router.add_post("/api/v1/ssh/shell/enable", post_shell_enable)
     app.router.add_post("/api/v1/ssh/shell/disable", post_shell_disable)
-    app.router.add_get("/api/v1/ssh/password-auth", get_password_auth)
-    app.router.add_post("/api/v1/ssh/password-auth", post_password_auth)
     app.router.add_get("/api/v1/ssh/sshd-settings", get_sshd_settings)
     app.router.add_post("/api/v1/ssh/sshd-settings", post_sshd_settings)
 
@@ -291,48 +289,6 @@ async def post_shell_disable(request: web.Request) -> web.Response:
         return _err("Failed to disable shell", 500)
 
     return _ok({"disabled": True, "username": username})
-
-
-async def get_password_auth(request: web.Request) -> web.Response:
-    """Legacy endpoint -- returns password_auth from sshd settings."""
-    mgr = _get_sshd_manager(request)
-
-    try:
-        settings = await mgr.get_sshd_settings()
-    except Exception:
-        logger.exception("Failed to read SSH password auth status")
-        return _err("Failed to read SSH password auth status", 500)
-
-    return _ok({"enabled": settings["password_auth"]})
-
-
-async def post_password_auth(request: web.Request) -> web.Response:
-    """Legacy endpoint -- updates only password_auth in sshd settings."""
-    mgr = _get_sshd_manager(request)
-
-    try:
-        body = await request.json()
-    except Exception:
-        return _err("Invalid JSON body")
-
-    if not isinstance(body, dict):
-        return _err("Request body must be a JSON object")
-
-    enabled = body.get("enabled")
-    if not isinstance(enabled, bool):
-        return _err("'enabled' must be a boolean (true/false)")
-
-    logger.info("SSH password auth: setting to %s", "enabled" if enabled else "disabled")
-    try:
-        success = await mgr.set_sshd_settings({"password_auth": enabled})
-    except Exception:
-        logger.exception("Failed to set SSH password auth")
-        return _err("Failed to update SSH password authentication", 500)
-
-    if not success:
-        return _err("Failed to update SSH password authentication (sshd config test or reload failed)", 500)
-
-    return _ok({"enabled": enabled})
 
 
 async def get_sshd_settings(request: web.Request) -> web.Response:

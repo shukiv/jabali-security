@@ -43,7 +43,6 @@ DEFAULTS: dict[str, str] = {
     "NOTIFY_EMAIL": "",
     "NOTIFY_WEBHOOK": "",
     "NOTIFY_MIN_SEVERITY": "high",
-    "INCIDENT_RETAIN_DAYS": "90",
     "CLAMAV_ENABLED": "no",
     "CLAMAV_SOCKET": "/var/run/clamav/clamd.ctl",
     "FRESHCLAM_ON_UPDATE": "yes",
@@ -90,7 +89,6 @@ DEFAULTS: dict[str, str] = {
     "WEBSHIELD_BOT_FILTERING": "yes",
     "WEBSHIELD_NGINX_CONF_DIR": "/etc/nginx/jabali-security",
     "NGINX_ACCESS_LOG": "/var/log/nginx/access.log",
-    "DB_SCANNER_ENABLED": "no",
     "RAPIDSCAN_WORKERS": "4",
     "RAPIDSCAN_MTIME_CACHE": "yes",
     "SSHJAIL_ENABLED": "no",
@@ -227,7 +225,6 @@ class JabaliConfig:
     notify_email: str = ""
     notify_webhook: str = ""
     notify_min_severity: str = "high"
-    incident_retain_days: int = 90
     clamav_enabled: str = "auto"
     clamav_socket: str = "/var/run/clamav/clamd.ctl"
     freshclam_on_update: bool = True
@@ -276,7 +273,6 @@ class JabaliConfig:
     webshield_bot_filtering: bool = True
     webshield_nginx_conf_dir: str = "/etc/nginx/jabali-security"
     nginx_access_log: str = "/var/log/nginx/access.log"
-    db_scanner_enabled: bool = False
     rapidscan_workers: int = 4
     rapidscan_mtime_cache: bool = True
     sshjail_enabled: bool = False
@@ -349,7 +345,6 @@ def load_config(filepath: Path | None = None) -> JabaliConfig:
         notify_email=merged["NOTIFY_EMAIL"],
         notify_webhook=merged["NOTIFY_WEBHOOK"],
         notify_min_severity=merged["NOTIFY_MIN_SEVERITY"],
-        incident_retain_days=_safe_int(merged["INCIDENT_RETAIN_DAYS"], 90, min_val=1),
         clamav_enabled=merged["CLAMAV_ENABLED"],
         clamav_socket=merged["CLAMAV_SOCKET"],
         freshclam_on_update=_bool(merged["FRESHCLAM_ON_UPDATE"]),
@@ -401,7 +396,6 @@ def load_config(filepath: Path | None = None) -> JabaliConfig:
         webshield_bot_filtering=_bool(merged["WEBSHIELD_BOT_FILTERING"]),
         webshield_nginx_conf_dir=merged["WEBSHIELD_NGINX_CONF_DIR"],
         nginx_access_log=merged["NGINX_ACCESS_LOG"],
-        db_scanner_enabled=_bool(merged["DB_SCANNER_ENABLED"]),
         rapidscan_workers=_safe_int(merged["RAPIDSCAN_WORKERS"], 4, min_val=1, max_val=32),
         rapidscan_mtime_cache=_bool(merged["RAPIDSCAN_MTIME_CACHE"]),
         sshjail_enabled=_bool(merged["SSHJAIL_ENABLED"]),

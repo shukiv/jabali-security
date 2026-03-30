@@ -40,9 +40,6 @@ API_KEY=""
 # Comma-separated list of directories/globs to watch recursively
 WATCH_DIRS="/home/*/public_html,/home/*/domains/*/public_html,/home/*/tmp"
 
-# Watcher backend: inotify (default), fanotify (future)
-WATCHER_BACKEND="inotify"
-
 # -- Pre-Filter --------------------------------------------------------------
 
 # Comma-separated extensions to scan
@@ -258,11 +255,6 @@ WEBSHIELD_BOT_FILTERING="yes"
 # Directory for generated nginx config snippets
 WEBSHIELD_NGINX_CONF_DIR="/etc/nginx/jabali-security"
 
-# -- Database Scanner --------------------------------------------------------
-
-# Enable MySQL database malware scanning (scans CMS tables for injected payloads)
-DB_SCANNER_ENABLED="no"
-
 # -- RapidScan ---------------------------------------------------------------
 
 # Number of parallel workers for rapid directory scanning
@@ -282,7 +274,3 @@ SSHJAIL_JAIL_DIR="/var/jail"
 # Allow shell access for hosting users (disable to force SFTP-only)
 SSH_SHELL_ACCESS_ENABLED="no"
 
-# -- Retention ---------------------------------------------------------------
-
-# Number of days to retain incident records
-INCIDENT_RETAIN_DAYS="90"

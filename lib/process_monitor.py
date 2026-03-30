@@ -9,7 +9,7 @@ import re
 from pathlib import Path
 from typing import Awaitable, Callable
 
-from lib.models import Finding, ProcessThreat
+from lib.models import ProcessThreat
 
 logger = logging.getLogger(__name__)
 
@@ -228,21 +228,3 @@ class ProcessMonitor:
             if Path("/proc/%d" % pid).exists():
                 alive.add(pid)
         self._seen_pids = alive
-
-    def to_findings(self, threats: list[ProcessThreat]) -> list[Finding]:
-        """Convert ProcessThreat objects to Finding objects for the scoring engine."""
-        return [
-            Finding(
-                scanner="process",
-                rule="proc_%d" % t.pid,
-                score=t.score,
-                description=t.description,
-                metadata={
-                    "pid": t.pid,
-                    "ppid": t.ppid,
-                    "cmdline": t.cmdline[:200],
-                    "username": t.username,
-                },
-            )
-            for t in threats
-        ]

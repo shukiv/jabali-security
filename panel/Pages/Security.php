@@ -29,7 +29,6 @@ use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
-use Filament\Schemas\Components\Actions as SchemaActions;
 use Filament\Schemas\Components\EmbeddedTable;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
@@ -297,14 +296,6 @@ class Security extends Page implements HasActions, HasForms
 
     // ── Stat Cards (schema-based, compact) ─────────────────────────
 
-    private function statCard(string $label, string $value, string $desc, string $color = 'gray'): Section
-    {
-        return Section::make()->compact()->schema([
-            Text::make(__($label))->size(TextSize::ExtraSmall)->weight(FontWeight::Medium)->color('gray'),
-            Text::make($value)->size(TextSize::Large)->weight(FontWeight::Bold)->color($color),
-            Text::make(__($desc))->size(TextSize::ExtraSmall)->color('gray'),
-        ]);
-    }
 
     public function getOverviewStatsDataProperty(): array
     {
@@ -329,53 +320,7 @@ class Security extends Page implements HasActions, HasForms
         return [Grid::make(3)->dense()->schema(array_map(fn ($s) => $this->dashboardCard($s), $data))];
     }
 
-    private static array $statIcons = [
-        'Incidents' => 'heroicon-o-exclamation-triangle',
-        'Attacks Blocked' => 'heroicon-o-shield-check',
-        'Quarantine' => 'heroicon-o-lock-closed',
-        'Watching' => 'heroicon-o-eye',
-        'Memory' => 'heroicon-o-cpu-chip',
-        'Daemon' => 'heroicon-o-server',
-        'Events (24h)' => 'heroicon-o-bolt',
-        'Blocked (24h)' => 'heroicon-o-no-symbol',
-        'Tracked IPs' => 'heroicon-o-signal',
-        'Blocked' => 'heroicon-o-no-symbol',
-        'Process Killer' => 'heroicon-o-fire',
-        'Processes Killed' => 'heroicon-o-x-circle',
-        'Installed' => 'heroicon-o-check-circle',
-        'Rate Limiting' => 'heroicon-o-clock',
-        'Bot Filtering' => 'heroicon-o-funnel',
-        'Blocked IPs' => 'heroicon-o-no-symbol',
-        'Bots Blocked' => 'heroicon-o-bug-ant',
-        'Rate Limited' => 'heroicon-o-clock',
-        'YARA' => 'heroicon-o-document-magnifying-glass',
-        'ClamAV' => 'heroicon-o-shield-check',
-        'Scanners' => 'heroicon-o-magnifying-glass',
-        'Rules Dir' => 'heroicon-o-folder',
-    ];
 
-    private function inlineStatCard(string $label, string $value, string $color = 'gray'): Section
-    {
-        $icon = static::$statIcons[$label] ?? 'heroicon-o-information-circle';
-        return Section::make($value . '  ' . __($label))
-            ->icon($icon)
-            ->iconColor($color)
-            ->compact()
-            ->extraAttributes(['class' => '!px-2 !py-1'])
-            ->schema([]);
-    }
-
-    public function getStatsForTab(string $tab): array
-    {
-        return match ($tab) {
-            'waf' => $this->getWafStatsData(),
-            'bruteforce' => $this->getBruteforceStatsData(),
-            'proactive' => $this->getProactiveStatsData(),
-            'webshield' => $this->getWebshieldStatsData(),
-            'rules' => $this->getRulesStatsData(),
-            default => [],
-        };
-    }
 
     private function getWafStatsData(): array
     {
@@ -703,33 +648,6 @@ class Security extends Page implements HasActions, HasForms
 
     // ── Module Toggles ───────────────────────────────────────────────
 
-    public function toggleModule(string $key): void
-    {
-        $config = $this->client()->get('/config') ?? [];
-        $current = $config[$key] ?? 'no';
-        $newValue = in_array($current, ['yes', 'true', '1']) ? 'no' : 'yes';
-
-        $result = $this->client()->patch('/config', [$key => $newValue]);
-        if ($result) {
-            $label = str_replace('_', ' ', str_replace('_ENABLED', '', $key));
-            Notification::make()
-                ->title(__(':feature :action', [
-                    'feature' => $label,
-                    'action' => $newValue === 'yes' ? __('enabled') : __('disabled'),
-                ]))
-                ->color($newValue === 'yes' ? 'success' : 'warning')
-                ->send();
-        } else {
-            Notification::make()->title(__('Failed to update config'))->danger()->send();
-        }
-
-        $this->redirect(static::getUrl(['tab' => 'overview']));
-    }
-
-    public function updateConfigValue(string $key, string $value): void
-    {
-        $this->client()->patch('/config', [$key => $value]);
-    }
 
     public function saveAndRestart(): void
     {
@@ -956,10 +874,8 @@ class Security extends Page implements HasActions, HasForms
         'WEBSHIELD_BOT_FILTERING' => 'Block known malicious user agents',
         'WEBSHIELD_NGINX_CONF_DIR' => 'Directory for WebShield nginx config snippets',
         'NGINX_ACCESS_LOG' => 'Nginx access log path for counting blocked requests',
-        'DB_SCANNER_ENABLED' => 'Enable database injection scanning',
         'RAPIDSCAN_WORKERS' => 'Parallel workers for rapid directory scans',
         'RAPIDSCAN_MTIME_CACHE' => 'Cache file modification times to skip unchanged files',
-        'INCIDENT_RETAIN_DAYS' => 'Days to keep incident records before cleanup',
         'SSHJAIL_ENABLED' => 'Enable SSH jail management (chroot jailshell with wp-cli)',
         'SSHJAIL_JAIL_DIR' => 'Root directory for the SSH chroot jail',
         'SSH_SHELL_ACCESS_ENABLED' => 'Allow users to enable terminal shell access',
@@ -994,7 +910,7 @@ class Security extends Page implements HasActions, HasForms
         'CLEANUP_ENABLED', 'CLEANUP_AUTO', 'CLEANUP_CMS_CHECKSUMS',
         'SCHEDULED_SCAN_ENABLED', 'THREAT_INTEL_ENABLED', 'THREAT_INTEL_AUTO_BLOCK',
         'WEBSHIELD_ENABLED', 'WEBSHIELD_CHALLENGE_ENABLED', 'WEBSHIELD_BOT_FILTERING',
-        'DB_SCANNER_ENABLED', 'RAPIDSCAN_MTIME_CACHE', 'FRESHCLAM_ON_UPDATE',
+        'RAPIDSCAN_MTIME_CACHE', 'FRESHCLAM_ON_UPDATE',
         'UFW_ENABLED', 'SSHJAIL_ENABLED', 'SSH_SHELL_ACCESS_ENABLED',
     ];
 
@@ -1017,7 +933,6 @@ class Security extends Page implements HasActions, HasForms
         'Scheduled Scan' => ['SCHEDULED_SCAN_ENABLED', 'SCHEDULED_SCAN_INTERVAL', 'SCHEDULED_SCAN_PATHS'],
         'Threat Intel' => ['THREAT_INTEL_ENABLED', 'THREAT_INTEL_AUTO_BLOCK'],
         'WebShield' => ['WEBSHIELD_ENABLED', 'WEBSHIELD_RATE_LIMIT', 'WEBSHIELD_RATE_BURST'],
-        'Retention' => ['INCIDENT_RETAIN_DAYS'],
     ];
 
     /** Expert mode: all categories with every key. */
@@ -1037,8 +952,7 @@ class Security extends Page implements HasActions, HasForms
         'Scheduled Scan' => ['SCHEDULED_SCAN_ENABLED', 'SCHEDULED_SCAN_INTERVAL', 'SCHEDULED_SCAN_PATHS'],
         'Threat Intel' => ['THREAT_INTEL_ENABLED', 'THREAT_INTEL_UPDATE_INTERVAL', 'THREAT_INTEL_FEEDS', 'THREAT_INTEL_AUTO_BLOCK', 'THREAT_INTEL_AUTO_BLOCK_THRESHOLD'],
         'WebShield' => ['WEBSHIELD_ENABLED', 'WEBSHIELD_RATE_LIMIT', 'WEBSHIELD_RATE_BURST', 'WEBSHIELD_CHALLENGE_ENABLED', 'WEBSHIELD_BOT_FILTERING', 'WEBSHIELD_NGINX_CONF_DIR', 'NGINX_ACCESS_LOG'],
-        'Performance' => ['DB_SCANNER_ENABLED', 'RAPIDSCAN_WORKERS', 'RAPIDSCAN_MTIME_CACHE'],
-        'Retention' => ['INCIDENT_RETAIN_DAYS'],
+        'Performance' => ['RAPIDSCAN_WORKERS', 'RAPIDSCAN_MTIME_CACHE'],
     ];
 
     /** Keys hidden in basic mode (file paths, internal tuning, advanced options). */
@@ -1054,6 +968,6 @@ class Security extends Page implements HasActions, HasForms
         'CLEANUP_BACKUP_DIR', 'CLEANUP_CMS_CHECKSUMS',
         'THREAT_INTEL_UPDATE_INTERVAL', 'THREAT_INTEL_FEEDS', 'THREAT_INTEL_AUTO_BLOCK_THRESHOLD',
         'WEBSHIELD_CHALLENGE_ENABLED', 'WEBSHIELD_BOT_FILTERING', 'WEBSHIELD_NGINX_CONF_DIR', 'NGINX_ACCESS_LOG',
-        'DB_SCANNER_ENABLED', 'RAPIDSCAN_WORKERS', 'RAPIDSCAN_MTIME_CACHE',
+        'RAPIDSCAN_WORKERS', 'RAPIDSCAN_MTIME_CACHE',
     ];
 }

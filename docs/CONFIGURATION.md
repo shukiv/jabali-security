@@ -63,7 +63,6 @@ See also: `etc/jabali-security.conf.example` for a fully commented template.
 | Key | Type | Default | Description |
 |---|---|---|---|
 | `WATCH_DIRS` | csv | `/home/*/public_html,/home/*/domains/*/public_html,/home/*/tmp` | Comma-separated directories/globs to watch recursively |
-| `WATCHER_BACKEND` | string | `inotify` | Watcher backend: `inotify` (default) |
 
 > **Note:** `/var/www` was removed from defaults to avoid watching hosting panel application directories.
 
@@ -224,24 +223,12 @@ Available feeds: `spamhaus_drop`, `spamhaus_edrop`, `blocklist_de_all`, `tor_exi
 |---|---|---|---|
 | `UFW_ENABLED` | bool | `no` | Enable UFW firewall management via REST API. Requires `ufw` to be installed. Separate from the nftables/iptables-based brute-force IP blocking. |
 
-## Database Scanner
-
-| Key | Type | Default | Description |
-|---|---|---|---|
-| `DB_SCANNER_ENABLED` | bool | `no` | Enable MySQL database malware scanning |
-
 ## RapidScan
 
 | Key | Type | Default | Description |
 |---|---|---|---|
 | `RAPIDSCAN_WORKERS` | int | `4` | Number of parallel workers (1-32) |
 | `RAPIDSCAN_MTIME_CACHE` | bool | `yes` | Cache file modification times to skip unchanged files |
-
-## Retention
-
-| Key | Type | Default | Description |
-|---|---|---|---|
-| `INCIDENT_RETAIN_DAYS` | int | `90` | Days to retain incident records. Min: 1. |
 
 ---
 

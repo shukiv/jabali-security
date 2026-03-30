@@ -20,7 +20,7 @@ from pathlib import Path
 
 from aiohttp import web
 
-from api.routes.helpers import _err, _ok
+from api.routes.helpers import _ok
 from lib.config import load_config, update_conf_key
 from lib.constants import CONFIG_FILE, DATA_DIR
 
