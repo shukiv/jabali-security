@@ -396,9 +396,9 @@ class Security extends Page implements HasActions, HasForms
     {
         $s = $this->client()->get('/webshield/status') ?? [];
         return [
-            ['value' => ($s['installed'] ?? false) ? __('Yes') : __('No'), 'label' => __('Installed'), 'icon' => 'heroicon-o-check-circle', 'color' => ($s['installed'] ?? false) ? 'success' : 'gray'],
-            ['value' => ($s['rate_limiting'] ?? false) ? __('On') : __('Off'), 'label' => __('Rate Limiting'), 'icon' => 'heroicon-o-clock', 'color' => ($s['rate_limiting'] ?? false) ? 'success' : 'gray'],
-            ['value' => ($s['bot_filtering'] ?? false) ? __('On') : __('Off'), 'label' => __('Bot Filtering'), 'icon' => 'heroicon-o-funnel', 'color' => ($s['bot_filtering'] ?? false) ? 'success' : 'gray'],
+            ['value' => ($s['installed'] ?? false) ? __('Yes') : __('No'), 'label' => __('Installed'), 'icon' => 'heroicon-o-check-circle', 'color' => ($s['installed'] ?? false) ? 'success' : 'danger'],
+            ['value' => ($s['rate_limiting'] ?? false) ? __('On') : __('Off'), 'label' => __('Rate Limiting'), 'icon' => 'heroicon-o-clock', 'color' => ($s['rate_limiting'] ?? false) ? 'success' : 'danger'],
+            ['value' => ($s['bot_filtering'] ?? false) ? __('On') : __('Off'), 'label' => __('Bot Filtering'), 'icon' => 'heroicon-o-funnel', 'color' => ($s['bot_filtering'] ?? false) ? 'success' : 'danger'],
             ['value' => (string) ($s['blocked_ips_count'] ?? 0), 'label' => __('Blocked IPs'), 'icon' => 'heroicon-o-no-symbol', 'color' => ($s['blocked_ips_count'] ?? 0) > 0 ? 'danger' : 'success'],
             ['value' => (string) ($s['bot_blocked_24h'] ?? 0), 'label' => __('Bots Blocked'), 'icon' => 'heroicon-o-bug-ant', 'color' => ($s['bot_blocked_24h'] ?? 0) > 0 ? 'warning' : 'success'],
             ['value' => (string) ($s['rate_limited_24h'] ?? 0), 'label' => __('Rate Limited'), 'icon' => 'heroicon-o-clock', 'color' => ($s['rate_limited_24h'] ?? 0) > 0 ? 'warning' : 'success'],
@@ -453,7 +453,7 @@ class Security extends Page implements HasActions, HasForms
 
     private function dashboardCard(array $stat): Section
     {
-        return Section::make($stat['value'] . '  ' . $stat['label'])
+        return Section::make($stat['label'] . ': ' . $stat['value'])
             ->icon($stat['icon'])
             ->iconColor($stat['color'])
             ->schema([]);
