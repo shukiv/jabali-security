@@ -16,6 +16,7 @@ use App\JabaliSecurity\Widgets\SshKeysTable;
 use App\JabaliSecurity\Widgets\ThreatFeedsTable;
 use App\JabaliSecurity\Widgets\UsersTable;
 use App\JabaliSecurity\Widgets\WafEventsTable;
+use App\JabaliSecurity\Widgets\CrowdsecDecisionsTable;
 use App\JabaliSecurity\Widgets\WebshieldRulesTable;
 use App\JabaliSecurity\Widgets\WhitelistTable;
 use App\JabaliSecurity\Widgets\YaraRulesTable;
@@ -259,6 +260,7 @@ class Security extends Page implements HasActions, HasForms
                                                 ->size(TextSize::Small)
                                                 ->color('gray')],
                                             $this->crowdsecStats(),
+                                            [EmbeddedTable::make(CrowdsecDecisionsTable::class)],
                                         )),
                                     'proactive' => Tab::make(__('Proactive'))
                                         ->schema(array_merge(
