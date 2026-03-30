@@ -55,7 +55,7 @@ class BruteforceBlockedTable extends Component implements HasActions, HasSchemas
                             $this->client()->delete('/block/' . urlencode($ip));
                             $this->client()->post('/bruteforce/whitelist', ['ip' => $ip]);
                             Notification::make()->title(__('IP whitelisted: :ip', ['ip' => $ip]))->success()->send();
-                            $this->resetTable();
+                            $this->redirect(url('/jabali-admin/security?tab=defense&defense=bruteforce'), navigate: true);
                         }
                     }),
                 \Filament\Actions\Action::make('unblock')
@@ -68,7 +68,7 @@ class BruteforceBlockedTable extends Component implements HasActions, HasSchemas
                         if ($ip) {
                             $this->client()->delete('/block/' . urlencode($ip));
                             Notification::make()->title(__('IP unblocked: :ip', ['ip' => $ip]))->success()->send();
-                            $this->resetTable();
+                            $this->redirect(url('/jabali-admin/security?tab=defense&defense=bruteforce'), navigate: true);
                         }
                     }),
             ])

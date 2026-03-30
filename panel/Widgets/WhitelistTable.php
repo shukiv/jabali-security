@@ -53,7 +53,7 @@ class WhitelistTable extends Component implements HasActions, HasSchemas, HasTab
                         if ($ip) {
                             $this->client()->delete('/bruteforce/whitelist/' . urlencode($ip));
                             Notification::make()->title(__('Removed :ip from whitelist', ['ip' => $ip]))->success()->send();
-                            $this->resetTable();
+                            $this->redirect(url('/jabali-admin/security?tab=defense&defense=bruteforce'), navigate: true);
                         }
                     }),
             ])
@@ -73,7 +73,7 @@ class WhitelistTable extends Component implements HasActions, HasSchemas, HasTab
                             ->title($result ? __('IP whitelisted') : __('Failed to whitelist IP'))
                             ->{($result ? 'success' : 'danger')}()
                             ->send();
-                        $this->resetTable();
+                        $this->redirect(url('/jabali-admin/security?tab=defense&defense=bruteforce'), navigate: true);
                     }),
             ])
             ->bulkActions([
