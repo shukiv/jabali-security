@@ -153,11 +153,18 @@ class SecurityDaemon:
                 reg.scan_queue.task_done()
 
     @staticmethod
-    def _make_auth_callback(detector, firewall, incidents):
+    def _make_auth_callback(detector, firewall, incidents, crowdsec=None):
         """Build the async callback that bridges log parser -> detector -> firewall."""
         from datetime import datetime, timedelta, timezone
 
         async def _on_auth_event(event):
+            # Enrich with CrowdSec: known attackers get shorter fuse
+            if crowdsec is not None:
+                cs_score = crowdsec.check_ip_score(event.ip)
+                if cs_score >= 60:
+                    # Known attacker — halve the threshold window
+                    detector.set_ip_urgency(event.ip, multiplier=0.5)
+
             decision = detector.record(event)
             if decision is None:
                 return

@@ -408,6 +408,46 @@ def update() -> None:
                     fh.write(conf_content)
                 click.echo("Enabled SSH jail module (jail infrastructure detected).")
 
+    # Install CrowdSec if not present
+    if not shutil.which("cscli"):
+        click.echo("Installing CrowdSec...")
+        subprocess.run(  # noqa: S603
+            ["/bin/bash", "-c",
+             "curl -fsSL https://install.crowdsec.net 2>/dev/null | bash 2>/dev/null"
+             " && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq crowdsec 2>/dev/null"],
+            capture_output=True, timeout=120,
+        )
+
+    # Install CrowdSec collections for hosting
+    if shutil.which("cscli"):
+        for col in ["linux", "sshd", "nginx", "base-http-scenarios", "postfix", "dovecot"]:
+            subprocess.run(  # noqa: S603
+                ["cscli", "collections", "install", "crowdsecurity/%s" % col],
+                capture_output=True, timeout=30,
+            )
+
+    # Generate CrowdSec bouncer key if missing
+    if shutil.which("cscli") and os.path.isfile(config_file):
+        with open(config_file) as fh:
+            conf_content = fh.read()
+        if 'CROWDSEC_BOUNCER_KEY=""' in conf_content or "CROWDSEC_BOUNCER_KEY" not in conf_content:
+            result = subprocess.run(  # noqa: S603
+                ["cscli", "bouncers", "add", "jabali-security", "-o", "raw"],
+                capture_output=True, text=True, timeout=10,
+            )
+            key = result.stdout.strip() if result.returncode == 0 else ""
+            if key:
+                if "CROWDSEC_BOUNCER_KEY" in conf_content:
+                    conf_content = conf_content.replace(
+                        'CROWDSEC_BOUNCER_KEY=""',
+                        'CROWDSEC_BOUNCER_KEY="%s"' % key,
+                    )
+                else:
+                    conf_content += '\nCROWDSEC_BOUNCER_KEY="%s"\n' % key
+                with open(config_file, "w") as fh:
+                    fh.write(conf_content)
+                click.echo("CrowdSec bouncer key generated.")
+
     # Fix config permissions (older installs may have 600 root:root)
     import grp
     try:

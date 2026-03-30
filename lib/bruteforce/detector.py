@@ -41,6 +41,8 @@ class BruteForceDetector:
         self._offenses: dict[str, int] = {}
         # Already blocked IPs (avoid re-blocking)
         self._blocked: set[str] = set()
+        # Per-IP threshold multiplier (lower = stricter, from CrowdSec enrichment)
+        self._urgency: dict[str, float] = {}
         self._last_cleanup = time.monotonic()
         self._lock = threading.Lock()
 
@@ -56,9 +58,12 @@ class BruteForceDetector:
             self._maybe_cleanup(now)
 
             # Get threshold for this service
-            threshold, window = self._thresholds.get(
+            base_threshold, window = self._thresholds.get(
                 event.service, (10, 600)  # default: 10 attempts in 10 minutes
             )
+            # Apply urgency multiplier (CrowdSec-enriched IPs have lower threshold)
+            urgency = self._urgency.get(event.ip, 1.0)
+            threshold = max(2, int(base_threshold * urgency))
 
             # Record attempt
             attempts = self._attempts.setdefault(event.ip, deque())
@@ -108,6 +113,14 @@ class BruteForceDetector:
         """Remove IP from blocked set (e.g., when block expires)."""
         with self._lock:
             self._blocked.discard(ip)
+            self._urgency.pop(ip, None)
+
+    def set_ip_urgency(self, ip: str, multiplier: float = 0.5) -> None:
+        """Lower the threshold for an IP (CrowdSec enrichment).
+
+        multiplier=0.5 means the IP needs half the normal attempts to trigger a block.
+        """
+        self._urgency[ip] = max(0.2, min(1.0, multiplier))
 
     def load_offenses(self, offenses: dict[str, int]) -> None:
         """Load offense counts from database (for progressive blocking across restarts)."""

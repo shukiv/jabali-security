@@ -209,7 +209,7 @@ class ComponentRegistry:
         tasks.append(self.proc_monitor.run(self.proactive_killer.handle_threats))
         if self.config.bruteforce_enabled and self.auth_parser is not None:
             tasks.append(self.auth_parser.run(
-                daemon._make_auth_callback(self.bf_detector, self.firewall, self.incidents)
+                daemon._make_auth_callback(self.bf_detector, self.firewall, self.incidents, self.crowdsec)
             ))
         if self.config.waf_enabled and self.waf_parser is not None:
             tasks.append(self.waf_parser.run(
