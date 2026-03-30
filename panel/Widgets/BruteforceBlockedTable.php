@@ -72,25 +72,7 @@ class BruteforceBlockedTable extends Component implements HasActions, HasSchemas
                         }
                     }),
             ])
-            ->headerActions([
-                Action::make('whitelist')
-                    ->label(__('Whitelist IP'))
-                    ->icon('heroicon-o-shield-check')
-                    ->form([
-                        TextInput::make('ip')
-                            ->label(__('IP Address'))
-                            ->required()
-                            ->ip(),
-                    ])
-                    ->action(function (array $data): void {
-                        $result = $this->client()->post('/bruteforce/whitelist', $data);
-
-                        Notification::make()
-                            ->title($result ? __('IP whitelisted') : __('Failed to whitelist IP'))
-                            ->{($result ? "success" : "danger")}()
-                            ->send();
-                    }),
-            ])
+            ->headerActions([])
             ->bulkActions([
                 BulkAction::make('unblock')
                     ->label(__('Unblock Selected'))
