@@ -43,10 +43,25 @@ class WhitelistTable extends Component implements HasActions, HasSchemas, HasTab
                     ->label(__('IP Address')),
             ])
             ->actions([
+                Action::make('block')
+                    ->label(__('Block'))
+                    ->icon('heroicon-o-no-symbol')
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->modalDescription(__('This will remove the IP from the whitelist and block it.'))
+                    ->action(function ($record): void {
+                        $ip = $record['ip'] ?? '';
+                        if ($ip) {
+                            $this->client()->delete('/bruteforce/whitelist/' . urlencode($ip));
+                            $this->client()->post('/block', ['ip' => $ip, 'reason' => 'Moved from whitelist']);
+                            Notification::make()->title(__('IP blocked: :ip', ['ip' => $ip]))->success()->send();
+                            $this->redirect(url('/jabali-admin/security?tab=defense&defense=bruteforce'), navigate: true);
+                        }
+                    }),
                 Action::make('remove')
                     ->label(__('Remove'))
                     ->icon('heroicon-o-trash')
-                    ->color('danger')
+                    ->color('gray')
                     ->requiresConfirmation()
                     ->action(function ($record): void {
                         $ip = $record['ip'] ?? '';
