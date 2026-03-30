@@ -34,11 +34,13 @@ class WhitelistTable extends Component implements HasActions, HasSchemas, HasTab
     public function table(Table $table): Table
     {
         return $table
-            ->records(fn () => $this->client()->get('/bruteforce/whitelist')['whitelist'] ?? [])
+            ->records(fn () => array_map(
+                fn ($ip) => ['ip' => $ip],
+                $this->client()->get('/bruteforce/whitelist')['whitelist'] ?? [],
+            ))
             ->columns([
                 TextColumn::make('ip')
-                    ->label(__('IP Address'))
-                    ->state(fn ($record): string => is_string($record) ? $record : ($record['ip'] ?? '')),
+                    ->label(__('IP Address')),
             ])
             ->actions([
                 Action::make('remove')
@@ -47,7 +49,7 @@ class WhitelistTable extends Component implements HasActions, HasSchemas, HasTab
                     ->color('danger')
                     ->requiresConfirmation()
                     ->action(function ($record): void {
-                        $ip = is_string($record) ? $record : ($record['ip'] ?? '');
+                        $ip = $record['ip'] ?? '';
                         if ($ip) {
                             $this->client()->delete('/bruteforce/whitelist/' . urlencode($ip));
                             Notification::make()->title(__('Removed :ip from whitelist', ['ip' => $ip]))->success()->send();
@@ -84,7 +86,7 @@ class WhitelistTable extends Component implements HasActions, HasSchemas, HasTab
                     ->action(function (Collection $records): void {
                         $count = 0;
                         foreach ($records as $record) {
-                            $ip = is_string($record) ? $record : ($record['ip'] ?? '');
+                            $ip = $record['ip'] ?? '';
                             if ($ip) {
                                 $this->client()->delete('/bruteforce/whitelist/' . urlencode($ip));
                                 $count++;

@@ -34,11 +34,13 @@ class BruteforceBlockedTable extends Component implements HasActions, HasSchemas
     public function table(Table $table): Table
     {
         return $table
-            ->records(fn () => $this->client()->get('/bruteforce/blocked')['blocked_ips'] ?? [])
+            ->records(fn () => array_map(
+                fn ($ip) => is_string($ip) ? ['ip' => $ip] : $ip,
+                $this->client()->get('/bruteforce/blocked')['blocked_ips'] ?? [],
+            ))
             ->columns([
                 TextColumn::make('ip')
-                    ->label(__('IP Address'))
-                    ->state(fn ($record): string => is_string($record) ? $record : ($record['ip'] ?? '')),
+                    ->label(__('IP Address')),
             ])
             ->actions([
                 \Filament\Actions\Action::make('unblock')
@@ -47,7 +49,7 @@ class BruteforceBlockedTable extends Component implements HasActions, HasSchemas
                     ->color('danger')
                     ->requiresConfirmation()
                     ->action(function ($record): void {
-                        $ip = is_string($record) ? $record : ($record['ip'] ?? '');
+                        $ip = $record['ip'] ?? '';
                         if ($ip) {
                             $this->client()->delete('/block/' . urlencode($ip));
                             Notification::make()->title(__('IP unblocked: :ip', ['ip' => $ip]))->success()->send();
@@ -84,7 +86,7 @@ class BruteforceBlockedTable extends Component implements HasActions, HasSchemas
                     ->action(function (Collection $records): void {
                         $count = 0;
                         foreach ($records as $record) {
-                            $ip = is_string($record) ? $record : ($record['ip'] ?? '');
+                            $ip = $record['ip'] ?? '';
                             if (! $ip) {
                                 continue;
                             }
