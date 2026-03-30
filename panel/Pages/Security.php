@@ -251,7 +251,6 @@ class Security extends Page implements HasActions, HasForms
                                     'bruteforce' => Tab::make(__('Brute-Force'))
                                         ->schema(array_merge(
                                             [Text::make(__('Monitors SSH and mail service logs for repeated failed login attempts. IPs exceeding the threshold are automatically blocked with progressive ban durations.'))->size(TextSize::Small)->color('gray')],
-                                            $this->bruteforceStats(),
                                             $this->bruteforceListTabs(),
                                         )),
                                     'crowdsec' => Tab::make(__('CrowdSec'))
