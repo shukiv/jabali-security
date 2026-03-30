@@ -414,7 +414,7 @@ def update() -> None:
         subprocess.run(  # noqa: S603
             ["/bin/bash", "-c",
              "curl -fsSL https://install.crowdsec.net 2>/dev/null | bash 2>/dev/null"
-             " && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq crowdsec 2>/dev/null"],
+             " && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq crowdsec crowdsec-firewall-bouncer-nftables 2>/dev/null"],
             capture_output=True, timeout=120,
         )
 
