@@ -55,11 +55,15 @@ async def get_ssh_users(request: web.Request) -> web.Response:
         return _err("SSH jail management not enabled", 404)
 
     import pwd
+    # Panel admin usernames to exclude from SSH user management
+    _EXCLUDED = {"admin", "root"}
     users = []
     for pw in pwd.getpwall():
         if pw.pw_uid < 1000 or pw.pw_uid >= 65534:
             continue
         if not pw.pw_dir.startswith("/home/"):
+            continue
+        if pw.pw_name in _EXCLUDED:
             continue
         try:
             status = await sshjail.shell_status(pw.pw_name)
