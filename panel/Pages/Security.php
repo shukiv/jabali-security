@@ -253,6 +253,13 @@ class Security extends Page implements HasActions, HasForms
                                             $this->bruteforceStats(),
                                             [EmbeddedTable::make(BruteforceBlockedTable::class)],
                                         )),
+                                    'crowdsec' => Tab::make(__('CrowdSec'))
+                                        ->schema(array_merge(
+                                            [Text::make(__('Community threat intelligence powered by 200,000+ installations. CrowdSec detects attacks from server logs and shares signals globally. Known attackers get faster blocks.'))
+                                                ->size(TextSize::Small)
+                                                ->color('gray')],
+                                            $this->crowdsecStats(),
+                                        )),
                                     'proactive' => Tab::make(__('Proactive'))
                                         ->schema(array_merge(
                                             [Text::make(__('Suspicious process killer: detects and terminates reverse shells, crypto miners, and other malicious processes.'))->size(TextSize::Small)->color('gray')],
@@ -356,6 +363,17 @@ class Security extends Page implements HasActions, HasForms
         ];
     }
 
+    private function getCrowdsecStatsData(): array
+    {
+        $s = $this->client()->get('/crowdsec/status') ?? [];
+        $connected = $s['connected'] ?? false;
+        return [
+            ['value' => $connected ? __('Connected') : __('Disconnected'), 'label' => __('LAPI'), 'icon' => 'heroicon-o-globe-alt', 'color' => $connected ? 'success' : 'gray'],
+            ['value' => (string) ($s['active_decisions'] ?? 0), 'label' => __('Decisions'), 'icon' => 'heroicon-o-shield-check', 'color' => ($s['active_decisions'] ?? 0) > 0 ? 'warning' : 'success'],
+            ['value' => (string) ($s['blocked_ips'] ?? 0), 'label' => __('Blocked IPs'), 'icon' => 'heroicon-o-no-symbol', 'color' => ($s['blocked_ips'] ?? 0) > 0 ? 'danger' : 'success'],
+        ];
+    }
+
     private function getBruteforceStatsData(): array
     {
         $s = $this->client()->get('/bruteforce/stats') ?? [];
@@ -400,6 +418,12 @@ class Security extends Page implements HasActions, HasForms
     protected function wafStats(): array
     {
         $data = $this->getWafStatsData();
+        return [Grid::make(count($data))->dense()->schema(array_map(fn ($s) => $this->dashboardCard($s), $data))];
+    }
+
+    protected function crowdsecStats(): array
+    {
+        $data = $this->getCrowdsecStatsData();
         return [Grid::make(count($data))->dense()->schema(array_map(fn ($s) => $this->dashboardCard($s), $data))];
     }
 

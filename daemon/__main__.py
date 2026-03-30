@@ -1372,6 +1372,77 @@ def threat_intel_check_hash(sha256: str, remote: bool, as_json: bool) -> None:
         click.echo("CLEAN: %s (score: %d)" % (sha256, score))
 
 
+# -- crowdsec group ----------------------------------------------------------
+
+@cli.group("crowdsec")
+def crowdsec_cli():
+    """CrowdSec community threat intelligence."""
+
+
+@crowdsec_cli.command("status")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+def crowdsec_status(as_json: bool) -> None:
+    """Show CrowdSec integration status."""
+    config = load_config()
+    data = _api_call(config, "GET", "/api/v1/crowdsec/status")
+    if as_json:
+        click.echo(json.dumps(data, indent=2))
+        return
+    connected = data.get("connected", False)
+    click.echo("CrowdSec integration:")
+    click.echo("  Enabled:     %s" % ("yes" if data.get("enabled") else "no"))
+    click.echo("  Connected:   %s" % ("yes" if connected else "no"))
+    click.echo("  LAPI URL:    %s" % data.get("lapi_url", "?"))
+    click.echo("  Decisions:   %d" % data.get("active_decisions", 0))
+    click.echo("  Blocked IPs: %d" % data.get("blocked_ips", 0))
+    click.echo("  Last poll:   %s" % (data.get("last_poll") or "never"))
+    if data.get("error"):
+        click.echo("  Error:       %s" % data["error"])
+
+
+@crowdsec_cli.command("decisions")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+def crowdsec_decisions(as_json: bool) -> None:
+    """List active CrowdSec decisions (banned IPs)."""
+    config = load_config()
+    data = _api_call(config, "GET", "/api/v1/crowdsec/decisions")
+    decisions = data.get("decisions", [])
+    if as_json:
+        click.echo(json.dumps(decisions, indent=2))
+        return
+    if not decisions:
+        click.echo("No active CrowdSec decisions.")
+        return
+    click.echo("Active CrowdSec decisions (%d):" % len(decisions))
+    for d in decisions:
+        click.echo("  %-18s %-6s %-12s %s" % (
+            d.get("value", "?"),
+            d.get("type", "?"),
+            d.get("duration", "?")[:12],
+            d.get("scenario", "?"),
+        ))
+
+
+@crowdsec_cli.command("check")
+@click.argument("ip")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+def crowdsec_check(ip: str, as_json: bool) -> None:
+    """Check an IP against CrowdSec decisions."""
+    config = load_config()
+    data = _api_call(config, "GET", "/api/v1/crowdsec/check/%s" % ip)
+    if as_json:
+        click.echo(json.dumps(data, indent=2))
+        return
+    click.echo("IP: %s" % data.get("ip", ip))
+    click.echo("Score: %d" % data.get("score", 0))
+    click.echo("Blocked: %s" % ("yes" if data.get("is_blocked") else "no"))
+    cached = data.get("cached_decisions", [])
+    if cached:
+        click.echo("Cached decisions:")
+        for d in cached:
+            click.echo("  %s — %s (%s)" % (d.get("type", "?"), d.get("scenario", "?"), d.get("duration", "?")))
+
+
 @cli.command("scan-full")
 def scan_full() -> None:
     """Trigger a full scheduled scan now."""
