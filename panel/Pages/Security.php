@@ -325,12 +325,16 @@ class Security extends Page implements HasActions, HasForms
             return [['value' => __('Offline'), 'label' => __('Daemon'), 'icon' => 'heroicon-o-server', 'color' => 'danger']];
         }
 
+        $cs = $this->client()->get('/crowdsec/status');
+        $csConnected = $cs['connected'] ?? false;
+        $csDecisions = $cs['active_decisions'] ?? 0;
+
         return [
             ['value' => (string) ($s['incidents_24h'] ?? 0), 'label' => __('Incidents'), 'icon' => 'heroicon-o-exclamation-triangle', 'color' => ($s['incidents_24h'] ?? 0) > 0 ? 'danger' : 'success'],
             ['value' => (string) ($s['attacks_blocked_24h'] ?? 0), 'label' => __('Blocked'), 'icon' => 'heroicon-o-shield-check', 'color' => ($s['attacks_blocked_24h'] ?? 0) > 0 ? 'warning' : 'success'],
             ['value' => (string) ($s['quarantined_count'] ?? 0), 'label' => __('Quarantine'), 'icon' => 'heroicon-o-lock-closed', 'color' => ($s['quarantined_count'] ?? 0) > 0 ? 'warning' : 'success'],
             ['value' => (string) ($s['watched_dirs'] ?? 0), 'label' => __('Watching'), 'icon' => 'heroicon-o-eye', 'color' => 'info'],
-            ['value' => round($s['memory_mb'] ?? 0, 1).' MB', 'label' => __('Memory'), 'icon' => 'heroicon-o-cpu-chip', 'color' => 'gray'],
+            ['value' => $csConnected ? (string) $csDecisions : __('Off'), 'label' => __('CrowdSec'), 'icon' => 'heroicon-o-globe-alt', 'color' => $csConnected ? 'success' : 'gray'],
             ['value' => ($s['running'] ?? false) ? __('Online') : __('Offline'), 'label' => __('Daemon'), 'icon' => 'heroicon-o-server', 'color' => ($s['running'] ?? false) ? 'success' : 'danger'],
         ];
     }
@@ -600,6 +604,7 @@ class Security extends Page implements HasActions, HasForms
             'ClamAV' => 'ClamAV antivirus integration. When set to "auto", the daemon detects if clamd is running and uses it. ClamAV provides signature-based detection complementing the built-in heuristic and YARA engines.',
             'UFW' => 'UFW (Uncomplicated Firewall) management via the REST API. When enabled, firewall rules can be viewed and managed from the Security panel.',
             'SSH Jail' => 'SSH chroot jail management for hosting users. Users get SFTP-only access by default. Shell access provides a jailed environment with wp-cli and basic commands.',
+            'CrowdSec' => 'Community threat intelligence powered by 200,000+ installations worldwide. CrowdSec detects attacks in real-time from server logs and shares signals with the community. Known attackers are blocked faster via reduced brute-force thresholds.',
             'Performance' => 'Performance tuning for database scanning and rapid directory scans. Controls parallel workers and file modification time caching for faster re-scans.',
         ];
 
