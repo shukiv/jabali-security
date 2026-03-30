@@ -704,14 +704,16 @@ SSHJAIL
     mknod -m 666 /var/jail/dev/urandom c 1 9 2>/dev/null || true
     mknod -m 666 /var/jail/dev/tty c 5 0 2>/dev/null || true
 
-    # Mount /proc in jail (needed by VS Code Remote + node.js)
+    # Mount /proc in jail with hidepid=2 (needed by VS Code Remote + node.js)
+    # hidepid=2: users can only see their own processes, not other users'
     mkdir -p /var/jail/proc
     if ! mountpoint -q /var/jail/proc 2>/dev/null; then
-        mount -t proc proc /var/jail/proc 2>/dev/null || true
+        mount -t proc proc /var/jail/proc -o hidepid=2,subset=pid 2>/dev/null || \
+        mount -t proc proc /var/jail/proc -o hidepid=2 2>/dev/null || true
     fi
     # Add /proc mount to fstab for persistence
     if ! grep -q "jabali-jail-proc" /etc/fstab 2>/dev/null; then
-        echo "proc /var/jail/proc proc defaults 0 0 # jabali-jail-proc" >> /etc/fstab
+        echo "proc /var/jail/proc proc hidepid=2 0 0 # jabali-jail-proc" >> /etc/fstab
     fi
 
     # /dev/fd symlink (needed by bash process substitution)
