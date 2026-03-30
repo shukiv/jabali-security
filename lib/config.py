@@ -91,7 +91,7 @@ DEFAULTS: dict[str, str] = {
     "NGINX_ACCESS_LOG": "/var/log/nginx/access.log",
     "RAPIDSCAN_WORKERS": "4",
     "RAPIDSCAN_MTIME_CACHE": "yes",
-    "SSHJAIL_ENABLED": "no",
+    "SSHJAIL_ENABLED": "yes",
     "SSHJAIL_JAIL_DIR": "/var/jail",
     "SSH_SHELL_ACCESS_ENABLED": "no",
 }
@@ -275,7 +275,7 @@ class JabaliConfig:
     nginx_access_log: str = "/var/log/nginx/access.log"
     rapidscan_workers: int = 4
     rapidscan_mtime_cache: bool = True
-    sshjail_enabled: bool = False
+    sshjail_enabled: bool = True
     sshjail_jail_dir: str = "/var/jail"
     ssh_shell_access_enabled: bool = True
 

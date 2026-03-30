@@ -266,7 +266,7 @@ RAPIDSCAN_MTIME_CACHE="yes"
 # -- SSH Jail Management -----------------------------------------------------
 
 # Enable SSH jail (chroot) management
-SSHJAIL_ENABLED="no"
+SSHJAIL_ENABLED="yes"
 
 # Base directory for jailed user environments
 SSHJAIL_JAIL_DIR="/var/jail"
