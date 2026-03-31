@@ -184,23 +184,8 @@ SCHEDULED_SCAN_PATHS="/home/*/public_html"
 # Enable brute-force detection and automatic IP blocking
 BRUTEFORCE_ENABLED="yes"
 
-# Log file for SSH authentication events
-BRUTEFORCE_SSH_LOG="/var/log/auth.log"
-
-# Log file for mail service authentication events (Dovecot, Postfix, Exim)
-BRUTEFORCE_MAIL_LOG="/var/log/mail.log"
-
-# SSH: number of failed attempts before blocking
-BRUTEFORCE_SSH_THRESHOLD="5"
-
-# SSH: sliding window in seconds for counting attempts
-BRUTEFORCE_SSH_WINDOW="300"
-
-# Mail services: number of failed attempts before blocking
-BRUTEFORCE_MAIL_THRESHOLD="10"
-
-# Mail services: sliding window in seconds for counting attempts
-BRUTEFORCE_MAIL_WINDOW="600"
+# SSH/Dovecot/Postfix/Exim brute-force is handled by CrowdSec.
+# Our brute-force module only monitors Stalwart mail server (no CrowdSec parser).
 
 # Progressive block durations in seconds (comma-separated)
 # Each repeat offense uses the next duration; 0 = permanent

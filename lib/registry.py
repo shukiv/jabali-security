@@ -240,22 +240,13 @@ def _build_bruteforce(config: JabaliConfig) -> tuple[BruteForceDetector | None, 
     if not config.bruteforce_enabled:
         return None, None
 
+    # SSH/Dovecot/Postfix/Exim handled by CrowdSec — only Stalwart here
     detector = BruteForceDetector(
-        thresholds={
-            "ssh": (config.bruteforce_ssh_threshold, config.bruteforce_ssh_window),
-            "dovecot": (config.bruteforce_mail_threshold, config.bruteforce_mail_window),
-            "exim": (config.bruteforce_mail_threshold, config.bruteforce_mail_window),
-            "postfix": (config.bruteforce_mail_threshold, config.bruteforce_mail_window),
-            "stalwart": (config.bruteforce_mail_threshold, config.bruteforce_mail_window),
-        },
+        thresholds={"stalwart": (10, 600)},
         block_durations=config.bruteforce_block_durations,
         whitelist=set(config.bruteforce_whitelist_ips),
     )
-    # Always include configured logs — parser falls back to journald if file missing
-    log_configs: dict[str, str] = {"ssh": config.bruteforce_ssh_log}
-    if config.bruteforce_mail_log:
-        log_configs["dovecot"] = config.bruteforce_mail_log
-        log_configs["postfix"] = config.bruteforce_mail_log
+    log_configs: dict[str, str] = {}
     # Stalwart uses dated log files: stalwart.log.YYYY-MM-DD
     stalwart_dir = Path(config.bruteforce_stalwart_log)
     if stalwart_dir.is_dir():

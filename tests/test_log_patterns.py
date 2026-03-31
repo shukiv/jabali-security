@@ -24,52 +24,6 @@ def _match_ip(service: str, rule_index: int, line: str) -> str | None:
     return None
 
 
-class TestSSHPatterns:
-    def test_failed_password(self) -> None:
-        line = "Mar 26 10:15:30 server sshd[1234]: Failed password for admin from 192.168.1.100 port 22 ssh2"
-        ip = _match_ip("ssh", 0, line)
-        assert ip == "192.168.1.100"
-
-    def test_failed_password_invalid_user(self) -> None:
-        line = "Mar 26 10:15:30 server sshd[1234]: Failed password for invalid user test from 10.0.0.50 port 22 ssh2"
-        ip = _match_ip("ssh", 0, line)
-        assert ip == "10.0.0.50"
-
-    def test_invalid_user(self) -> None:
-        line = "Mar 26 10:15:30 server sshd[1234]: Invalid user hacker from 10.0.0.1 port 22"
-        ip = _match_ip("ssh", 1, line)
-        assert ip == "10.0.0.1"
-
-    def test_connection_closed_preauth(self) -> None:
-        line = "Mar 26 10:15:30 server sshd[1234]: Connection closed by authenticating user root 172.16.0.5 port 22 [preauth]"
-        ip = _match_ip("ssh", 2, line)
-        assert ip == "172.16.0.5"
-
-
-class TestDovecotPatterns:
-    def test_auth_failed(self) -> None:
-        line = "Mar 26 10:15:30 server auth-worker(1234): password(user@domain) authentication failed rip=10.0.0.5"
-        ip = _match_ip("dovecot", 0, line)
-        assert ip == "10.0.0.5"
-
-    def test_auth_failed_alternate(self) -> None:
-        line = "Mar 26 10:15:30 mail auth-worker(5678): auth failed rip=203.0.113.10"
-        ip = _match_ip("dovecot", 0, line)
-        assert ip == "203.0.113.10"
-
-
-class TestPostfixPatterns:
-    def test_sasl_login_failed(self) -> None:
-        line = "Mar 26 10:15:30 server postfix/smtpd[1234]: SASL LOGIN authentication failed [203.0.113.5]"
-        ip = _match_ip("postfix", 0, line)
-        assert ip == "203.0.113.5"
-
-    def test_sasl_plain_failed(self) -> None:
-        line = "Mar 26 10:15:30 server postfix/smtpd[9999]: SASL PLAIN authentication failed [10.10.10.1]"
-        ip = _match_ip("postfix", 0, line)
-        assert ip == "10.10.10.1"
-
-
 class TestStalwartPatterns:
     def test_auth_failed(self) -> None:
         line = "2026-03-26T10:15:30Z WARN Authentication failed (auth.failed) remote-ip = 44.55.66.77, protocol = imap"

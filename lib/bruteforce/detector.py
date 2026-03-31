@@ -26,11 +26,9 @@ class BruteForceDetector:
                          0 = permanent
         whitelist: set of IPs to never block
         """
+        # SSH/Dovecot/Postfix/Exim handled by CrowdSec — only Stalwart here
         self._thresholds = thresholds or {
-            "ssh": (5, 300),
-            "dovecot": (10, 600),
-            "exim": (10, 600),
-            "postfix": (10, 600),
+            "stalwart": (10, 600),
         }
         self._block_durations = block_durations or [600, 3600, 86400, 0]
         self._whitelist = whitelist or set()
