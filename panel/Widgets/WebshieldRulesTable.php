@@ -62,12 +62,14 @@ class WebshieldRulesTable extends Component implements HasActions, HasSchemas, H
                     ->icon('heroicon-o-arrow-down-on-square')
                     ->requiresConfirmation()
                     ->action(function (): void {
+                        $this->client()->patch('/config', ['WEBSHIELD_ENABLED' => 'yes']);
                         $result = $this->client()->post('/webshield/install');
 
                         Notification::make()
                             ->title($result ? __('WebShield enabled') : __('Failed to enable WebShield'))
                             ->{($result ? "success" : "danger")}()
                             ->send();
+                        $this->redirect(url('/jabali-admin/security?tab=defense&defense=webshield'), navigate: true);
                     }),
                 Action::make('disable')
                     ->label(__('Disable'))
@@ -76,6 +78,7 @@ class WebshieldRulesTable extends Component implements HasActions, HasSchemas, H
                     ->requiresConfirmation()
                     ->action(function (): void {
                         $result = $this->client()->post('/webshield/uninstall');
+                        $this->client()->patch('/config', ['WEBSHIELD_ENABLED' => 'no']);
 
                         Notification::make()
                             ->title($result ? __('WebShield disabled') : __('Failed to disable WebShield'))
