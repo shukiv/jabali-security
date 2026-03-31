@@ -246,7 +246,10 @@ do_install() {
             apt)
                 run_with_spinner "Installing CrowdSec" bash -c '
                     curl -fsSL https://install.crowdsec.net | bash 2>/dev/null
-                    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq crowdsec crowdsec-firewall-bouncer-nftables 2>/dev/null
+                    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq crowdsec 2>/dev/null
+                    systemctl start crowdsec 2>/dev/null
+                    sleep 2
+                    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq crowdsec-firewall-bouncer-nftables 2>/dev/null || true
                 '
                 ;;
         esac
