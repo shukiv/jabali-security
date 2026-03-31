@@ -247,7 +247,6 @@ class Security extends Page implements HasActions, HasForms
                                         ->icon('heroicon-o-shield-check')
                                         ->schema(array_merge(
                                             [Text::make(__('Unified IP protection: brute-force detection, CrowdSec community intelligence, and threat feed blocking. All blocked IPs from every source in one view.'))->size(TextSize::Small)->color('gray')],
-                                            $this->crowdsecStats(),
                                             $this->ipProtectionTabs(),
                                         )),
                                     'proactive' => Tab::make(__('Proactive'))
