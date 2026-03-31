@@ -418,13 +418,19 @@ def update() -> None:
             capture_output=True, timeout=120,
         )
 
-    # Install CrowdSec collections for hosting
+    # Install CrowdSec collections only on first setup (skip if already installed)
     if shutil.which("cscli"):
+        result = subprocess.run(  # noqa: S603
+            ["cscli", "collections", "list", "-o", "raw"],
+            capture_output=True, text=True, timeout=10,
+        )
+        installed = result.stdout if result.returncode == 0 else ""
         for col in ["linux", "sshd", "nginx", "base-http-scenarios"]:
-            subprocess.run(  # noqa: S603
-                ["cscli", "collections", "install", "crowdsecurity/%s" % col],
-                capture_output=True, timeout=30,
-            )
+            if "crowdsecurity/%s" % col not in installed:
+                subprocess.run(  # noqa: S603
+                    ["cscli", "collections", "install", "crowdsecurity/%s" % col],
+                    capture_output=True, timeout=30,
+                )
 
     # Generate CrowdSec bouncer key if missing
     if shutil.which("cscli") and os.path.isfile(config_file):
@@ -475,7 +481,7 @@ def update() -> None:
         # Regenerate autoload so Filament discovers the updated plugin classes
         subprocess.run(  # noqa: S603
             ["/usr/local/bin/composer", "dump-autoload", "-q"],
-            cwd="/var/www/jabali", capture_output=True, timeout=30,
+            cwd="/var/www/jabali", capture_output=True, timeout=15,
         )
         # Clear Laravel route/view cache + Filament component cache
         for artisan_cmd in [["filament:cache-components"], ["view:clear"]]:
