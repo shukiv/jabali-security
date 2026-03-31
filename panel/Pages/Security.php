@@ -17,6 +17,7 @@ use App\JabaliSecurity\Widgets\ThreatFeedsTable;
 use App\JabaliSecurity\Widgets\UsersTable;
 use App\JabaliSecurity\Widgets\WafEventsTable;
 use App\JabaliSecurity\Widgets\CrowdsecDecisionsTable;
+use App\JabaliSecurity\Widgets\UnifiedBlocklistTable;
 use App\JabaliSecurity\Widgets\WebshieldRulesTable;
 use App\JabaliSecurity\Widgets\WhitelistTable;
 use App\JabaliSecurity\Widgets\YaraRulesTable;
@@ -249,18 +250,12 @@ class Security extends Page implements HasActions, HasForms
                                             $this->wafStats(),
                                             [EmbeddedTable::make(WafEventsTable::class)],
                                         )),
-                                    'bruteforce' => Tab::make(__('Brute-Force'))
+                                    'bruteforce' => Tab::make(__('IP Protection'))
+                                        ->icon('heroicon-o-shield-check')
                                         ->schema(array_merge(
-                                            [Text::make(__('Monitors SSH and mail service logs for repeated failed login attempts. IPs exceeding the threshold are automatically blocked with progressive ban durations.'))->size(TextSize::Small)->color('gray')],
-                                            $this->bruteforceListTabs(),
-                                        )),
-                                    'crowdsec' => Tab::make(__('CrowdSec'))
-                                        ->schema(array_merge(
-                                            [Text::make(__('Community threat intelligence powered by 200,000+ installations. CrowdSec detects attacks from server logs and shares signals globally. Known attackers get faster blocks.'))
-                                                ->size(TextSize::Small)
-                                                ->color('gray')],
+                                            [Text::make(__('Unified IP protection: brute-force detection, CrowdSec community intelligence, and threat feed blocking. All blocked IPs from every source in one view.'))->size(TextSize::Small)->color('gray')],
                                             $this->crowdsecStats(),
-                                            [EmbeddedTable::make(CrowdsecDecisionsTable::class)],
+                                            $this->ipProtectionTabs(),
                                         )),
                                     'proactive' => Tab::make(__('Proactive'))
                                         ->schema(array_merge(
@@ -423,22 +418,22 @@ class Security extends Page implements HasActions, HasForms
         return [Grid::make(count($data))->dense()->schema(array_map(fn ($s) => $this->dashboardCard($s), $data))];
     }
 
-    protected function bruteforceListTabs(): array
+    protected function ipProtectionTabs(): array
     {
-        $blocked = $this->client()->get('/bruteforce/blocked');
-        $blockedCount = $blocked['count'] ?? count($blocked['blocked_ips'] ?? []);
+        $unified = $this->client()->get('/blocklist/unified');
+        $blockedCount = $unified['count'] ?? count($unified['blocked_ips'] ?? []);
         $whitelist = $this->client()->get('/bruteforce/whitelist');
         $whitelistCount = $whitelist['count'] ?? count($whitelist['whitelist'] ?? []);
 
         return [
-            Tabs::make(__('Brute-Force Lists'))
+            Tabs::make(__('IP Protection'))
                 ->contained(false)
                 ->tabs([
-                    'blocked' => Tab::make(__('Blocklist'))
+                    'blocked' => Tab::make(__('Blocked'))
                         ->icon('heroicon-o-no-symbol')
                         ->badge($blockedCount > 0 ? $blockedCount : null)
                         ->badgeColor('danger')
-                        ->schema([EmbeddedTable::make(BruteforceBlockedTable::class)]),
+                        ->schema([EmbeddedTable::make(UnifiedBlocklistTable::class)]),
                     'whitelist' => Tab::make(__('Whitelist'))
                         ->icon('heroicon-o-shield-check')
                         ->badge($whitelistCount > 0 ? $whitelistCount : null)

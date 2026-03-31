@@ -13,6 +13,7 @@ def setup_routes(app: web.Application) -> None:
     app.router.add_post("/api/v1/block", post_block)
     app.router.add_delete("/api/v1/block/{ip}", delete_block)
     app.router.add_get("/api/v1/blocklist", get_blocklist)
+    app.router.add_get("/api/v1/blocklist/unified", get_blocklist_unified)
 
 
 async def post_block(request: web.Request) -> web.Response:
@@ -91,3 +92,37 @@ async def get_blocklist(request: web.Request) -> web.Response:
     incidents = request.app["incidents"]
     blocked = await incidents.get_blocked_ips()
     return _ok({"blocked_ips": blocked, "count": len(blocked)})
+
+
+async def get_blocklist_unified(request: web.Request) -> web.Response:
+    """Unified blocklist: jabali blocked IPs + CrowdSec decisions merged."""
+    entries = []
+
+    # Jabali blocked IPs (brute-force, threat_intel, manual)
+    incidents = request.app["incidents"]
+    for b in await incidents.get_blocked_ips():
+        entries.append({
+            "ip": b["ip"],
+            "reason": b.get("reason", ""),
+            "source": b.get("blocked_by", "manual"),
+            "duration": b.get("expires_at", "permanent"),
+            "blocked_at": b.get("blocked_at", ""),
+        })
+
+    # CrowdSec decisions
+    seen_ips = {e["ip"] for e in entries}
+    crowdsec = request.app.get("crowdsec")
+    if crowdsec:
+        for d in crowdsec.get_all_decisions():
+            ip = d.get("value", "").split("/")[0]
+            if ip and ip not in seen_ips:
+                entries.append({
+                    "ip": ip,
+                    "reason": d.get("scenario", ""),
+                    "source": "crowdsec",
+                    "duration": d.get("duration", ""),
+                    "blocked_at": "",
+                })
+                seen_ips.add(ip)
+
+    return _ok({"blocked_ips": entries, "count": len(entries)})
