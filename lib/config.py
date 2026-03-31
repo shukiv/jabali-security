@@ -46,9 +46,6 @@ DEFAULTS: dict[str, str] = {
     "CLAMAV_ENABLED": "no",
     "CLAMAV_SOCKET": "/var/run/clamav/clamd.ctl",
     "FRESHCLAM_ON_UPDATE": "yes",
-    "BRUTEFORCE_ENABLED": "yes",
-    "BRUTEFORCE_STALWART_LOG": "/var/log/stalwart-mail",
-    "BRUTEFORCE_BLOCK_DURATIONS": "600,3600,86400,0",
     "FIREWALL_BACKEND": "auto",
     "UFW_ENABLED": "no",
     "BRUTEFORCE_WHITELIST_IPS": "",
@@ -226,9 +223,6 @@ class JabaliConfig:
     clamav_enabled: str = "auto"
     clamav_socket: str = "/var/run/clamav/clamd.ctl"
     freshclam_on_update: bool = True
-    bruteforce_enabled: bool = True
-    bruteforce_stalwart_log: str = "/var/log/stalwart-mail"
-    bruteforce_block_durations: list[int] = field(default_factory=lambda: [600, 3600, 86400, 0])
     firewall_backend: str = "auto"
     ufw_enabled: bool = False
     bruteforce_whitelist_ips: list[str] = field(default_factory=list)
@@ -356,14 +350,6 @@ def load_config(filepath: Path | None = None) -> JabaliConfig:
         clamav_enabled=merged["CLAMAV_ENABLED"],
         clamav_socket=merged["CLAMAV_SOCKET"],
         freshclam_on_update=_bool(merged["FRESHCLAM_ON_UPDATE"]),
-        bruteforce_enabled=_bool(merged["BRUTEFORCE_ENABLED"]),
-        bruteforce_stalwart_log=merged["BRUTEFORCE_STALWART_LOG"],
-        bruteforce_block_durations=[
-            d for d in [
-                int(x) for x in merged["BRUTEFORCE_BLOCK_DURATIONS"].split(",")
-                if x.strip().lstrip("-").isdigit()
-            ] if d >= 0
-        ],
         firewall_backend=merged["FIREWALL_BACKEND"],
         ufw_enabled=_bool(merged["UFW_ENABLED"]),
         bruteforce_whitelist_ips=_csv_list(merged["BRUTEFORCE_WHITELIST_IPS"]),

@@ -153,56 +153,6 @@ class SecurityDaemon:
                 reg.scan_queue.task_done()
 
     @staticmethod
-    def _make_auth_callback(detector, firewall, incidents, crowdsec=None, feed_manager=None, config=None):
-        """Build the async callback that bridges log parser -> detector -> firewall."""
-        from datetime import datetime, timedelta, timezone
-
-        _auto_block = config.threat_intel_auto_block if config else False
-        _auto_block_threshold = config.threat_intel_auto_block_threshold if config else 3
-
-        async def _block_ip(ip: str, duration: int, reason: str, source: str):
-            """Route blocking through CrowdSec when available, fallback to our firewall."""
-            if crowdsec is not None and crowdsec.connected:
-                await crowdsec.block_ip(ip, duration, reason)
-            else:
-                await firewall.block_ip(ip, duration)
-            # Always persist to our DB for unified blocklist
-            now = datetime.now(timezone.utc)
-            expires_at = None
-            if duration > 0:
-                expires_at = (now + timedelta(seconds=duration)).isoformat()
-            await incidents.save_blocked_ip(ip, reason, now.isoformat(), expires_at, source)
-
-        async def _on_auth_event(event):
-            # Threat intel auto-block: block immediately if IP hits enough feeds
-            if _auto_block and feed_manager is not None:
-                rep = feed_manager.check_ip(event.ip)
-                if len(rep.feeds) >= _auto_block_threshold:
-                    if event.ip not in detector._blocked:
-                        detector._blocked.add(event.ip)
-                        reason = "Threat intel: matched %d feeds (%s)" % (len(rep.feeds), ", ".join(rep.feeds))
-                        await _block_ip(event.ip, 86400, reason, "threat_intel")
-                        import logging
-                        logging.getLogger(__name__).warning(
-                            "THREAT_INTEL: auto-blocked %s (matched %d feeds: %s)",
-                            event.ip, len(rep.feeds), ", ".join(rep.feeds),
-                        )
-                        return
-
-            # Enrich with CrowdSec: known attackers get shorter fuse
-            if crowdsec is not None:
-                cs_score = crowdsec.check_ip_score(event.ip)
-                if cs_score >= 60:
-                    detector.set_ip_urgency(event.ip, multiplier=0.5)
-
-            decision = detector.record(event)
-            if decision is None:
-                return
-            await _block_ip(decision.ip, decision.duration, decision.reason, "bruteforce")
-
-        return _on_auth_event
-
-    @staticmethod
     def _make_waf_callback(incidents):
         """Build the async callback that persists WAF events to the database."""
         async def _on_waf_event(event):

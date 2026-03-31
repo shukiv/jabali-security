@@ -8,9 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from lib.behavior_tracker import BehaviorTracker
-from lib.bruteforce.detector import BruteForceDetector
 from lib.bruteforce.firewall import FirewallManager
-from lib.bruteforce.log_parser import AuthLogParser
 from lib.cleanup.engine import CleanupEngine
 from lib.cleanup.scheduler import ScanScheduler
 from lib.config import JabaliConfig
@@ -56,8 +54,6 @@ class ComponentRegistry:
     proactive_killer: ProactiveProcessKiller
 
     # Optional components
-    bf_detector: BruteForceDetector | None = None
-    auth_parser: AuthLogParser | None = None
     waf_rules: WafRuleManager | None = None
     waf_parser: ModSecAuditLogParser | None = None
     cleanup_engine: CleanupEngine | None = None
@@ -103,9 +99,6 @@ class ComponentRegistry:
             whitelist_commands=config.process_kill_whitelist,
         )
 
-        bf_detector, auth_parser = (
-            _build_bruteforce(config) if "bruteforce" not in disabled else (None, None)
-        )
         waf_rules, waf_parser = (
             _build_waf(config) if "waf" not in disabled else (None, None)
         )
@@ -143,8 +136,6 @@ class ComponentRegistry:
             response=response,
             proc_monitor=proc_monitor,
             proactive_killer=proactive_killer,
-            bf_detector=bf_detector,
-            auth_parser=auth_parser,
             waf_rules=waf_rules,
             waf_parser=waf_parser,
             cleanup_engine=cleanup_engine,
@@ -161,17 +152,9 @@ class ComponentRegistry:
         await self.firewall.initialize()
         await _sync_blocked_ips(self.incidents, self.firewall)
 
-        # Restore detector state from persisted blocked IPs
-        if self.bf_detector:
-            blocked = await self.incidents.get_blocked_ips()
-            for entry in blocked:
-                self.bf_detector._blocked.add(entry["ip"])
-
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
-        if self.auth_parser:
-            await self.auth_parser.stop()
         if self.waf_parser:
             await self.waf_parser.stop()
         if self.watcher is not None:
@@ -189,7 +172,6 @@ class ComponentRegistry:
         app["scanner"] = self.scanner
         app["scoring"] = self.scoring
         app["firewall"] = self.firewall
-        app["bruteforce_detector"] = self.bf_detector
         app["waf_parser"] = self.waf_parser
         app["waf_rules"] = self.waf_rules
         app["proactive_killer"] = self.proactive_killer
@@ -207,13 +189,6 @@ class ComponentRegistry:
         for i in range(self.config.workers):
             tasks.append(daemon._scan_worker(i))
         tasks.append(self.proc_monitor.run(self.proactive_killer.handle_threats))
-        if self.config.bruteforce_enabled and self.auth_parser is not None:
-            tasks.append(self.auth_parser.run(
-                daemon._make_auth_callback(
-                    self.bf_detector, self.firewall, self.incidents,
-                    self.crowdsec, self.feed_manager, self.config,
-                )
-            ))
         if self.config.waf_enabled and self.waf_parser is not None:
             tasks.append(self.waf_parser.run(
                 daemon._make_waf_callback(self.incidents)
@@ -235,28 +210,6 @@ class ComponentRegistry:
 # Private builder functions
 # ---------------------------------------------------------------------------
 
-
-def _build_bruteforce(config: JabaliConfig) -> tuple[BruteForceDetector | None, AuthLogParser | None]:
-    if not config.bruteforce_enabled:
-        return None, None
-
-    # SSH/Dovecot/Postfix/Exim handled by CrowdSec — only Stalwart here
-    detector = BruteForceDetector(
-        thresholds={"stalwart": (10, 600)},
-        block_durations=config.bruteforce_block_durations,
-        whitelist=set(config.bruteforce_whitelist_ips),
-    )
-    log_configs: dict[str, str] = {}
-    # Stalwart uses dated log files: stalwart.log.YYYY-MM-DD
-    stalwart_dir = Path(config.bruteforce_stalwart_log)
-    if stalwart_dir.is_dir():
-        from datetime import date
-        today_log = stalwart_dir / ("stalwart.log.%s" % date.today().isoformat())
-        if today_log.exists():
-            log_configs["stalwart"] = str(today_log)
-            logger.info("Stalwart log detected: %s", today_log)
-    parser = AuthLogParser(log_configs)
-    return detector, parser
 
 
 def _build_waf(config: JabaliConfig) -> tuple[WafRuleManager | None, ModSecAuditLogParser | None]:

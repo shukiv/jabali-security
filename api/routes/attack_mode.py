@@ -129,35 +129,7 @@ async def post_enable(request: web.Request) -> web.Response:
         except Exception:
             logger.exception("Attack mode: failed to enable WebShield")
 
-    # 4. Block all currently-tracked brute-force IPs
-    detector = request.app.get("bruteforce_detector")
-    firewall = request.app.get("firewall")
-    incidents = request.app.get("incidents")
-    if detector and firewall:
-        try:
-            tracked = detector.get_all_tracked()
-            blocked_count = 0
-            for ip, info in tracked.items():
-                if info.get("count", 0) >= 2:
-                    await firewall.block_ip(ip, 3600)
-                    if incidents:
-                        try:
-                            now = datetime.now(timezone.utc)
-                            await incidents.save_blocked_ip(
-                                ip, "Attack mode: pre-emptive block",
-                                now.isoformat(),
-                                (now + timedelta(seconds=3600)).isoformat(),
-                                "attack_mode",
-                            )
-                        except Exception:
-                            pass
-                    blocked_count += 1
-            if blocked_count > 0:
-                actions.append(f"Blocked {blocked_count} tracked IPs")
-        except Exception:
-            logger.exception("Attack mode: failed to block tracked IPs")
-
-    # 5. Reload nginx
+    # 4. Reload nginx
     if await _reload_nginx():
         actions.append("Nginx reloaded")
 
@@ -225,13 +197,10 @@ async def post_disable(request: web.Request) -> web.Response:
         try:
             blocked = await incidents.get_blocked_ips()
             unblocked = 0
-            detector = request.app.get("bruteforce_detector")
             for entry in blocked:
                 if entry.get("blocked_by") == "attack_mode":
                     await firewall.unblock_ip(entry["ip"])
                     await incidents.delete_blocked_ip(entry["ip"])
-                    if detector:
-                        detector.unblock(entry["ip"])
                     unblocked += 1
             if unblocked > 0:
                 actions.append(f"Unblocked {unblocked} attack-mode IPs")

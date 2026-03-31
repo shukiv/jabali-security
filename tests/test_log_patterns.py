@@ -1,8 +1,7 @@
-"""Tests for regex patterns in log_parser.py and audit_log_parser.py."""
+"""Tests for regex patterns in audit_log_parser.py."""
 
 from __future__ import annotations
 
-from lib.bruteforce.log_parser import _LOG_PATTERNS
 from lib.waf.audit_log_parser import (
     _REQUEST_LINE_RE,
     _RULE_ID_RE,
@@ -12,41 +11,6 @@ from lib.waf.audit_log_parser import (
     _SEVERITY_RE,
     ModSecAuditLogParser,
 )
-
-
-def _match_ip(service: str, rule_index: int, line: str) -> str | None:
-    """Run a specific pattern against a log line and return the captured IP."""
-    patterns = _LOG_PATTERNS[service]
-    _, pattern = patterns[rule_index]
-    m = pattern.search(line)
-    if m:
-        return m.group("ip")
-    return None
-
-
-class TestStalwartPatterns:
-    def test_auth_failed(self) -> None:
-        line = "2026-03-26T10:15:30Z WARN Authentication failed (auth.failed) remote-ip = 44.55.66.77, protocol = imap"
-        ip = _match_ip("stalwart", 0, line)
-        assert ip == "44.55.66.77"
-
-    def test_security_auth_failed(self) -> None:
-        line = "2026-03-26T10:15:30Z WARN (security.authentication-failed) remote-ip = 99.88.77.66, protocol = smtp"
-        ip = _match_ip("stalwart", 1, line)
-        assert ip == "99.88.77.66"
-
-    def test_brute_force(self) -> None:
-        line = "2026-03-26T10:15:30Z WARN (security.brute-force) too many auth attempts remote-ip = 11.22.33.44"
-        ip = _match_ip("stalwart", 2, line)
-        assert ip == "11.22.33.44"
-
-
-class TestNoFalseMatch:
-    def test_normal_log_line_no_match(self) -> None:
-        line = "Mar 26 10:15:30 server sshd[1234]: Accepted password for admin from 192.168.1.100 port 22 ssh2"
-        for _name, patterns in _LOG_PATTERNS.items():
-            for _rule_name, pattern in patterns:
-                assert pattern.search(line) is None
 
 
 class TestModSecSectionA:

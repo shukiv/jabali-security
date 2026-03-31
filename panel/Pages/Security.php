@@ -649,7 +649,6 @@ class Security extends Page implements HasActions, HasForms
             'Network' => [
                 'WAF (ModSecurity)' => ['WAF_ENABLED', 'WAF_AUDIT_LOG', 'WAF_AUDIT_LOG_TYPE', 'WAF_RULES_DIR', 'WAF_OVERRIDES_FILE', 'WAF_CRS_AUTO_UPDATE', 'WAF_WEB_SERVER', 'WAF_NGINX_INCLUDE'],
                 'CrowdSec' => ['CROWDSEC_ENABLED', 'CROWDSEC_LAPI_URL', 'CROWDSEC_BOUNCER_KEY', 'CROWDSEC_SYNC_INTERVAL'],
-                'Brute-Force (Stalwart)' => ['BRUTEFORCE_ENABLED', 'BRUTEFORCE_STALWART_LOG', 'BRUTEFORCE_BLOCK_DURATIONS', 'FIREWALL_BACKEND', 'BRUTEFORCE_WHITELIST_IPS'],
                 'Threat Intelligence' => ['THREAT_INTEL_ENABLED', 'THREAT_INTEL_UPDATE_INTERVAL', 'THREAT_INTEL_FEEDS', 'THREAT_INTEL_AUTO_BLOCK', 'THREAT_INTEL_AUTO_BLOCK_THRESHOLD'],
                 'UFW Firewall' => ['UFW_ENABLED'],
             ],
@@ -926,9 +925,6 @@ class Security extends Page implements HasActions, HasForms
         'WAF_CRS_AUTO_UPDATE' => 'Automatically update OWASP Core Rule Set',
         'WAF_WEB_SERVER' => 'Web server type: auto, nginx, or apache',
         'WAF_NGINX_INCLUDE' => 'Nginx include file for per-site modsecurity on/off toggle',
-        'BRUTEFORCE_ENABLED' => 'Enable brute-force detection on auth logs',
-        'BRUTEFORCE_STALWART_LOG' => 'Directory for Stalwart mail server logs',
-        'BRUTEFORCE_BLOCK_DURATIONS' => 'Progressive block durations in seconds (comma-separated, 0=permanent)',
         'FIREWALL_BACKEND' => 'IP blocking backend: auto, nftables, iptables, or none',
         'BRUTEFORCE_WHITELIST_IPS' => 'IPs that are never blocked (comma-separated)',
         'UFW_ENABLED' => 'Enable UFW firewall rule management via the API',
@@ -976,7 +972,6 @@ class Security extends Page implements HasActions, HasForms
             ],
             'advanced' => [
                 'WAF_ENABLED' => ['label' => 'WAF (ModSecurity)', 'desc' => 'Web application firewall with OWASP CRS'],
-                'BRUTEFORCE_ENABLED' => ['label' => 'Brute-Force Protection', 'desc' => 'Blocks IPs after failed logins'],
                 'PROCESS_KILL_ENABLED' => ['label' => 'Process Killer', 'desc' => 'Kills reverse shells and miners'],
                 'WEBSHIELD_ENABLED' => ['label' => 'WebShield', 'desc' => 'Nginx bot filtering and rate limiting'],
                 'THREAT_INTEL_ENABLED' => ['label' => 'Threat Intelligence', 'desc' => 'IP reputation and malware hash feeds'],
@@ -990,7 +985,7 @@ class Security extends Page implements HasActions, HasForms
 
     public static array $booleanKeys = [
         'AUTO_QUARANTINE', 'AUTO_SUSPEND', 'AUTO_BLOCK_IP',
-        'WAF_ENABLED', 'WAF_CRS_AUTO_UPDATE', 'BRUTEFORCE_ENABLED',
+        'WAF_ENABLED', 'WAF_CRS_AUTO_UPDATE',
         'PROCESS_KILL_ENABLED',
         'CLEANUP_ENABLED', 'CLEANUP_AUTO', 'CLEANUP_CMS_CHECKSUMS',
         'SCHEDULED_SCAN_ENABLED', 'THREAT_INTEL_ENABLED', 'THREAT_INTEL_AUTO_BLOCK',
@@ -1012,7 +1007,7 @@ class Security extends Page implements HasActions, HasForms
     public static array $basicCategories = [
         'General' => ['LOG_LEVEL', 'WORKERS', 'AUTO_QUARANTINE', 'AUTO_SUSPEND'],
         'Scanning' => ['CLAMAV_ENABLED', 'SCORE_LOG', 'SCORE_QUARANTINE', 'SCORE_SUSPEND', 'SCHEDULED_SCAN_ENABLED', 'SCHEDULED_SCAN_INTERVAL', 'CLEANUP_ENABLED', 'CLEANUP_AUTO'],
-        'Network' => ['WAF_ENABLED', 'WAF_CRS_AUTO_UPDATE', 'BRUTEFORCE_ENABLED', 'CROWDSEC_ENABLED', 'UFW_ENABLED', 'THREAT_INTEL_ENABLED', 'THREAT_INTEL_AUTO_BLOCK'],
+        'Network' => ['WAF_ENABLED', 'WAF_CRS_AUTO_UPDATE', 'CROWDSEC_ENABLED', 'UFW_ENABLED', 'THREAT_INTEL_ENABLED', 'THREAT_INTEL_AUTO_BLOCK'],
         'Modules' => ['PROCESS_KILL_ENABLED', 'PROCESS_KILL_THRESHOLD', 'WEBSHIELD_ENABLED', 'WEBSHIELD_RATE_LIMIT', 'WEBSHIELD_RATE_BURST'],
     ];
 
@@ -1020,7 +1015,7 @@ class Security extends Page implements HasActions, HasForms
     public static array $configCategories = [
         'General' => ['LOG_LEVEL', 'LOG_DIR', 'DATA_DIR', 'QUARANTINE_DIR', 'WORKERS', 'WATCH_DIRS', 'RAPIDSCAN_WORKERS', 'RAPIDSCAN_MTIME_CACHE'],
         'Scanning' => ['SCAN_EXTENSIONS', 'MAX_FILE_SIZE', 'SKIP_DIRS', 'ENTROPY_THRESHOLD', 'YARA_RULES_DIR', 'BEHAVIOR_TTL', 'CLAMAV_ENABLED', 'CLAMAV_SOCKET', 'FRESHCLAM_ON_UPDATE', 'SCORE_LOG', 'SCORE_QUARANTINE', 'SCORE_SUSPEND', 'AUTO_QUARANTINE', 'AUTO_SUSPEND', 'AUTO_BLOCK_IP', 'SCHEDULED_SCAN_ENABLED', 'SCHEDULED_SCAN_INTERVAL', 'SCHEDULED_SCAN_PATHS', 'CLEANUP_ENABLED', 'CLEANUP_AUTO', 'CLEANUP_BACKUP_DIR', 'CLEANUP_CMS_CHECKSUMS'],
-        'Network' => ['WAF_ENABLED', 'WAF_AUDIT_LOG', 'WAF_AUDIT_LOG_TYPE', 'WAF_RULES_DIR', 'WAF_OVERRIDES_FILE', 'WAF_CRS_AUTO_UPDATE', 'WAF_WEB_SERVER', 'WAF_NGINX_INCLUDE', 'BRUTEFORCE_ENABLED', 'BRUTEFORCE_STALWART_LOG', 'BRUTEFORCE_BLOCK_DURATIONS', 'FIREWALL_BACKEND', 'BRUTEFORCE_WHITELIST_IPS', 'CROWDSEC_ENABLED', 'CROWDSEC_LAPI_URL', 'CROWDSEC_BOUNCER_KEY', 'CROWDSEC_SYNC_INTERVAL', 'UFW_ENABLED', 'THREAT_INTEL_ENABLED', 'THREAT_INTEL_UPDATE_INTERVAL', 'THREAT_INTEL_FEEDS', 'THREAT_INTEL_AUTO_BLOCK', 'THREAT_INTEL_AUTO_BLOCK_THRESHOLD'],
+        'Network' => ['WAF_ENABLED', 'WAF_AUDIT_LOG', 'WAF_AUDIT_LOG_TYPE', 'WAF_RULES_DIR', 'WAF_OVERRIDES_FILE', 'WAF_CRS_AUTO_UPDATE', 'WAF_WEB_SERVER', 'WAF_NGINX_INCLUDE', 'FIREWALL_BACKEND', 'BRUTEFORCE_WHITELIST_IPS', 'CROWDSEC_ENABLED', 'CROWDSEC_LAPI_URL', 'CROWDSEC_BOUNCER_KEY', 'CROWDSEC_SYNC_INTERVAL', 'UFW_ENABLED', 'THREAT_INTEL_ENABLED', 'THREAT_INTEL_UPDATE_INTERVAL', 'THREAT_INTEL_FEEDS', 'THREAT_INTEL_AUTO_BLOCK', 'THREAT_INTEL_AUTO_BLOCK_THRESHOLD'],
         'Modules' => ['PROCESS_KILL_ENABLED', 'PROCESS_KILL_THRESHOLD', 'PROCESS_KILL_MIN_UID', 'PROCESS_KILL_WHITELIST', 'PROCESS_POLL_INTERVAL', 'WEBSHIELD_ENABLED', 'WEBSHIELD_RATE_LIMIT', 'WEBSHIELD_RATE_BURST', 'WEBSHIELD_CHALLENGE_ENABLED', 'WEBSHIELD_BOT_FILTERING', 'WEBSHIELD_NGINX_CONF_DIR', 'NGINX_ACCESS_LOG'],
     ];
 
@@ -1031,7 +1026,7 @@ class Security extends Page implements HasActions, HasForms
         'ENTROPY_THRESHOLD', 'YARA_RULES_DIR', 'PROCESS_POLL_INTERVAL', 'BEHAVIOR_TTL',
         'CLAMAV_SOCKET', 'FRESHCLAM_ON_UPDATE',
         'WAF_AUDIT_LOG', 'WAF_AUDIT_LOG_TYPE', 'WAF_RULES_DIR', 'WAF_OVERRIDES_FILE', 'WAF_WEB_SERVER', 'WAF_NGINX_INCLUDE',
-        'BRUTEFORCE_STALWART_LOG', 'FIREWALL_BACKEND',
+        'FIREWALL_BACKEND',
         'SSHJAIL_JAIL_DIR',
         'PROCESS_KILL_MIN_UID', 'PROCESS_KILL_WHITELIST',
         'CLEANUP_BACKUP_DIR', 'CLEANUP_CMS_CHECKSUMS',

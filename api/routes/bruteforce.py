@@ -1,50 +1,39 @@
-"""Brute-force stats/blocked/whitelist route handlers."""
+"""IP whitelist management route handlers."""
 
 from __future__ import annotations
 
 from aiohttp import web
 
 from api.routes.helpers import _err, _ok, _validate_ip
-from lib.config import update_conf_key
+from lib.config import load_config, update_conf_key
 from lib.constants import CONFIG_FILE
 
 
 def setup_routes(app: web.Application) -> None:
-    app.router.add_get("/api/v1/bruteforce/stats", get_bruteforce_stats)
-    app.router.add_get("/api/v1/bruteforce/blocked", get_bruteforce_blocked)
-    app.router.add_get("/api/v1/bruteforce/whitelist", get_bruteforce_whitelist)
-    app.router.add_post("/api/v1/bruteforce/whitelist", post_bruteforce_whitelist)
-    app.router.add_delete("/api/v1/bruteforce/whitelist/{ip}", delete_bruteforce_whitelist)
+    app.router.add_get("/api/v1/bruteforce/whitelist", get_whitelist)
+    app.router.add_post("/api/v1/bruteforce/whitelist", post_whitelist)
+    app.router.add_delete("/api/v1/bruteforce/whitelist/{ip}", delete_whitelist)
 
 
-async def get_bruteforce_stats(request: web.Request) -> web.Response:
-    detector = request.app.get("bruteforce_detector")
-    if not detector:
-        return _err("Brute-force protection not enabled", 404)
-    return _ok({
-        "tracked_ips": detector.tracked_ips,
-        "blocked_count": detector.blocked_count,
-    })
+def _get_whitelist_ips() -> list[str]:
+    """Read whitelist from config file."""
+    config = load_config(CONFIG_FILE)
+    return sorted(ip for ip in config.bruteforce_whitelist_ips if ip)
 
 
-async def get_bruteforce_blocked(request: web.Request) -> web.Response:
-    incidents = request.app.get("incidents")
-    if not incidents:
-        return _err("Incident store not available", 404)
-    ips = await incidents.get_blocked_ips()
-    return _ok({"blocked_ips": ips, "count": len(ips)})
+def _save_whitelist_ips(ips: list[str]) -> None:
+    """Write whitelist to config file."""
+    update_conf_key(CONFIG_FILE, "BRUTEFORCE_WHITELIST_IPS", ",".join(sorted(set(ips))))
 
 
-async def get_bruteforce_whitelist(request: web.Request) -> web.Response:
+async def get_whitelist(request: web.Request) -> web.Response:
     """List all whitelisted IPs."""
-    detector = request.app.get("bruteforce_detector")
-    if not detector:
-        return _err("Brute-force protection not enabled", 404)
-    ips = detector.get_whitelist()
+    ips = _get_whitelist_ips()
     return _ok({"whitelist": ips, "count": len(ips)})
 
 
-async def post_bruteforce_whitelist(request: web.Request) -> web.Response:
+async def post_whitelist(request: web.Request) -> web.Response:
+    """Add an IP to the whitelist."""
     try:
         body = await request.json()
     except Exception:
@@ -57,46 +46,34 @@ async def post_bruteforce_whitelist(request: web.Request) -> web.Response:
     if not _validate_ip(ip):
         return _err("Invalid IP address format")
 
-    detector = request.app.get("bruteforce_detector")
-    if not detector:
-        return _err("Brute-force protection not enabled", 404)
+    ips = _get_whitelist_ips()
+    if ip not in ips:
+        ips.append(ip)
+        _save_whitelist_ips(ips)
 
-    detector.add_to_whitelist(ip)
-
-    # Also unblock if currently blocked
+    # Also unblock from CrowdSec + firewall
+    crowdsec = request.app.get("crowdsec")
+    if crowdsec and crowdsec.connected:
+        await crowdsec.unblock_ip(ip)
     firewall = request.app.get("firewall")
     if firewall:
         await firewall.unblock_ip(ip)
-    detector.unblock(ip)
-
-    # Persist to config file so whitelist survives daemon restarts
-    _persist_whitelist(detector)
 
     return _ok({"whitelisted": True, "ip": ip})
 
 
-async def delete_bruteforce_whitelist(request: web.Request) -> web.Response:
+async def delete_whitelist(request: web.Request) -> web.Response:
+    """Remove an IP from the whitelist."""
     ip = request.match_info["ip"]
 
     if not _validate_ip(ip):
         return _err("Invalid IP address format")
 
-    detector = request.app.get("bruteforce_detector")
-    if not detector:
-        return _err("Brute-force protection not enabled", 404)
-
-    if not detector.is_whitelisted(ip):
+    ips = _get_whitelist_ips()
+    if ip not in ips:
         return _err("IP not in whitelist", 404)
 
-    detector.remove_from_whitelist(ip)
-
-    # Persist to config file
-    _persist_whitelist(detector)
+    ips.remove(ip)
+    _save_whitelist_ips(ips)
 
     return _ok({"removed": True, "ip": ip})
-
-
-def _persist_whitelist(detector) -> None:
-    """Write current whitelist to config file so it survives restarts."""
-    ips = detector.get_whitelist()
-    update_conf_key(CONFIG_FILE, "BRUTEFORCE_WHITELIST_IPS", ",".join(ips))

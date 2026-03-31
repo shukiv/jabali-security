@@ -87,10 +87,6 @@ async def delete_block(request: web.Request) -> web.Response:
     if firewall:
         await firewall.unblock_ip(ip)
 
-    # Also clear from brute-force detector in-memory state
-    detector = request.app.get("bruteforce_detector")
-    if detector:
-        detector.unblock(ip)
 
     return _ok({"unblocked": True, "ip": ip})
 
