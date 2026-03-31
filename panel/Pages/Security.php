@@ -66,7 +66,7 @@ class Security extends Page implements HasActions, HasForms
     public string $activeTab = 'overview';
 
     #[Url(as: 'threats')]
-    public string $threatsTab = 'incidents';
+    public string $threatsTab = 'scan';
 
     #[Url(as: 'defense')]
     public string $defenseTab = 'firewall';
