@@ -1,11 +1,11 @@
 #!/bin/bash
 # Jabali Security — install / uninstall script
 # Usage:
-#   curl -fsSL https://git.linux-hosting.co.il/shukivaknin/jabali-security/raw/branch/master/install.sh | sudo bash
+#   curl -fsSL https://raw.githubusercontent.com/shukiv/jabali-security/master/install.sh | sudo bash
 #   sudo bash install.sh --uninstall
 set -euo pipefail
 
-REPO_URL="https://git.linux-hosting.co.il/shukivaknin/jabali-security.git"
+REPO_URL="https://github.com/shukiv/jabali-security.git"
 INSTALL_DIR="/usr/local/jabali-security"
 CONFIG_DIR="/etc/jabali-security"
 LOG_DIR="/var/log/jabali-security"

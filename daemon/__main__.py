@@ -300,7 +300,7 @@ def update() -> None:
     """Update jabali-security to the latest version."""
     import subprocess
 
-    REPO_URL = "https://git.linux-hosting.co.il/shukivaknin/jabali-security.git"
+    REPO_URL = "https://github.com/shukiv/jabali-security.git"
     INSTALL_DIR = "/usr/local/jabali-security"
 
     click.echo("Updating Jabali Security...")
