@@ -611,40 +611,72 @@ class Security extends Page implements HasActions, HasForms
         $tabs = [];
         $categoriesToShow = $expert ? static::$configCategories : static::$basicCategories;
 
-        $tabDescriptions = [
-            'General' => 'Core daemon settings: logging, data directories, workers, and file watcher configuration. Controls how the daemon operates at the system level.',
-            'Scanning' => 'Malware detection engines: heuristic patterns, entropy analysis, YARA-X signatures, ClamAV integration, scoring thresholds, scheduled scans, and auto-cleanup. Controls what gets detected and what happens when threats are found.',
-            'Network' => 'Network protection: WAF (ModSecurity + OWASP CRS), CrowdSec community intelligence, brute-force detection, threat intel feeds, and UFW firewall management.',
-            'SSH' => 'SSH chroot jail for hosting users. SFTP-only by default, optional jailed shell with wp-cli.',
-            'Modules' => 'Optional modules: process killer (detects reverse shells and miners), WebShield (nginx rate limiting and bot filtering).',
+        // Sub-sections within each tab for visual grouping
+        $keySections = [
+            'General' => [
+                'Daemon' => ['LOG_LEVEL', 'LOG_DIR', 'DATA_DIR', 'QUARANTINE_DIR', 'WORKERS'],
+                'File Watcher' => ['WATCH_DIRS'],
+                'Performance' => ['RAPIDSCAN_WORKERS', 'RAPIDSCAN_MTIME_CACHE'],
+            ],
+            'Scanning' => [
+                'File Filters' => ['SCAN_EXTENSIONS', 'MAX_FILE_SIZE', 'SKIP_DIRS'],
+                'Detection Engines' => ['ENTROPY_THRESHOLD', 'YARA_RULES_DIR', 'BEHAVIOR_TTL', 'CLAMAV_ENABLED', 'CLAMAV_SOCKET', 'FRESHCLAM_ON_UPDATE'],
+                'Scoring & Response' => ['SCORE_LOG', 'SCORE_QUARANTINE', 'SCORE_SUSPEND', 'AUTO_QUARANTINE', 'AUTO_SUSPEND', 'AUTO_BLOCK_IP'],
+                'Scheduled Scans' => ['SCHEDULED_SCAN_ENABLED', 'SCHEDULED_SCAN_INTERVAL', 'SCHEDULED_SCAN_PATHS'],
+                'Auto Cleanup' => ['CLEANUP_ENABLED', 'CLEANUP_AUTO', 'CLEANUP_BACKUP_DIR', 'CLEANUP_CMS_CHECKSUMS'],
+            ],
+            'Network' => [
+                'WAF (ModSecurity)' => ['WAF_ENABLED', 'WAF_AUDIT_LOG', 'WAF_AUDIT_LOG_TYPE', 'WAF_RULES_DIR', 'WAF_OVERRIDES_FILE', 'WAF_CRS_AUTO_UPDATE', 'WAF_WEB_SERVER', 'WAF_NGINX_INCLUDE'],
+                'CrowdSec' => ['CROWDSEC_ENABLED', 'CROWDSEC_LAPI_URL', 'CROWDSEC_BOUNCER_KEY', 'CROWDSEC_SYNC_INTERVAL'],
+                'Brute-Force (Stalwart)' => ['BRUTEFORCE_ENABLED', 'BRUTEFORCE_STALWART_LOG', 'BRUTEFORCE_BLOCK_DURATIONS', 'FIREWALL_BACKEND', 'BRUTEFORCE_WHITELIST_IPS'],
+                'Threat Intelligence' => ['THREAT_INTEL_ENABLED', 'THREAT_INTEL_UPDATE_INTERVAL', 'THREAT_INTEL_FEEDS', 'THREAT_INTEL_AUTO_BLOCK', 'THREAT_INTEL_AUTO_BLOCK_THRESHOLD'],
+                'UFW Firewall' => ['UFW_ENABLED'],
+            ],
+            'SSH' => [
+                'SSH Jail' => ['SSHJAIL_ENABLED', 'SSHJAIL_JAIL_DIR', 'SSH_SHELL_ACCESS_ENABLED'],
+            ],
+            'Modules' => [
+                'Process Killer' => ['PROCESS_KILL_ENABLED', 'PROCESS_KILL_THRESHOLD', 'PROCESS_KILL_MIN_UID', 'PROCESS_KILL_WHITELIST', 'PROCESS_POLL_INTERVAL'],
+                'WebShield' => ['WEBSHIELD_ENABLED', 'WEBSHIELD_RATE_LIMIT', 'WEBSHIELD_RATE_BURST', 'WEBSHIELD_CHALLENGE_ENABLED', 'WEBSHIELD_BOT_FILTERING', 'WEBSHIELD_NGINX_CONF_DIR', 'NGINX_ACCESS_LOG'],
+            ],
         ];
 
-        foreach ($categoriesToShow as $category => $keys) {
+        foreach ($categoriesToShow as $category => $allKeys) {
             $fields = [];
-            $desc = $tabDescriptions[$category] ?? '';
-            if ($desc) {
-                $fields[] = Text::make(__($desc))->size(TextSize::Small)->color('gray');
-            }
-            foreach ($keys as $key) {
-                if (! $expert && in_array($key, static::$expertKeys)) {
-                    continue;
+            $sections = $keySections[$category] ?? [$category => $allKeys];
+
+            foreach ($sections as $sectionName => $sectionKeys) {
+                $sectionFields = [];
+                foreach ($sectionKeys as $key) {
+                    if (! in_array($key, $allKeys)) {
+                        continue; // Not in this mode's key list
+                    }
+                    if (! $expert && in_array($key, static::$expertKeys)) {
+                        continue;
+                    }
+                    $help = static::$configHelp[$key] ?? '';
+                    $fieldName = 'configData.config_'.$key;
+                    if (in_array($key, static::$booleanKeys)) {
+                        $sectionFields[] = Toggle::make($fieldName)
+                            ->label($key)
+                            ->helperText($help);
+                    } elseif (isset(static::$selectKeys[$key])) {
+                        $opts = array_combine(static::$selectKeys[$key], static::$selectKeys[$key]);
+                        $sectionFields[] = Select::make($fieldName)
+                            ->label($key)
+                            ->options($opts)
+                            ->helperText($help);
+                    } else {
+                        $sectionFields[] = TextInput::make($fieldName)
+                            ->label($key)
+                            ->helperText($help);
+                    }
                 }
-                $help = static::$configHelp[$key] ?? '';
-                $fieldName = 'configData.config_'.$key;
-                if (in_array($key, static::$booleanKeys)) {
-                    $fields[] = Toggle::make($fieldName)
-                        ->label($key)
-                        ->helperText($help);
-                } elseif (isset(static::$selectKeys[$key])) {
-                    $opts = array_combine(static::$selectKeys[$key], static::$selectKeys[$key]);
-                    $fields[] = Select::make($fieldName)
-                        ->label($key)
-                        ->options($opts)
-                        ->helperText($help);
-                } else {
-                    $fields[] = TextInput::make($fieldName)
-                        ->label($key)
-                        ->helperText($help);
+                if (! empty($sectionFields)) {
+                    $fields[] = Section::make(__($sectionName))
+                        ->compact()
+                        ->collapsible()
+                        ->schema($sectionFields);
                 }
             }
 
