@@ -460,6 +460,14 @@ def update() -> None:
     except (KeyError, PermissionError):
         pass  # www-data group may not exist
 
+    # Open DNS port 53 if Stalwart is installed and UFW is active
+    if shutil.which("ufw") and (shutil.which("stalwart-mail") or os.path.isdir("/opt/stalwart-mail")):
+        for proto in ["tcp", "udp"]:
+            subprocess.run(  # noqa: S603
+                ["ufw", "allow", "53/%s" % proto, "comment", "DNS"],
+                capture_output=True, timeout=10,
+            )
+
     # Restart services
     subprocess.run(["/usr/bin/systemctl", "restart", "jabali-security"], capture_output=True)  # noqa: S603
     # Clear Laravel caches + restart panel (route/view cache has stale references)
@@ -875,60 +883,41 @@ def user_risk(username: str, as_json: bool) -> None:
 # -- brute-force group -------------------------------------------------------
 
 @cli.group()
-def bruteforce():
-    """Brute-force protection management."""
+def whitelist():
+    """IP whitelist management (IPs that are never blocked)."""
 
 
-@bruteforce.command("stats")
+@whitelist.command("list")
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON")
-def bruteforce_stats(as_json: bool) -> None:
-    """Show brute-force protection statistics."""
+def whitelist_list(as_json: bool) -> None:
+    """List whitelisted IPs."""
     config = load_config()
-    data = _api_call(config, "GET", "/api/v1/bruteforce/stats")
-
+    data = _api_call(config, "GET", "/api/v1/bruteforce/whitelist")
+    ips = data.get("whitelist", [])
     if as_json:
         click.echo(json.dumps(data, indent=2))
         return
-
-    click.echo("Brute-force protection stats:")
-    click.echo("  Tracked IPs:  %s" % data.get("tracked_ips", "?"))
-    click.echo("  Blocked:      %s" % data.get("blocked_count", "?"))
-
-
-@bruteforce.command("blocked")
-@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
-def bruteforce_blocked(as_json: bool) -> None:
-    """List IPs blocked by brute-force protection."""
-    config = load_config()
-    data = _api_call(config, "GET", "/api/v1/bruteforce/blocked")
-
-    if as_json:
-        click.echo(json.dumps(data, indent=2))
-        return
-
-    ips = data.get("blocked_ips", []) if isinstance(data, dict) else []
     if not ips:
-        click.echo("No IPs currently blocked by brute-force protection.")
+        click.echo("No whitelisted IPs.")
         return
-
-    click.echo("Blocked IPs (%d):" % len(ips))
+    click.echo("Whitelisted IPs (%d):" % len(ips))
     for ip in ips:
         click.echo("  %s" % ip)
 
 
-@bruteforce.command("whitelist-add")
+@whitelist.command("add")
 @click.argument("ip")
-def bruteforce_whitelist_add(ip: str) -> None:
-    """Add an IP to the brute-force whitelist."""
+def whitelist_add(ip: str) -> None:
+    """Add an IP to the whitelist."""
     config = load_config()
     _api_call(config, "POST", "/api/v1/bruteforce/whitelist", {"ip": ip})
     click.echo("IP %s added to whitelist." % ip)
 
 
-@bruteforce.command("whitelist-remove")
+@whitelist.command("remove")
 @click.argument("ip")
-def bruteforce_whitelist_remove(ip: str) -> None:
-    """Remove an IP from the brute-force whitelist."""
+def whitelist_remove(ip: str) -> None:
+    """Remove an IP from the whitelist."""
     config = load_config()
     _api_call(config, "DELETE", "/api/v1/bruteforce/whitelist/%s" % ip)
     click.echo("IP %s removed from whitelist." % ip)
