@@ -249,7 +249,7 @@ def _scan_directory(dir_path: str, config: JabaliConfig) -> list[dict]:
 def _print_scan_result(result: dict) -> None:
     """Print a single scan result in human-readable format."""
     click.echo("Scanning: %s" % result["path"])
-    click.echo("  Score: %d (%s) -> %s" % (result["score"], result["severity"], result["action"]))
+    click.echo("  Score: %d (%s) -> %s" % (result["score"], result.get("severity", "unknown"), result.get("action", "unknown")))
     findings = result.get("findings", [])
     if findings:
         click.echo("  Findings:")
