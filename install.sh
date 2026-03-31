@@ -704,15 +704,7 @@ SSHJAIL
         mkdir -p "/var/jail/etc/php/$php_ver/cli/conf.d"
         cp "/etc/php/$php_ver/cli/php.ini" "/var/jail/etc/php/$php_ver/cli/" 2>/dev/null || true
         sed -i 's/;date.timezone =/date.timezone = UTC/' "/var/jail/etc/php/$php_ver/cli/php.ini" 2>/dev/null || true
-        # Harden PHP for jail: disable dangerous functions, restrict open_basedir
-        cat >> "/var/jail/etc/php/$php_ver/cli/php.ini" << 'PHPJAIL'
-
-; Jabali jail hardening
-disable_functions = exec,system,shell_exec,passthru,popen,proc_open,pcntl_exec,pcntl_fork,pcntl_signal,pcntl_alarm,dl
-open_basedir = /home/:/tmp/:/var/jail/tmp/
-allow_url_fopen = Off
-allow_url_include = Off
-PHPJAIL
+        # The chroot is the security boundary — no need for PHP open_basedir/disable_functions
         for f in /etc/php/"$php_ver"/cli/conf.d/*.ini; do
             if [ -L "$f" ]; then
                 cp "$(readlink -f "$f")" "/var/jail/etc/php/$php_ver/cli/conf.d/$(basename "$f")" 2>/dev/null || true
