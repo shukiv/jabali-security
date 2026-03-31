@@ -257,7 +257,7 @@ do_install() {
     # Install hosting-relevant CrowdSec collections
     if command -v cscli &>/dev/null; then
         for col in linux sshd nginx base-http-scenarios postfix dovecot; do
-            cscli collections install "crowdsecurity/$col" 2>/dev/null || true
+            cscli collections install "crowdsecurity/$col" >/dev/null 2>&1 || true
         done
         done_ok "CrowdSec collections installed"
     fi
