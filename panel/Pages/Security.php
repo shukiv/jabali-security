@@ -187,44 +187,6 @@ class Security extends Page implements HasActions, HasForms
                             $this->overviewStats(),
                             $this->overviewTab(),
                         )),
-                    'threats' => Tab::make(__('Threats'))
-                        ->icon('heroicon-o-exclamation-triangle')
-                        ->schema([
-                            Tabs::make(__('Threats'))
-                                ->contained(false)
-                                ->livewireProperty('threatsTab')
-                                ->tabs([
-                                    'incidents' => Tab::make(__('Incidents'))
-                                        ->schema([
-                                            Text::make(__('Security events detected by the scanning engines (heuristic, entropy, YARA-X, ClamAV). Each scanner assigns a score to its findings, which are aggregated into a total threat score. Scoring thresholds determine the action: below 40 = ignored, 40-70 = logged as incident (low/medium), 70-100 = file quarantined (high), 100+ = account suspended (critical). These thresholds are configurable in Settings. You can review details and resolve incidents here.'))
-                                                ->size(TextSize::Small)
-                                                ->color('gray'),
-                                            EmbeddedTable::make(IncidentsTable::class),
-                                        ]),
-                                    'quarantine' => Tab::make(__('Quarantine'))
-                                        ->schema([
-                                            Text::make(__('Files that exceeded the quarantine score threshold have been moved here for safe isolation. You can restore false positives or permanently delete confirmed threats.'))
-                                                ->size(TextSize::Small)
-                                                ->color('gray'),
-                                            EmbeddedTable::make(QuarantineTable::class),
-                                        ]),
-                                    'cleanup' => Tab::make(__('Cleanup'))
-                                        ->schema([
-                                            Text::make(__('Records of automated and manual malware cleanup operations. Shows which files were cleaned, what injection patterns were removed, and where backups are stored.'))
-                                                ->size(TextSize::Small)
-                                                ->color('gray'),
-                                            EmbeddedTable::make(CleanupRecordsTable::class),
-                                        ]),
-                                ]),
-                        ]),
-                    'scan' => Tab::make(__('Scan'))
-                        ->icon('heroicon-o-magnifying-glass')
-                        ->schema([
-                            Text::make(__('Scan user directories for malware, webshells, and suspicious files. Uses heuristic, entropy, and YARA-X engines. ClamAV is used when enabled.'))
-                                ->size(TextSize::Small)
-                                ->color('gray'),
-                            EmbeddedTable::make(ScanUsersTable::class),
-                        ]),
                     'defense' => Tab::make(__('Defense'))
                         ->icon('heroicon-o-shield-check')
                         ->schema([
@@ -271,6 +233,44 @@ class Security extends Page implements HasActions, HasForms
                                             [EmbeddedTable::make(SshKeysTable::class)],
                                         )),
                                 ]),
+                        ]),
+                    'threats' => Tab::make(__('Threats'))
+                        ->icon('heroicon-o-exclamation-triangle')
+                        ->schema([
+                            Tabs::make(__('Threats'))
+                                ->contained(false)
+                                ->livewireProperty('threatsTab')
+                                ->tabs([
+                                    'incidents' => Tab::make(__('Incidents'))
+                                        ->schema([
+                                            Text::make(__('Security events detected by the scanning engines (heuristic, entropy, YARA-X, ClamAV). Each scanner assigns a score to its findings, which are aggregated into a total threat score.'))
+                                                ->size(TextSize::Small)
+                                                ->color('gray'),
+                                            EmbeddedTable::make(IncidentsTable::class),
+                                        ]),
+                                    'quarantine' => Tab::make(__('Quarantine'))
+                                        ->schema([
+                                            Text::make(__('Files that exceeded the quarantine score threshold have been moved here for safe isolation. You can restore false positives or permanently delete confirmed threats.'))
+                                                ->size(TextSize::Small)
+                                                ->color('gray'),
+                                            EmbeddedTable::make(QuarantineTable::class),
+                                        ]),
+                                    'cleanup' => Tab::make(__('Cleanup'))
+                                        ->schema([
+                                            Text::make(__('Records of automated and manual malware cleanup operations. Shows which files were cleaned, what injection patterns were removed, and where backups are stored.'))
+                                                ->size(TextSize::Small)
+                                                ->color('gray'),
+                                            EmbeddedTable::make(CleanupRecordsTable::class),
+                                        ]),
+                                ]),
+                        ]),
+                    'scan' => Tab::make(__('Scan'))
+                        ->icon('heroicon-o-magnifying-glass')
+                        ->schema([
+                            Text::make(__('Scan user directories for malware, webshells, and suspicious files. Uses heuristic, entropy, and YARA-X engines. ClamAV is used when enabled.'))
+                                ->size(TextSize::Small)
+                                ->color('gray'),
+                            EmbeddedTable::make(ScanUsersTable::class),
                         ]),
                     'intelligence' => Tab::make(__('Intelligence'))
                         ->icon('heroicon-o-light-bulb')
