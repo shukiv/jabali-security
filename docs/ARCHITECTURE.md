@@ -119,7 +119,7 @@ SQLite database via `aiosqlite` with tables for incidents, quarantine, blocked I
 
 | File | Purpose |
 |---|---|
-| `log_parser.py` | Tails auth logs (SSH, Dovecot, Postfix, Exim, Stalwart) for failed login events. Uses `AsyncLogTailer` for rotation-safe tailing. |
+| `log_parser.py` | Auth log parser (unused — SSH/mail handled by CrowdSec, Stalwart has built-in blocking). |
 | `detector.py` | Sliding window counter per IP per service; triggers block on threshold |
 | `firewall.py` | `FirewallManager` -- auto-detects nftables/iptables; block/unblock IPs |
 | `models.py` | Data models for auth events and block records |

@@ -26,7 +26,7 @@ class BruteForceDetector:
                          0 = permanent
         whitelist: set of IPs to never block
         """
-        # SSH/Dovecot/Postfix/Exim handled by CrowdSec — only Stalwart here
+        # Only Stalwart (SSH/HTTP/mail handled by CrowdSec)
         self._thresholds = thresholds or {
             "stalwart": (10, 600),
         }

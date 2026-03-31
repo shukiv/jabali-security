@@ -19,7 +19,7 @@ class AuthEvent(BaseModel):
     id: str = Field(default_factory=_hex_id)
     timestamp: datetime = Field(default_factory=_utcnow)
     ip: str
-    service: str          # "ssh", "dovecot", "exim", "postfix"
+    service: str          # "stalwart"
     username: str = ""
     success: bool = False
     raw_line: str = ""

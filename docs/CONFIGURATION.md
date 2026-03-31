@@ -140,21 +140,14 @@ Behavior tracking is always enabled (core detection engine).
 | `NOTIFY_WEBHOOK` | string | *(empty)* | Webhook URL for alerts (empty = disabled) |
 | `NOTIFY_MIN_SEVERITY` | string | `high` | Minimum severity to trigger notifications: `low`, `medium`, `high`, `critical` |
 
-## Brute-Force Protection
+## IP Protection
+
+SSH and HTTP brute-force detection is handled by CrowdSec. Stalwart mail server has built-in IP blocking. The whitelist below applies to all sources.
 
 | Key | Type | Default | Description |
 |---|---|---|---|
-| `BRUTEFORCE_ENABLED` | bool | `no` | Enable brute-force detection and automatic IP blocking |
-| `BRUTEFORCE_SSH_LOG` | path | `/var/log/auth.log` | SSH authentication log file |
-| `BRUTEFORCE_MAIL_LOG` | path | `/var/log/mail.log` | Mail service log file (Dovecot, Postfix, Exim) |
-| `BRUTEFORCE_STALWART_LOG` | path | `/var/log/stalwart-mail` | Stalwart mail server log directory |
-| `BRUTEFORCE_SSH_THRESHOLD` | int | `5` | Failed SSH attempts before blocking. Min: 1. |
-| `BRUTEFORCE_SSH_WINDOW` | int | `300` | SSH sliding window in seconds. Min: 10. |
-| `BRUTEFORCE_MAIL_THRESHOLD` | int | `10` | Failed mail attempts before blocking. Min: 1. |
-| `BRUTEFORCE_MAIL_WINDOW` | int | `600` | Mail sliding window in seconds. Min: 10. |
-| `BRUTEFORCE_BLOCK_DURATIONS` | csv(int) | `600,3600,86400,0` | Progressive block durations in seconds. 0 = permanent. |
 | `FIREWALL_BACKEND` | string | `auto` | `auto` (detect nftables/iptables), `nftables`, `iptables`, `none` |
-| `BRUTEFORCE_WHITELIST_IPS` | csv | *(empty)* | Comma-separated IPs to never block |
+| `BRUTEFORCE_WHITELIST_IPS` | csv | *(empty)* | Comma-separated IPs that are never blocked |
 
 ## WAF (ModSecurity)
 

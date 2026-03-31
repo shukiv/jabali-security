@@ -184,7 +184,7 @@ SCHEDULED_SCAN_PATHS="/home/*/public_html"
 # Enable brute-force detection and automatic IP blocking
 BRUTEFORCE_ENABLED="yes"
 
-# SSH/Dovecot/Postfix/Exim brute-force is handled by CrowdSec.
+# SSH/HTTP brute-force is handled by CrowdSec. Stalwart has built-in IP blocking.
 # Our brute-force module only monitors Stalwart mail server (no CrowdSec parser).
 
 # Progressive block durations in seconds (comma-separated)

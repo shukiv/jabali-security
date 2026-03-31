@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 _SAFE_PROCESSES = frozenset({
     "init", "systemd", "sshd", "cron", "crond", "rsyslogd", "journald",
     "nginx", "apache2", "httpd", "mysqld", "mariadbd", "postgres",
-    "php-fpm", "named", "dovecot", "exim", "postfix", "fail2ban-server",
+    "php-fpm", "stalwart-mail", "pdns_server", "fail2ban-server",
     "jabali-security",
 })
 

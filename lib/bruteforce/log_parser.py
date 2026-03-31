@@ -18,7 +18,7 @@ _IP_PATTERN = r'(?P<ip>(?:\d+\.\d+\.\d+\.\d+|[0-9a-fA-F:]+(?:::[0-9a-fA-F:]*)?(?
 
 # Service patterns: (rule_name, compiled_regex with named group "ip")
 _LOG_PATTERNS: dict[str, list[tuple[str, re.Pattern[str]]]] = {
-    # SSH, Dovecot, Postfix, Exim handled by CrowdSec — only Stalwart here
+    # Only Stalwart (SSH/HTTP/mail handled by CrowdSec)
     "stalwart": [
         # Stalwart log format: 2026-03-19T20:22:55Z WARN ... (auth.failed) remote-ip = 1.2.3.4
         ("stalwart_auth_failed", re.compile(
@@ -42,7 +42,7 @@ class AuthLogParser:
     def __init__(self, log_configs: dict[str, str]) -> None:
         """
         log_configs: mapping of service_name -> log_file_path
-        Example: {"ssh": "/var/log/auth.log", "dovecot": "/var/log/mail.log"}
+        Example: {"stalwart": "/var/log/stalwart-mail/stalwart.log.2026-03-31"}
         """
         self._log_configs = log_configs
         self._running = False

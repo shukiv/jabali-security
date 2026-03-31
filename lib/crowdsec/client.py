@@ -25,8 +25,6 @@ SCENARIO_WEIGHTS: dict[str, int] = {
     "http-path-traversal": 60,
     "http-bf-wordpress": 60,
     "http-wordpress-scan": 50,
-    "postfix-spam": 60,
-    "dovecot-spam": 60,
     "modsecurity": 50,
 }
 
