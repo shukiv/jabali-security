@@ -88,7 +88,7 @@ DEFAULTS: dict[str, str] = {
     "SSHJAIL_ENABLED": "yes",
     "SSHJAIL_JAIL_DIR": "/var/jail",
     "SSH_SHELL_ACCESS_ENABLED": "no",
-    "CROWDSEC_ENABLED": "auto",
+    "CROWDSEC_ENABLED": "yes",
     "CROWDSEC_LAPI_URL": "http://127.0.0.1:8080",
     "CROWDSEC_BOUNCER_KEY": "",
     "CROWDSEC_SYNC_INTERVAL": "10",
