@@ -234,43 +234,29 @@ class Security extends Page implements HasActions, HasForms
                                         )),
                                 ]),
                         ]),
-                    'threats' => Tab::make(__('Threats'))
-                        ->icon('heroicon-o-exclamation-triangle')
+                    'malware' => Tab::make(__('Malware Scanner'))
+                        ->icon('heroicon-o-bug-ant')
                         ->schema([
-                            Tabs::make(__('Threats'))
+                            Text::make(__('Real-time malware detection using heuristic, entropy, YARA-X, and ClamAV engines. Files are scanned on creation/modification. Detected threats are quarantined or cleaned automatically.'))
+                                ->size(TextSize::Small)
+                                ->color('gray'),
+                            Tabs::make(__('Malware Scanner'))
                                 ->contained(false)
                                 ->livewireProperty('threatsTab')
                                 ->tabs([
+                                    'scan' => Tab::make(__('Scan'))
+                                        ->icon('heroicon-o-magnifying-glass')
+                                        ->schema([EmbeddedTable::make(ScanUsersTable::class)]),
                                     'incidents' => Tab::make(__('Incidents'))
-                                        ->schema([
-                                            Text::make(__('Security events detected by the scanning engines (heuristic, entropy, YARA-X, ClamAV). Each scanner assigns a score to its findings, which are aggregated into a total threat score.'))
-                                                ->size(TextSize::Small)
-                                                ->color('gray'),
-                                            EmbeddedTable::make(IncidentsTable::class),
-                                        ]),
+                                        ->icon('heroicon-o-exclamation-triangle')
+                                        ->schema([EmbeddedTable::make(IncidentsTable::class)]),
                                     'quarantine' => Tab::make(__('Quarantine'))
-                                        ->schema([
-                                            Text::make(__('Files that exceeded the quarantine score threshold have been moved here for safe isolation. You can restore false positives or permanently delete confirmed threats.'))
-                                                ->size(TextSize::Small)
-                                                ->color('gray'),
-                                            EmbeddedTable::make(QuarantineTable::class),
-                                        ]),
+                                        ->icon('heroicon-o-lock-closed')
+                                        ->schema([EmbeddedTable::make(QuarantineTable::class)]),
                                     'cleanup' => Tab::make(__('Cleanup'))
-                                        ->schema([
-                                            Text::make(__('Records of automated and manual malware cleanup operations. Shows which files were cleaned, what injection patterns were removed, and where backups are stored.'))
-                                                ->size(TextSize::Small)
-                                                ->color('gray'),
-                                            EmbeddedTable::make(CleanupRecordsTable::class),
-                                        ]),
+                                        ->icon('heroicon-o-sparkles')
+                                        ->schema([EmbeddedTable::make(CleanupRecordsTable::class)]),
                                 ]),
-                        ]),
-                    'scan' => Tab::make(__('Scan'))
-                        ->icon('heroicon-o-magnifying-glass')
-                        ->schema([
-                            Text::make(__('Scan user directories for malware, webshells, and suspicious files. Uses heuristic, entropy, and YARA-X engines. ClamAV is used when enabled.'))
-                                ->size(TextSize::Small)
-                                ->color('gray'),
-                            EmbeddedTable::make(ScanUsersTable::class),
                         ]),
                     'intelligence' => Tab::make(__('Intelligence'))
                         ->icon('heroicon-o-light-bulb')
