@@ -237,13 +237,6 @@ class Security extends Page implements HasActions, HasForms
                                             [Text::make(__('Manage UFW (Uncomplicated Firewall) rules to control inbound and outbound traffic. Add port rules, IP-based allow/deny rules, and manage application profiles.'))->size(TextSize::Small)->color('gray')],
                                             $this->firewallTab(),
                                         )),
-                                    'blocklist' => Tab::make(__('Blocklist'))
-                                        ->schema([
-                                            Text::make(__('IP addresses blocked by manual action, brute-force detection, or threat intelligence feeds. You can manually block or unblock IPs with optional expiry times.'))
-                                                ->size(TextSize::Small)
-                                                ->color('gray'),
-                                            EmbeddedTable::make(BlocklistTable::class),
-                                        ]),
                                     'waf' => Tab::make(__('WAF'))
                                         ->schema(array_merge(
                                             [Text::make(__('Web Application Firewall events from ModSecurity with OWASP Core Rule Set. Shows blocked attacks (SQLi, XSS, path traversal) and lets you manage CRS rules.'))->size(TextSize::Small)->color('gray')],
