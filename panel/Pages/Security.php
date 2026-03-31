@@ -612,24 +612,11 @@ class Security extends Page implements HasActions, HasForms
         $categoriesToShow = $expert ? static::$configCategories : static::$basicCategories;
 
         $tabDescriptions = [
-            'Daemon' => 'Core daemon settings: log verbosity, data directories, quarantine location, and number of parallel scan workers. These affect how the daemon operates at the system level.',
-            'Scoring & Response' => 'Threat scoring thresholds that determine what happens when malware is detected. Files scoring above the log threshold are recorded as incidents. Above quarantine threshold, files are automatically isolated. Above suspend threshold, the hosting account can be suspended.',
-            'Brute-Force' => 'SSH and mail service brute-force protection. Monitors authentication logs for repeated failed login attempts and automatically blocks attacking IPs with progressive ban durations (10 min → 1 hour → 24 hours → permanent).',
-            'WAF' => 'ModSecurity Web Application Firewall with OWASP Core Rule Set. Inspects HTTP requests for SQL injection, XSS, path traversal, and other web attacks. CRS rules auto-update periodically.',
-            'Process Killer' => 'Monitors running processes for suspicious activity like reverse shells, crypto miners, and unauthorized scripts. Processes exceeding the threat score threshold are terminated. Only affects non-system processes (UID >= 1000).',
-            'Cleanup' => 'Automated malware cleanup engine. Removes injected PHP code from compromised files, restores CMS core files from official checksums, and creates backups before any modifications.',
-            'Scheduled Scan' => 'Periodic full-directory scanning that runs automatically on a schedule. Catches dormant malware that may have been missed by real-time file watching. Scans all configured paths at the specified interval.',
-            'Threat Intel' => 'Threat intelligence feeds from public sources: Spamhaus DROP/EDROP (known spam networks), blocklist.de (brute-force attackers), and MalwareBazaar (malware hashes). Feeds update every 6 hours automatically.',
-            'WebShield' => 'Nginx-level protection layer: rate limiting prevents request flooding, bot filtering blocks known malicious user agents, and JavaScript challenge pages verify that visitors are real browsers, not automated scanners.',
-            'Retention' => 'Data retention policy for incident records. Old incidents are automatically cleaned up after the specified number of days to prevent database growth.',
-            'File Watcher' => 'Directories monitored for file changes in real-time using inotify. New or modified files matching the scan extensions are automatically scanned for malware.',
-            'Pre-Filter' => 'File filtering rules that determine which files are scanned. Only files matching the configured extensions are analyzed. Large files and common non-code directories are skipped for performance.',
-            'Detection' => 'Tuning parameters for the detection engines. Entropy threshold controls sensitivity of the Shannon entropy scanner (lower = more sensitive). YARA rules directory contains custom signature files.',
-            'ClamAV' => 'ClamAV antivirus integration. When set to "auto", the daemon detects if clamd is running and uses it. ClamAV provides signature-based detection complementing the built-in heuristic and YARA engines.',
-            'UFW' => 'UFW (Uncomplicated Firewall) management via the REST API. When enabled, firewall rules can be viewed and managed from the Security panel.',
-            'SSH Jail' => 'SSH chroot jail management for hosting users. Users get SFTP-only access by default. Shell access provides a jailed environment with wp-cli and basic commands.',
-            'CrowdSec' => 'Community threat intelligence powered by 200,000+ installations worldwide. CrowdSec detects attacks in real-time from server logs and shares signals with the community. Known attackers are blocked faster via reduced brute-force thresholds.',
-            'Performance' => 'Performance tuning for database scanning and rapid directory scans. Controls parallel workers and file modification time caching for faster re-scans.',
+            'General' => 'Core daemon settings: logging, data directories, workers, and file watcher configuration. Controls how the daemon operates at the system level.',
+            'Scanning' => 'Malware detection engines: heuristic patterns, entropy analysis, YARA-X signatures, ClamAV integration, scoring thresholds, scheduled scans, and auto-cleanup. Controls what gets detected and what happens when threats are found.',
+            'Network' => 'Network protection: WAF (ModSecurity + OWASP CRS), CrowdSec community intelligence, brute-force detection, threat intel feeds, and UFW firewall management.',
+            'SSH' => 'SSH chroot jail for hosting users. SFTP-only by default, optional jailed shell with wp-cli.',
+            'Modules' => 'Optional modules: process killer (detects reverse shells and miners), WebShield (nginx rate limiting and bot filtering).',
         ];
 
         foreach ($categoriesToShow as $category => $keys) {
@@ -971,38 +958,22 @@ class Security extends Page implements HasActions, HasForms
         'WAF_WEB_SERVER' => ['auto', 'nginx', 'apache'],
     ];
 
-    /** Basic mode: only these categories shown, expert keys hidden within them. */
+    /** Basic mode: consolidated categories, expert keys hidden. */
     public static array $basicCategories = [
-        'Daemon' => ['LOG_LEVEL', 'LOG_DIR', 'DATA_DIR', 'QUARANTINE_DIR', 'WORKERS'],
-        'Scoring & Response' => ['SCORE_LOG', 'SCORE_QUARANTINE', 'SCORE_SUSPEND', 'AUTO_QUARANTINE', 'AUTO_SUSPEND', 'AUTO_BLOCK_IP'],
-        'Brute-Force' => ['BRUTEFORCE_ENABLED', 'BRUTEFORCE_BLOCK_DURATIONS', 'BRUTEFORCE_WHITELIST_IPS'],
-        'WAF' => ['WAF_ENABLED', 'WAF_CRS_AUTO_UPDATE'],
-        'Process Killer' => ['PROCESS_KILL_ENABLED', 'PROCESS_KILL_THRESHOLD'],
-        'Cleanup' => ['CLEANUP_ENABLED', 'CLEANUP_AUTO'],
-        'Scheduled Scan' => ['SCHEDULED_SCAN_ENABLED', 'SCHEDULED_SCAN_INTERVAL', 'SCHEDULED_SCAN_PATHS'],
-        'Threat Intel' => ['THREAT_INTEL_ENABLED', 'THREAT_INTEL_AUTO_BLOCK'],
-        'WebShield' => ['WEBSHIELD_ENABLED', 'WEBSHIELD_RATE_LIMIT', 'WEBSHIELD_RATE_BURST'],
+        'General' => ['LOG_LEVEL', 'WORKERS', 'AUTO_QUARANTINE', 'AUTO_SUSPEND'],
+        'Scanning' => ['CLAMAV_ENABLED', 'SCORE_LOG', 'SCORE_QUARANTINE', 'SCORE_SUSPEND', 'SCHEDULED_SCAN_ENABLED', 'SCHEDULED_SCAN_INTERVAL', 'CLEANUP_ENABLED', 'CLEANUP_AUTO'],
+        'Network' => ['WAF_ENABLED', 'WAF_CRS_AUTO_UPDATE', 'BRUTEFORCE_ENABLED', 'CROWDSEC_ENABLED', 'UFW_ENABLED', 'THREAT_INTEL_ENABLED', 'THREAT_INTEL_AUTO_BLOCK'],
+        'SSH' => ['SSHJAIL_ENABLED', 'SSH_SHELL_ACCESS_ENABLED'],
+        'Modules' => ['PROCESS_KILL_ENABLED', 'PROCESS_KILL_THRESHOLD', 'WEBSHIELD_ENABLED', 'WEBSHIELD_RATE_LIMIT', 'WEBSHIELD_RATE_BURST'],
     ];
 
-    /** Expert mode: all categories with every key. */
+    /** Expert mode: all keys grouped into consolidated categories. */
     public static array $configCategories = [
-        'Daemon' => ['LOG_LEVEL', 'LOG_DIR', 'DATA_DIR', 'QUARANTINE_DIR', 'WORKERS'],
-        'File Watcher' => ['WATCH_DIRS'],
-        'Pre-Filter' => ['SCAN_EXTENSIONS', 'MAX_FILE_SIZE', 'SKIP_DIRS'],
-        'Detection' => ['ENTROPY_THRESHOLD', 'YARA_RULES_DIR', 'PROCESS_POLL_INTERVAL', 'BEHAVIOR_TTL'],
-        'ClamAV' => ['CLAMAV_ENABLED', 'CLAMAV_SOCKET', 'FRESHCLAM_ON_UPDATE'],
-        'Scoring & Response' => ['SCORE_LOG', 'SCORE_QUARANTINE', 'SCORE_SUSPEND', 'AUTO_QUARANTINE', 'AUTO_SUSPEND', 'AUTO_BLOCK_IP'],
-        'WAF' => ['WAF_ENABLED', 'WAF_AUDIT_LOG', 'WAF_AUDIT_LOG_TYPE', 'WAF_RULES_DIR', 'WAF_OVERRIDES_FILE', 'WAF_CRS_AUTO_UPDATE', 'WAF_WEB_SERVER', 'WAF_NGINX_INCLUDE'],
-        'Brute-Force' => ['BRUTEFORCE_ENABLED', 'BRUTEFORCE_STALWART_LOG', 'BRUTEFORCE_BLOCK_DURATIONS', 'FIREWALL_BACKEND', 'BRUTEFORCE_WHITELIST_IPS'],
-        'UFW' => ['UFW_ENABLED'],
-        'SSH Jail' => ['SSHJAIL_ENABLED', 'SSHJAIL_JAIL_DIR', 'SSH_SHELL_ACCESS_ENABLED'],
-        'Process Killer' => ['PROCESS_KILL_ENABLED', 'PROCESS_KILL_THRESHOLD', 'PROCESS_KILL_MIN_UID', 'PROCESS_KILL_WHITELIST'],
-        'Cleanup' => ['CLEANUP_ENABLED', 'CLEANUP_AUTO', 'CLEANUP_BACKUP_DIR', 'CLEANUP_CMS_CHECKSUMS'],
-        'Scheduled Scan' => ['SCHEDULED_SCAN_ENABLED', 'SCHEDULED_SCAN_INTERVAL', 'SCHEDULED_SCAN_PATHS'],
-        'Threat Intel' => ['THREAT_INTEL_ENABLED', 'THREAT_INTEL_UPDATE_INTERVAL', 'THREAT_INTEL_FEEDS', 'THREAT_INTEL_AUTO_BLOCK', 'THREAT_INTEL_AUTO_BLOCK_THRESHOLD'],
-        'WebShield' => ['WEBSHIELD_ENABLED', 'WEBSHIELD_RATE_LIMIT', 'WEBSHIELD_RATE_BURST', 'WEBSHIELD_CHALLENGE_ENABLED', 'WEBSHIELD_BOT_FILTERING', 'WEBSHIELD_NGINX_CONF_DIR', 'NGINX_ACCESS_LOG'],
-        'CrowdSec' => ['CROWDSEC_ENABLED', 'CROWDSEC_LAPI_URL', 'CROWDSEC_BOUNCER_KEY', 'CROWDSEC_SYNC_INTERVAL'],
-        'Performance' => ['RAPIDSCAN_WORKERS', 'RAPIDSCAN_MTIME_CACHE'],
+        'General' => ['LOG_LEVEL', 'LOG_DIR', 'DATA_DIR', 'QUARANTINE_DIR', 'WORKERS', 'WATCH_DIRS', 'RAPIDSCAN_WORKERS', 'RAPIDSCAN_MTIME_CACHE'],
+        'Scanning' => ['SCAN_EXTENSIONS', 'MAX_FILE_SIZE', 'SKIP_DIRS', 'ENTROPY_THRESHOLD', 'YARA_RULES_DIR', 'BEHAVIOR_TTL', 'CLAMAV_ENABLED', 'CLAMAV_SOCKET', 'FRESHCLAM_ON_UPDATE', 'SCORE_LOG', 'SCORE_QUARANTINE', 'SCORE_SUSPEND', 'AUTO_QUARANTINE', 'AUTO_SUSPEND', 'AUTO_BLOCK_IP', 'SCHEDULED_SCAN_ENABLED', 'SCHEDULED_SCAN_INTERVAL', 'SCHEDULED_SCAN_PATHS', 'CLEANUP_ENABLED', 'CLEANUP_AUTO', 'CLEANUP_BACKUP_DIR', 'CLEANUP_CMS_CHECKSUMS'],
+        'Network' => ['WAF_ENABLED', 'WAF_AUDIT_LOG', 'WAF_AUDIT_LOG_TYPE', 'WAF_RULES_DIR', 'WAF_OVERRIDES_FILE', 'WAF_CRS_AUTO_UPDATE', 'WAF_WEB_SERVER', 'WAF_NGINX_INCLUDE', 'BRUTEFORCE_ENABLED', 'BRUTEFORCE_STALWART_LOG', 'BRUTEFORCE_BLOCK_DURATIONS', 'FIREWALL_BACKEND', 'BRUTEFORCE_WHITELIST_IPS', 'CROWDSEC_ENABLED', 'CROWDSEC_LAPI_URL', 'CROWDSEC_BOUNCER_KEY', 'CROWDSEC_SYNC_INTERVAL', 'UFW_ENABLED', 'THREAT_INTEL_ENABLED', 'THREAT_INTEL_UPDATE_INTERVAL', 'THREAT_INTEL_FEEDS', 'THREAT_INTEL_AUTO_BLOCK', 'THREAT_INTEL_AUTO_BLOCK_THRESHOLD'],
+        'SSH' => ['SSHJAIL_ENABLED', 'SSHJAIL_JAIL_DIR', 'SSH_SHELL_ACCESS_ENABLED'],
+        'Modules' => ['PROCESS_KILL_ENABLED', 'PROCESS_KILL_THRESHOLD', 'PROCESS_KILL_MIN_UID', 'PROCESS_KILL_WHITELIST', 'PROCESS_POLL_INTERVAL', 'WEBSHIELD_ENABLED', 'WEBSHIELD_RATE_LIMIT', 'WEBSHIELD_RATE_BURST', 'WEBSHIELD_CHALLENGE_ENABLED', 'WEBSHIELD_BOT_FILTERING', 'WEBSHIELD_NGINX_CONF_DIR', 'NGINX_ACCESS_LOG'],
     ];
 
     /** Keys hidden in basic mode (file paths, internal tuning, advanced options). */
