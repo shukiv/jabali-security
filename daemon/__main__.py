@@ -466,14 +466,6 @@ def update() -> None:
     except (KeyError, PermissionError):
         pass  # www-data group may not exist
 
-    # Open DNS port 53 if Stalwart is installed and UFW is active
-    if shutil.which("ufw") and (shutil.which("stalwart-mail") or os.path.isdir("/opt/stalwart-mail")):
-        for proto in ["tcp", "udp"]:
-            subprocess.run(  # noqa: S603
-                ["ufw", "allow", "53/%s" % proto, "comment", "DNS"],
-                capture_output=True, timeout=10,
-            )
-
     # Restart services
     subprocess.run(["/usr/bin/systemctl", "restart", "jabali-security"], capture_output=True)  # noqa: S603
     # Clear Laravel caches + restart panel (route/view cache has stale references)

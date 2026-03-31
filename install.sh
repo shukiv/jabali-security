@@ -534,9 +534,9 @@ WAFEOF
         _open_port "143/tcp"  "IMAP"                 "Mail clients"
         _open_port "993/tcp"  "IMAPS"                "Mail clients"
         _open_port "995/tcp"  "POP3S"                "Mail clients"
-        if command -v named &>/dev/null || command -v bind9 &>/dev/null || [ -d "/etc/bind" ] || command -v stalwart-mail &>/dev/null || [ -d "/opt/stalwart-mail" ]; then
-            _open_port "53/tcp" "DNS"                "Mail/DNS server"
-            _open_port "53/udp" "DNS"                "Mail/DNS server"
+        if command -v named &>/dev/null || command -v bind9 &>/dev/null || [ -d "/etc/bind" ]; then
+            _open_port "53/tcp" "DNS"                "BIND9 detected"
+            _open_port "53/udp" "DNS"                "BIND9 detected"
         fi
         if [ -d "/var/www/jabali" ]; then
             _open_port "2223/tcp" "Jabali Panel"     "Admin + user panel"
