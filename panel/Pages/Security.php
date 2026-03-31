@@ -240,23 +240,7 @@ class Security extends Page implements HasActions, HasForms
                             Text::make(__('Real-time malware detection using heuristic, entropy, YARA-X, and ClamAV engines. Files are scanned on creation/modification. Detected threats are quarantined or cleaned automatically.'))
                                 ->size(TextSize::Small)
                                 ->color('gray'),
-                            Tabs::make(__('Malware Scanner'))
-                                ->contained(false)
-                                ->livewireProperty('threatsTab')
-                                ->tabs([
-                                    'scan' => Tab::make(__('Scan'))
-                                        ->icon('heroicon-o-magnifying-glass')
-                                        ->schema([EmbeddedTable::make(ScanUsersTable::class)]),
-                                    'incidents' => Tab::make(__('Incidents'))
-                                        ->icon('heroicon-o-exclamation-triangle')
-                                        ->schema([EmbeddedTable::make(IncidentsTable::class)]),
-                                    'quarantine' => Tab::make(__('Quarantine'))
-                                        ->icon('heroicon-o-lock-closed')
-                                        ->schema([EmbeddedTable::make(QuarantineTable::class)]),
-                                    'cleanup' => Tab::make(__('Cleanup'))
-                                        ->icon('heroicon-o-sparkles')
-                                        ->schema([EmbeddedTable::make(CleanupRecordsTable::class)]),
-                                ]),
+                            $this->malwareScannerTabs(),
                         ]),
                     'intelligence' => Tab::make(__('Intelligence'))
                         ->icon('heroicon-o-light-bulb')
@@ -394,6 +378,43 @@ class Security extends Page implements HasActions, HasForms
     {
         $data = $this->getWafStatsData();
         return [Grid::make(count($data))->dense()->schema(array_map(fn ($s) => $this->dashboardCard($s), $data))];
+    }
+
+    protected function malwareScannerTabs(): Tabs
+    {
+        $incidents = $this->client()->get('/incidents', ['limit' => 1000]);
+        $incidentCount = is_array($incidents) ? count($incidents) : 0;
+        $unresolvedCount = is_array($incidents) ? count(array_filter($incidents, fn ($i) => ! ($i['resolved'] ?? false))) : 0;
+
+        $quarantine = $this->client()->get('/quarantine');
+        $quarantineCount = is_array($quarantine) ? count(array_filter($quarantine, fn ($q) => ! ($q['restored'] ?? false) && ! ($q['deleted'] ?? false))) : 0;
+
+        $cleanup = $this->client()->get('/cleanup/records');
+        $cleanupCount = is_array($cleanup) ? count($cleanup) : 0;
+
+        return Tabs::make(__('Malware Scanner'))
+            ->contained(false)
+            ->livewireProperty('threatsTab')
+            ->tabs([
+                'scan' => Tab::make(__('Scan'))
+                    ->icon('heroicon-o-magnifying-glass')
+                    ->schema([EmbeddedTable::make(ScanUsersTable::class)]),
+                'incidents' => Tab::make(__('Incidents'))
+                    ->icon('heroicon-o-exclamation-triangle')
+                    ->badge($unresolvedCount > 0 ? $unresolvedCount : null)
+                    ->badgeColor('danger')
+                    ->schema([EmbeddedTable::make(IncidentsTable::class)]),
+                'quarantine' => Tab::make(__('Quarantine'))
+                    ->icon('heroicon-o-lock-closed')
+                    ->badge($quarantineCount > 0 ? $quarantineCount : null)
+                    ->badgeColor('warning')
+                    ->schema([EmbeddedTable::make(QuarantineTable::class)]),
+                'cleanup' => Tab::make(__('Cleanup'))
+                    ->icon('heroicon-o-sparkles')
+                    ->badge($cleanupCount > 0 ? $cleanupCount : null)
+                    ->badgeColor('success')
+                    ->schema([EmbeddedTable::make(CleanupRecordsTable::class)]),
+            ]);
     }
 
     protected function ipProtectionTabs(): array
