@@ -420,7 +420,7 @@ def update() -> None:
 
     # Install CrowdSec collections for hosting
     if shutil.which("cscli"):
-        for col in ["linux", "sshd", "nginx", "base-http-scenarios", "postfix", "dovecot"]:
+        for col in ["linux", "sshd", "nginx", "base-http-scenarios"]:
             subprocess.run(  # noqa: S603
                 ["cscli", "collections", "install", "crowdsecurity/%s" % col],
                 capture_output=True, timeout=30,
