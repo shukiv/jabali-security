@@ -52,7 +52,40 @@ class UnifiedBlocklistTable extends Component implements HasActions, HasSchemas,
                         default => 'gray',
                     }),
                 TextColumn::make('duration')
-                    ->label(__('Expires')),
+                    ->label(__('Expires'))
+                    ->state(function ($record): string {
+                        $val = $record['duration'] ?? '';
+                        if (! $val || $val === 'permanent') {
+                            return __('Permanent');
+                        }
+                        // ISO timestamp (jabali blocked_ips.expires_at)
+                        if (str_contains($val, 'T') || str_contains($val, '-')) {
+                            try {
+                                $expires = \Carbon\Carbon::parse($val);
+                                if ($expires->isPast()) {
+                                    return __('Expired');
+                                }
+                                return $expires->diffForHumans();
+                            } catch (\Throwable) {
+                                return $val;
+                            }
+                        }
+                        // Go duration format from CrowdSec (e.g. "3h23m36s")
+                        if (preg_match('/^-/', $val)) {
+                            return __('Expired');
+                        }
+                        $seconds = 0;
+                        if (preg_match('/(\d+)h/', $val, $m)) {
+                            $seconds += (int) $m[1] * 3600;
+                        }
+                        if (preg_match('/(\d+)m/', $val, $m)) {
+                            $seconds += (int) $m[1] * 60;
+                        }
+                        if ($seconds <= 0) {
+                            return $val;
+                        }
+                        return \Carbon\Carbon::now()->addSeconds($seconds)->diffForHumans();
+                    }),
             ])
             ->actions([
                 Action::make('whitelist')
