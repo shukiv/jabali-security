@@ -161,6 +161,55 @@ class CrowdSecClient:
         except Exception:
             return None
 
+    async def block_ip(self, ip: str, duration: int, reason: str) -> bool:
+        """Block an IP via cscli decisions add (list args, no shell).
+
+        Duration in seconds, 0 = permanent (mapped to 1 year).
+        IP is validated by caller before reaching this method.
+        """
+        import shutil
+        cscli = shutil.which("cscli")
+        if not cscli:
+            return False
+        dur_str = "%ds" % duration if duration > 0 else "8760h"
+        cmd = [cscli, "decisions", "add", "--ip", ip, "--duration", dur_str,
+               "--reason", reason, "--type", "ban"]
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            _, stderr = await asyncio.wait_for(proc.communicate(), timeout=10)
+            if proc.returncode == 0:
+                logger.info("CrowdSec: blocked %s for %s (%s)", ip, dur_str, reason)
+                return True
+            logger.warning("CrowdSec block failed for %s: %s", ip, stderr.decode().strip())
+            return False
+        except Exception as exc:
+            logger.warning("CrowdSec block_ip error: %s", exc)
+            return False
+
+    async def unblock_ip(self, ip: str) -> bool:
+        """Unblock an IP via cscli decisions delete (list args, no shell)."""
+        import shutil
+        cscli = shutil.which("cscli")
+        if not cscli:
+            return False
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                cscli, "decisions", "delete", "--ip", ip,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            await asyncio.wait_for(proc.communicate(), timeout=10)
+            if proc.returncode == 0:
+                self._decisions.pop(ip, None)
+                return True
+            return False
+        except Exception:
+            return False
+
     @property
     def active_decisions_count(self) -> int:
         return sum(len(v) for v in self._decisions.values())

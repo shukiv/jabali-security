@@ -160,6 +160,19 @@ class SecurityDaemon:
         _auto_block = config.threat_intel_auto_block if config else False
         _auto_block_threshold = config.threat_intel_auto_block_threshold if config else 3
 
+        async def _block_ip(ip: str, duration: int, reason: str, source: str):
+            """Route blocking through CrowdSec when available, fallback to our firewall."""
+            if crowdsec is not None and crowdsec.connected:
+                await crowdsec.block_ip(ip, duration, reason)
+            else:
+                await firewall.block_ip(ip, duration)
+            # Always persist to our DB for unified blocklist
+            now = datetime.now(timezone.utc)
+            expires_at = None
+            if duration > 0:
+                expires_at = (now + timedelta(seconds=duration)).isoformat()
+            await incidents.save_blocked_ip(ip, reason, now.isoformat(), expires_at, source)
+
         async def _on_auth_event(event):
             # Threat intel auto-block: block immediately if IP hits enough feeds
             if _auto_block and feed_manager is not None:
@@ -167,15 +180,8 @@ class SecurityDaemon:
                 if len(rep.feeds) >= _auto_block_threshold:
                     if event.ip not in detector._blocked:
                         detector._blocked.add(event.ip)
-                        duration = 86400  # 24 hours for feed-based blocks
-                        await firewall.block_ip(event.ip, duration)
-                        now = datetime.now(timezone.utc)
-                        expires_at = (now + timedelta(seconds=duration)).isoformat()
-                        await incidents.save_blocked_ip(
-                            event.ip,
-                            "Threat intel: matched %d feeds (%s)" % (len(rep.feeds), ", ".join(rep.feeds)),
-                            now.isoformat(), expires_at, "threat_intel",
-                        )
+                        reason = "Threat intel: matched %d feeds (%s)" % (len(rep.feeds), ", ".join(rep.feeds))
+                        await _block_ip(event.ip, 86400, reason, "threat_intel")
                         import logging
                         logging.getLogger(__name__).warning(
                             "THREAT_INTEL: auto-blocked %s (matched %d feeds: %s)",
@@ -187,25 +193,12 @@ class SecurityDaemon:
             if crowdsec is not None:
                 cs_score = crowdsec.check_ip_score(event.ip)
                 if cs_score >= 60:
-                    # Known attacker — halve the threshold window
                     detector.set_ip_urgency(event.ip, multiplier=0.5)
 
             decision = detector.record(event)
             if decision is None:
                 return
-            await firewall.block_ip(decision.ip, decision.duration)
-            # Persist to blocked_ips table
-            try:
-                now = datetime.now(timezone.utc)
-                expires_at = None
-                if decision.duration > 0:
-                    expires_at = (now + timedelta(seconds=decision.duration)).isoformat()
-                await incidents.save_blocked_ip(
-                    decision.ip, decision.reason, now.isoformat(), expires_at, "bruteforce",
-                )
-            except Exception:
-                import logging
-                logging.getLogger(__name__).exception("Failed to persist blocked IP %s", decision.ip)
+            await _block_ip(decision.ip, decision.duration, decision.reason, "bruteforce")
 
         return _on_auth_event
 

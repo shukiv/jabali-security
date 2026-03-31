@@ -47,12 +47,16 @@ async def post_block(request: web.Request) -> web.Response:
     incidents = request.app["incidents"]
     await incidents.save_blocked_ip(ip, reason, now.isoformat(), expires_at, "api")
 
-    # Also block in firewall
-    firewall = request.app.get("firewall")
+    # Route blocking through CrowdSec when available, fallback to our firewall
+    dur = int(duration) if duration else 0
+    crowdsec = request.app.get("crowdsec")
     fw_ok = False
-    if firewall:
-        dur = int(duration) if duration else 0
-        fw_ok = await firewall.block_ip(ip, dur)
+    if crowdsec and crowdsec.connected:
+        fw_ok = await crowdsec.block_ip(ip, dur, reason)
+    else:
+        firewall = request.app.get("firewall")
+        if firewall:
+            fw_ok = await firewall.block_ip(ip, dur)
 
     return _ok({
         "blocked": True,
@@ -75,7 +79,10 @@ async def delete_block(request: web.Request) -> web.Response:
     if not deleted:
         return _err("IP not found in blocklist", 404)
 
-    # Also unblock in firewall
+    # Unblock from CrowdSec when available, fallback to our firewall
+    crowdsec = request.app.get("crowdsec")
+    if crowdsec and crowdsec.connected:
+        await crowdsec.unblock_ip(ip)
     firewall = request.app.get("firewall")
     if firewall:
         await firewall.unblock_ip(ip)
