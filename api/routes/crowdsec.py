@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import shutil
 
 from aiohttp import web
 
-from api.routes.helpers import _err, _ok
+from api.routes.helpers import _err, _ok, _validate_ip
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +17,7 @@ def setup_routes(app: web.Application) -> None:
     app.router.add_get("/api/v1/crowdsec/status", get_crowdsec_status)
     app.router.add_get("/api/v1/crowdsec/decisions", get_crowdsec_decisions)
     app.router.add_get("/api/v1/crowdsec/check/{ip}", get_crowdsec_check_ip)
+    app.router.add_delete("/api/v1/crowdsec/decisions/{ip}", delete_crowdsec_decision)
 
 
 async def get_crowdsec_status(request: web.Request) -> web.Response:
@@ -74,3 +77,38 @@ async def get_crowdsec_check_ip(request: web.Request) -> web.Response:
         "score": score,
         "is_blocked": len(cached) > 0,
     })
+
+
+async def delete_crowdsec_decision(request: web.Request) -> web.Response:
+    """Remove a CrowdSec decision (unban an IP) via cscli.
+
+    Uses create_subprocess_exec with list args (no shell injection).
+    IP is validated before use.
+    """
+    ip = request.match_info["ip"]
+    if not _validate_ip(ip):
+        return _err("Invalid IP address")
+
+    cscli = shutil.which("cscli")
+    if not cscli:
+        return _err("cscli not found — CrowdSec not installed", 404)
+
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            cscli, "decisions", "delete", "--ip", ip,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=10)
+        if proc.returncode != 0:
+            return _err("Failed to delete decision: %s" % stderr.decode().strip(), 500)
+    except asyncio.TimeoutError:
+        return _err("cscli timed out", 500)
+
+    # Remove from in-memory cache immediately
+    client = request.app.get("crowdsec")
+    if client:
+        client._decisions.pop(ip, None)
+
+    logger.info("CrowdSec decision deleted for %s", ip)
+    return _ok({"deleted": True, "ip": ip})
