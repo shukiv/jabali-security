@@ -254,10 +254,9 @@ do_install() {
                 run_with_spinner "Installing CrowdSec agent" bash -c '
                     mkdir -p /etc/apt/keyrings
                     curl -fsSL https://packagecloud.io/crowdsec/crowdsec/gpgkey \
-                        | gpg --dearmor -o /etc/apt/keyrings/crowdsec-archive-keyring.gpg 2>/dev/null
-                    . /etc/os-release
-                    echo "deb [signed-by=/etc/apt/keyrings/crowdsec-archive-keyring.gpg] https://packagecloud.io/crowdsec/crowdsec/${ID} ${VERSION_CODENAME} main" \
-                        > /etc/apt/sources.list.d/crowdsec.list
+                        | gpg --dearmor -o /etc/apt/keyrings/crowdsec_crowdsec-archive-keyring.gpg 2>/dev/null
+                    echo "deb [signed-by=/etc/apt/keyrings/crowdsec_crowdsec-archive-keyring.gpg] https://packagecloud.io/crowdsec/crowdsec/any/ any main" \
+                        > /etc/apt/sources.list.d/crowdsec_crowdsec.list
                     apt-get update -qq 2>/dev/null
                     DEBIAN_FRONTEND=noninteractive apt-get install -y -qq crowdsec 2>/dev/null
                 '
