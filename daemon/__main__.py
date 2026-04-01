@@ -529,6 +529,36 @@ def update() -> None:
     if shutil.which("cscli"):
         _generate_bouncer_key(config_file)
 
+    # -- Upgrade non-apt components --
+
+    # ClamAV virus definitions
+    if shutil.which("freshclam"):
+        click.echo("Updating ClamAV virus definitions...")
+        result = subprocess.run(  # noqa: S603
+            ["freshclam", "--quiet"],
+            capture_output=True, timeout=120,
+        )
+        if result.returncode == 0:
+            click.echo("  Virus definitions updated.")
+        else:
+            click.echo("  freshclam skipped (may already be running).")
+
+    # CrowdSec hub (parsers, scenarios, collections, postoverflows)
+    if shutil.which("cscli"):
+        click.echo("Updating CrowdSec hub...")
+        subprocess.run(  # noqa: S603
+            ["cscli", "hub", "update"],
+            capture_output=True, timeout=30,
+        )
+        result = subprocess.run(  # noqa: S603
+            ["cscli", "hub", "upgrade"],
+            capture_output=True, timeout=60,
+        )
+        if result.returncode == 0:
+            click.echo("  CrowdSec hub upgraded.")
+        else:
+            click.echo("  CrowdSec hub upgrade skipped.")
+
     # Fix config permissions (older installs may have 600 root:root)
     import grp
     try:
