@@ -1,4 +1,9 @@
-"""SSH jail manager."""
+"""SSH management: keys, shell access, sshd_config.
+
+Isolation is handled by jabali-isolator (systemd-nspawn containers).
+This module only manages SSH keys, shell/SFTP group membership, and
+sshd_config settings — it never writes to container filesystems.
+"""
 from __future__ import annotations
 
 import asyncio
@@ -23,8 +28,7 @@ logger = logging.getLogger(__name__)
 
 
 class SSHJailManager:
-    def __init__(self, jail_dir: str = "/var/jail") -> None:
-        self._jail_dir = jail_dir
+    def __init__(self) -> None:
         self._lock = asyncio.Lock()
 
     # ------------------------------------------------------------------
@@ -429,7 +433,7 @@ class SSHJailManager:
         )
 
     async def enable_shell(self, username: str) -> bool:
-        """Enable shell access for user: add to shellusers, remove from sftpusers, set bash."""
+        """Enable shell access: add to shellusers, remove from sftpusers, set bash."""
         username = validate_username(username)
         await self._verify_user(username)
 
@@ -450,9 +454,6 @@ class SSHJailManager:
             if rc != 0:
                 logger.warning("Failed to set shell for %s", username)
                 return False
-
-            await self._setup_jail_home(username)
-            await self._add_jail_user(username)
 
         return True
 
@@ -479,219 +480,7 @@ class SSHJailManager:
                 logger.warning("Failed to set nologin for %s", username)
                 return False
 
-            await self._teardown_jail_home(username)
-            await self._remove_jail_user(username)
-
         return True
-
-    # ------------------------------------------------------------------
-    # Jail home bind mount
-    # ------------------------------------------------------------------
-
-    async def _setup_jail_home(self, username: str) -> None:
-        """Create jail home dir, add fstab bind mount entry, and mount."""
-        jail_home = os.path.join(self._jail_dir, "home", username)
-        real_home = f"/home/{username}"
-
-        os.makedirs(jail_home, mode=0o700, exist_ok=True)
-        # Ensure /tmp exists in jail (needed by PHP proc_open / wp-cli)
-        os.makedirs(os.path.join(self._jail_dir, "tmp"), mode=0o1777, exist_ok=True)
-
-        fstab_line = (
-            f"{real_home} {jail_home} none bind,nosuid,nodev 0 0"
-            f" # jabali-ssh:{username}\n"
-        )
-
-        await self._add_fstab_entry(username, fstab_line)
-
-        rc, _, _ = await self._run(
-            ["mount", "--bind", real_home, jail_home]
-        )
-        if rc != 0:
-            logger.warning("Failed to bind mount jail home for %s", username)
-
-    async def _teardown_jail_home(self, username: str) -> None:
-        """Unmount jail home, remove fstab entry, remove directory."""
-        jail_home = os.path.join(self._jail_dir, "home", username)
-
-        await self._run(["umount", jail_home])
-        await self._remove_fstab_entry(username)
-
-        try:
-            os.rmdir(jail_home)
-        except OSError:
-            pass
-
-    # ------------------------------------------------------------------
-    # Jail passwd/group management
-    # ------------------------------------------------------------------
-
-    async def _add_jail_user(self, username: str) -> None:
-        """Append user's passwd and group entries to jail etc files."""
-        try:
-            pw = pwd.getpwnam(username)
-        except KeyError:
-            logger.warning("User %s not found in passwd", username)
-            return
-
-        jail_passwd = os.path.join(self._jail_dir, "etc", "passwd")
-        jail_group = os.path.join(self._jail_dir, "etc", "group")
-
-        os.makedirs(os.path.join(self._jail_dir, "etc"), mode=0o755, exist_ok=True)
-
-        # Use jail-relative paths; clear GECOS to avoid leaking personal info
-        passwd_line = (
-            f"{pw.pw_name}:x:{pw.pw_uid}:{pw.pw_gid}:"
-            f":/home/{pw.pw_name}:/bin/bash\n"
-        )
-
-        rc, group_out, _ = await self._run(
-            ["getent", "group", str(pw.pw_gid)]
-        )
-        group_line = ""
-        if rc == 0 and group_out.strip():
-            group_line = group_out.strip() + "\n"
-
-        await self._append_jail_file(jail_passwd, username, passwd_line)
-        if group_line:
-            await self._append_jail_file(jail_group, username, group_line)
-
-    async def _remove_jail_user(self, username: str) -> None:
-        """Remove user's entries from jail passwd and group files."""
-        jail_passwd = os.path.join(self._jail_dir, "etc", "passwd")
-        jail_group = os.path.join(self._jail_dir, "etc", "group")
-
-        await self._filter_file(jail_passwd, username)
-        await self._filter_file(jail_group, username)
-
-    # ------------------------------------------------------------------
-    # File helpers (atomic writes)
-    # ------------------------------------------------------------------
-
-    async def _add_fstab_entry(self, username: str, fstab_line: str) -> None:
-        """Atomically add a bind mount entry to /etc/fstab."""
-        fstab_path = "/etc/fstab"
-        marker = f"# jabali-ssh:{username}"
-
-        try:
-            with open(fstab_path, "r") as fh:
-                lines = fh.readlines()
-        except OSError:
-            lines = []
-
-        # Don't add duplicate (exact match to prevent alice/alice2 confusion)
-        for line in lines:
-            if line.rstrip().endswith(marker):
-                return
-
-        lines.append(fstab_line)
-
-        fd, tmp_path = tempfile.mkstemp(
-            dir="/etc", prefix=".fstab.jabali."
-        )
-        try:
-            with os.fdopen(fd, "w") as fh:
-                fh.writelines(lines)
-            os.chmod(tmp_path, 0o644)
-            os.rename(tmp_path, fstab_path)
-        except OSError:
-            try:
-                os.unlink(tmp_path)
-            except OSError:
-                pass
-            raise
-
-    async def _remove_fstab_entry(self, username: str) -> None:
-        """Atomically remove user's bind mount entry from /etc/fstab."""
-        fstab_path = "/etc/fstab"
-        marker = f"# jabali-ssh:{username}"
-
-        try:
-            with open(fstab_path, "r") as fh:
-                lines = fh.readlines()
-        except OSError:
-            return
-
-        new_lines = [line for line in lines if not line.rstrip().endswith(marker)]
-        if len(new_lines) == len(lines):
-            return
-
-        fd, tmp_path = tempfile.mkstemp(
-            dir="/etc", prefix=".fstab.jabali."
-        )
-        try:
-            with os.fdopen(fd, "w") as fh:
-                fh.writelines(new_lines)
-            os.chmod(tmp_path, 0o644)
-            os.rename(tmp_path, fstab_path)
-        except OSError:
-            try:
-                os.unlink(tmp_path)
-            except OSError:
-                pass
-            raise
-
-    async def _append_jail_file(
-        self, path: str, username: str, entry: str
-    ) -> None:
-        """Atomically append an entry to a jail file, skipping duplicates."""
-        try:
-            with open(path, "r") as fh:
-                lines = fh.readlines()
-        except OSError:
-            lines = []
-
-        # Don't add duplicate -- check if username is the first field
-        for line in lines:
-            if line.split(":")[0] == username:
-                return
-
-        lines.append(entry)
-
-        dir_name = os.path.dirname(path)
-        fd, tmp_path = tempfile.mkstemp(dir=dir_name, prefix=".jabali.")
-        try:
-            with os.fdopen(fd, "w") as fh:
-                fh.writelines(lines)
-            os.chmod(tmp_path, 0o644)
-            os.rename(tmp_path, path)
-        except OSError:
-            try:
-                os.unlink(tmp_path)
-            except OSError:
-                pass
-            raise
-
-    async def _filter_file(self, path: str, username: str) -> None:
-        """Atomically remove lines for a given username from a colon-delimited file."""
-        if not os.path.isfile(path):
-            return
-
-        try:
-            with open(path, "r") as fh:
-                lines = fh.readlines()
-        except OSError:
-            return
-
-        new_lines = [
-            line for line in lines if line.split(":")[0] != username
-        ]
-        if len(new_lines) == len(lines):
-            return
-
-        dir_name = os.path.dirname(path)
-        fd, tmp_path = tempfile.mkstemp(dir=dir_name, prefix=".jabali.")
-        try:
-            with os.fdopen(fd, "w") as fh:
-                fh.writelines(new_lines)
-            os.chmod(tmp_path, 0o644)
-            os.rename(tmp_path, path)
-        except OSError:
-            try:
-                os.unlink(tmp_path)
-            except OSError:
-                pass
-            raise
 
     # ------------------------------------------------------------------
     # Internal helpers

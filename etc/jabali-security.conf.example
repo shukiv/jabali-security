@@ -248,13 +248,10 @@ RAPIDSCAN_WORKERS="4"
 # Cache file modification times to skip unchanged files between scans
 RAPIDSCAN_MTIME_CACHE="yes"
 
-# -- SSH Jail Management -----------------------------------------------------
+# -- SSH Management ----------------------------------------------------------
 
-# Enable SSH jail (chroot) management
+# Enable SSH key and shell management (isolation via jabali-isolator nspawn)
 SSHJAIL_ENABLED="yes"
-
-# Base directory for jailed user environments
-SSHJAIL_JAIL_DIR="/var/jail"
 
 # Allow shell access for hosting users (disable to force SFTP-only)
 SSH_SHELL_ACCESS_ENABLED="no"

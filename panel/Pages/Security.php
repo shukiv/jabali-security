@@ -225,7 +225,7 @@ class Security extends Page implements HasActions, HasForms
                                     'ssh' => Tab::make(__('SSH Jail'))
                                         ->schema(array_merge(
                                             [
-                                                Text::make(__('SSH/SFTP access management with chroot jailshell. Users get SFTP-only access by default. Shell access provides a jailed environment with wp-cli and basic commands.'))
+                                                Text::make(__('SSH/SFTP access management. Users get SFTP-only access by default. Shell access runs inside isolated nspawn containers via jabali-isolator.'))
                                                     ->size(TextSize::Small)
                                                     ->color('gray'),
                                             ],
@@ -953,8 +953,7 @@ class Security extends Page implements HasActions, HasForms
         'NGINX_ACCESS_LOG' => 'Nginx access log path for counting blocked requests',
         'RAPIDSCAN_WORKERS' => 'Parallel workers for rapid directory scans',
         'RAPIDSCAN_MTIME_CACHE' => 'Cache file modification times to skip unchanged files',
-        'SSHJAIL_ENABLED' => 'Enable SSH jail management (chroot jailshell with wp-cli)',
-        'SSHJAIL_JAIL_DIR' => 'Root directory for the SSH chroot jail',
+        'SSHJAIL_ENABLED' => 'Enable SSH key and shell management (isolation via nspawn)',
         'SSH_SHELL_ACCESS_ENABLED' => 'Allow users to enable terminal shell access',
         'CROWDSEC_ENABLED' => 'CrowdSec community threat intelligence: auto (detect), yes, no',
         'CROWDSEC_LAPI_URL' => 'CrowdSec Local API URL (default: http://127.0.0.1:8080)',
@@ -1027,7 +1026,6 @@ class Security extends Page implements HasActions, HasForms
         'CLAMAV_SOCKET', 'FRESHCLAM_ON_UPDATE',
         'WAF_AUDIT_LOG', 'WAF_AUDIT_LOG_TYPE', 'WAF_RULES_DIR', 'WAF_OVERRIDES_FILE', 'WAF_WEB_SERVER', 'WAF_NGINX_INCLUDE',
         'FIREWALL_BACKEND',
-        'SSHJAIL_JAIL_DIR',
         'PROCESS_KILL_MIN_UID', 'PROCESS_KILL_WHITELIST',
         'CLEANUP_BACKUP_DIR', 'CLEANUP_CMS_CHECKSUMS',
         'THREAT_INTEL_UPDATE_INTERVAL', 'THREAT_INTEL_FEEDS', 'THREAT_INTEL_AUTO_BLOCK_THRESHOLD',

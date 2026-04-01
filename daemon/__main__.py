@@ -390,23 +390,19 @@ def update() -> None:
                 fh.write(conf_content)
             click.echo("Config migrated to Unix socket.")
 
-    # Migrate SSHJAIL_ENABLED: enable if jail infrastructure exists
+    # Migrate SSHJAIL_ENABLED: enable if jabali-shell (nspawn isolation) exists
     if os.path.isfile(config_file):
         with open(config_file) as fh:
             conf_content = fh.read()
         if 'SSHJAIL_ENABLED="no"' in conf_content:
-            sshd_conf = "/etc/ssh/sshd_config"
-            has_jail = False
-            if os.path.isfile(sshd_conf):
-                with open(sshd_conf) as fh:
-                    has_jail = "Jabali SSH Jail" in fh.read()
-            if has_jail:
+            has_isolator = shutil.which("jabali-shell") is not None
+            if has_isolator:
                 conf_content = conf_content.replace(
                     'SSHJAIL_ENABLED="no"', 'SSHJAIL_ENABLED="yes"',
                 )
                 with open(config_file, "w") as fh:
                     fh.write(conf_content)
-                click.echo("Enabled SSH jail module (jail infrastructure detected).")
+                click.echo("Enabled SSH management (jabali-shell detected).")
 
     # Install CrowdSec if not present
     if not shutil.which("cscli"):

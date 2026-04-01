@@ -17,7 +17,7 @@ _READONLY_KEYS = {"API_KEY", "API_BIND", "API_PORT"}
 _PATH_KEYS = {
     "LOG_DIR", "DATA_DIR", "QUARANTINE_DIR", "YARA_RULES_DIR",
     "WAF_RULES_DIR", "WAF_OVERRIDES_FILE", "WAF_NGINX_INCLUDE", "WAF_AUDIT_LOG",
-    "SSHJAIL_JAIL_DIR", "CLAMAV_SOCKET",
+    "CLAMAV_SOCKET",
 }
 _SAFE_PATH_PREFIXES = ("/var/", "/etc/jabali-security/", "/usr/local/jabali-security/")
 

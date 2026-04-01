@@ -278,8 +278,8 @@ def _build_webshield(config: JabaliConfig) -> WebShieldManager | None:
 def _build_sshjail(config: JabaliConfig) -> SSHJailManager | None:
     if not config.sshjail_enabled:
         return None
-    logger.info("SSH jail management enabled -- jail dir: %s", config.sshjail_jail_dir)
-    return SSHJailManager(jail_dir=config.sshjail_jail_dir)
+    logger.info("SSH management enabled (isolation via jabali-isolator)")
+    return SSHJailManager()
 
 
 def _build_crowdsec(config: JabaliConfig) -> CrowdSecClient | None:

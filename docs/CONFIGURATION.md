@@ -216,12 +216,11 @@ Available feeds: `spamhaus_drop`, `spamhaus_edrop`, `blocklist_de_all`, `tor_exi
 |---|---|---|---|
 | `UFW_ENABLED` | bool | `no` | Enable UFW firewall management via REST API. Requires `ufw` to be installed. Separate from the nftables/iptables-based brute-force IP blocking. |
 
-## SSH Jail
+## SSH Management
 
 | Key | Type | Default | Description |
 |---|---|---|---|
-| `SSHJAIL_ENABLED` | bool | `yes` | Enable SSH jail management (chroot jailshell with wp-cli) |
-| `SSHJAIL_JAIL_DIR` | path | `/var/jail` | Root directory for the SSH chroot jail |
+| `SSHJAIL_ENABLED` | bool | `yes` | Enable SSH key and shell management (isolation via jabali-isolator nspawn) |
 | `SSH_SHELL_ACCESS_ENABLED` | bool | `no` | Allow users to enable terminal shell access |
 
 ## CrowdSec
