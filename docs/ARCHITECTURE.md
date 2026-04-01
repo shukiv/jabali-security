@@ -80,7 +80,7 @@ Fast path-level filtering before scanning:
 | **Heuristic** | `heuristic.py` | 17 regex patterns for high-confidence attack indicators (eval+base64, user input execution, obfuscation chains, reverse shells). WordPress/Joomla false-positive patterns removed; YARA rules cover those. |
 | **Entropy** | `entropy.py` | Shannon entropy analysis to detect obfuscated/encoded payloads |
 | **YARA-X** | `yara_engine.py` | YARA-X (Rust-based) signature matching using `.yar` rule files |
-| **ClamAV** | `clamav.py` | Optional clamd socket scanning, auto-detected |
+| **ClamAV** | `clamav.py` | Optional clamd socket scanning. `clamd` is NOT installed by default (uses ~950MB RSS); only the CLI `clamscan` + freshclam are installed. Auto-detects clamd socket if admin installs `clamav-daemon` separately. |
 | **Database** | `database.py` | MySQL table scanning for injected payloads in CMS tables |
 
 All scanners implement `ScannerBase` (in `base.py`) and return `list[Finding]`.
@@ -152,8 +152,9 @@ Progressive blocking: durations escalate per repeat offense (default: 10m, 1h, 1
 ### Threat Intelligence (`lib/threat_intel/`)
 
 - `feed_manager.py` -- downloads and caches IP/hash feeds on a schedule
+- `ip_reputation.py` -- memory-efficient IP blocklist. Feeds are stored as sorted parallel lists of `(start, end)` integer ranges with O(log n) bisect lookup (not Python `ipaddress` objects). Overlapping/adjacent ranges merged at load time. A feed like blocklist.de (500K+ entries) uses ~30MB instead of ~150MB.
+- `hash_reputation.py` -- known-bad SHA-256 hash set from MalwareBazaar. O(1) lookup.
 - Supported feeds: Spamhaus DROP/EDROP, blocklist.de, Tor exit nodes, MalwareBazaar
-- IP and hash lookup APIs for real-time checking
 - `THREAT_INTEL_AUTO_BLOCK` -- when enabled, IPs matching >= threshold feeds are blocked immediately on first auth event (24h ban, persisted as `blocked_by=threat_intel`)
 
 ### CrowdSec Integration (`lib/crowdsec/`)
@@ -208,8 +209,8 @@ Disabled by default (`UFW_ENABLED="no"`). Requires `ufw` to be installed on the 
 | Quarantine Manager | `lib/quarantine.py` | File move/restore/delete with metadata |
 | Tenant Resolution | `lib/tenant.py` | Maps file paths to hosting account usernames |
 | Notifications | `lib/notify.py` | Email and webhook alerts |
-| Hash Cache | `lib/hash_cache.py` | Persistent hash cache to skip re-scanning known files |
-| RapidScan | `lib/rapidscan.py` | Parallel directory scanner with mtime-based caching |
+| Hash Cache | `lib/hash_cache.py` | LRU hash cache (OrderedDict, 10K max) to skip re-scanning known-clean files |
+| RapidScan | `lib/rapidscan.py` | Parallel directory scanner with mtime cache (capped at 500K entries, stale paths evicted) |
 | Config | `lib/config.py` | KEY=VALUE config parser, typed `JabaliConfig` dataclass |
 | Constants | `lib/constants.py` | Paths, version, app name |
 
@@ -261,7 +262,7 @@ The panel plugin is deployed to `/var/www/jabali/app/JabaliSecurity/` on servers
        |
 2. PreFilter (extension, size, skip dirs)
        |
-3. ScanQueue (async queue)
+3. ScanQueue (bounded async queue, 50K max)
        |
 4. Scan Worker picks up event
        |

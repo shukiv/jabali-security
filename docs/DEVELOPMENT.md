@@ -70,7 +70,7 @@ jabali-security/
 |   |   +-- heuristic.py    # Regex pattern matching
 |   |   +-- entropy.py      # Shannon entropy analysis
 |   |   +-- yara_engine.py  # YARA-X signature scanning
-|   |   +-- clamav.py       # ClamAV clamd integration
+|   |   +-- clamav.py       # ClamAV clamd integration (optional, auto-detected)
 |   |   +-- database.py     # MySQL database scanner
 |   |   +-- __init__.py     # ScanOrchestrator
 |   +-- bruteforce/         # Brute-force protection
@@ -91,6 +91,15 @@ jabali-security/
 |   |   +-- models.py       # Cleanup record models
 |   +-- threat_intel/       # Threat intelligence
 |   |   +-- feed_manager.py # Feed download, cache, lookup
+|   |   +-- ip_reputation.py  # Sorted int ranges + bisect IP lookup
+|   |   +-- hash_reputation.py # Known-bad hash set
+|   +-- crowdsec/           # CrowdSec integration
+|   |   +-- client.py       # Async LAPI bouncer client
+|   |   +-- models.py       # CrowdSecDecision, CrowdSecStatus
+|   +-- sshjail/            # SSH jail management
+|   |   +-- manager.py      # Shell enable/disable, key management
+|   |   +-- validators.py   # Input validation (usernames, keys)
+|   |   +-- models.py       # SshKey, SshUserStatus models
 |   +-- webshield/          # WebShield
 |   |   +-- manager.py      # Nginx config generation
 |   +-- ufw/                # UFW firewall management
@@ -119,12 +128,21 @@ jabali-security/
 |       +-- threat_intel.py # Threat intel endpoints
 |       +-- webshield.py    # WebShield endpoints
 |       +-- ufw.py          # UFW firewall management endpoints
+|       +-- sshjail.py      # SSH jail endpoints
+|       +-- crowdsec.py     # CrowdSec status, decisions, IP check
+|       +-- attack_mode.py  # Attack mode enable/disable
 |       +-- helpers.py      # Shared response helpers
++-- panel/                  # Jabali Panel plugin (Filament v5)
+|   +-- JabaliSecurityPlugin.php   # Plugin registration
+|   +-- JabaliSecurityClient.php   # Unix socket API client
+|   +-- Pages/Security.php         # Main security page (5 tabs)
+|   +-- Widgets/                   # Filament table widgets
+|   +-- views/security.blade.php   # Blade view template
 +-- rules/                  # YARA-X rule files (.yar)
 +-- etc/                    # Config + systemd service files
 |   +-- jabali-security.conf.example
 |   +-- jabali-security.service
-+-- tests/                  # pytest test suite
++-- tests/                  # pytest test suite (332 tests)
 +-- scripts/                # Build scripts
 |   +-- build-deb.sh        # .deb package builder
 +-- debian/                 # .deb packaging files
@@ -333,7 +351,7 @@ Update the version in `pyproject.toml` (`version = "X.Y.Z"`) and `lib/constants.
 
 ```bash
 # Via install script (from Git)
-curl -fsSL https://raw.githubusercontent.com/shukiv/jabali-security/master/install.sh | sudo bash
+curl -fsSL https://git.linux-hosting.co.il/shukivaknin/jabali-security/raw/branch/master/install.sh | sudo bash
 
 # Via .deb package
 sudo dpkg -i jabali-security_X.Y.Z_amd64.deb

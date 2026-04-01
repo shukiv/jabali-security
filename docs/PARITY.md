@@ -10,7 +10,7 @@ The standalone Flask web dashboard on port 8443 has been removed. All web-based 
 - Single page with 5 grouped tabs: Overview, Threats, Defense, Intelligence, Settings
 - Communicates with the daemon via **Unix socket** (`/run/jabali-security/jabali-security.sock`)
 - API client: `panel/JabaliSecurityClient.php`
-- After updating plugin code, **restart `jabali-panel` service** (FrankenPHP caches PHP in worker mode)
+- After updating plugin code, **restart `jabali-panel` service** (FrankenPHP php_server mode)
 
 ## When Adding New Features
 
