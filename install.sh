@@ -182,9 +182,10 @@ done_ok() { green "[✓] $*"; }
 do_install() {
     require_root
     echo ""
-    yellow "╔════════════════════════════════════════════════════════════╗"
-    yellow "║          Jabali Security — Installer                      ║"
-    yellow "╚════════════════════════════════════════════════════════════╝"
+    echo ""
+    yellow "  Jabali Security — Installer"
+    yellow "  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
     echo ""
 
     # -- Detect OS --
@@ -689,9 +690,10 @@ SSHJAIL
 
     # ── Summary ───────────────────────────────────────────────────────
     echo ""
-    yellow "╔════════════════════════════════════════════════════════════╗"
-    yellow "║          Installation Complete                             ║"
-    yellow "╚════════════════════════════════════════════════════════════╝"
+    echo ""
+    yellow "  Installation Complete"
+    yellow "  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
     echo ""
     green "  Jabali Security installed successfully!"
     echo ""

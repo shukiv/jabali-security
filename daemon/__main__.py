@@ -295,6 +295,32 @@ def start(foreground: bool, config_path: str | None) -> None:
         _remove_pid()
 
 
+def _generate_bouncer_key(config_file: str) -> None:
+    """Generate CrowdSec bouncer API key and save to config. Skips if already set."""
+    if not os.path.isfile(config_file):
+        return
+    with open(config_file) as fh:
+        conf_content = fh.read()
+    if 'CROWDSEC_BOUNCER_KEY=""' not in conf_content and "CROWDSEC_BOUNCER_KEY" in conf_content:
+        return  # already has a key
+    result = subprocess.run(  # noqa: S603
+        ["cscli", "bouncers", "add", "jabali-security", "-o", "raw"],
+        capture_output=True, text=True, timeout=10,
+    )
+    key = result.stdout.strip() if result.returncode == 0 else ""
+    if key:
+        if "CROWDSEC_BOUNCER_KEY" in conf_content:
+            conf_content = conf_content.replace(
+                'CROWDSEC_BOUNCER_KEY=""',
+                'CROWDSEC_BOUNCER_KEY="%s"' % key,
+            )
+        else:
+            conf_content += '\nCROWDSEC_BOUNCER_KEY="%s"\n' % key
+        with open(config_file, "w") as fh:
+            fh.write(conf_content)
+        click.echo("  CrowdSec bouncer key generated.")
+
+
 @cli.command()
 def update() -> None:
     """Update jabali-security to the latest version."""
@@ -421,6 +447,10 @@ def update() -> None:
                  " && systemctl start crowdsec 2>/dev/null && sleep 2"],
                 capture_output=True, timeout=90,
             )
+            # Generate bouncer API key BEFORE installing bouncer package
+            # (bouncer post-install tries to start the service immediately)
+            if shutil.which("cscli"):
+                _generate_bouncer_key(config_file)
             click.echo("  Installing firewall bouncer...")
             subprocess.run(  # noqa: S603
                 ["/bin/bash", "-c",
@@ -449,27 +479,9 @@ def update() -> None:
         except subprocess.TimeoutExpired:
             click.echo("  CrowdSec collections timed out — skipping.")
 
-    # Generate CrowdSec bouncer key if missing
-    if shutil.which("cscli") and os.path.isfile(config_file):
-        with open(config_file) as fh:
-            conf_content = fh.read()
-        if 'CROWDSEC_BOUNCER_KEY=""' in conf_content or "CROWDSEC_BOUNCER_KEY" not in conf_content:
-            result = subprocess.run(  # noqa: S603
-                ["cscli", "bouncers", "add", "jabali-security", "-o", "raw"],
-                capture_output=True, text=True, timeout=10,
-            )
-            key = result.stdout.strip() if result.returncode == 0 else ""
-            if key:
-                if "CROWDSEC_BOUNCER_KEY" in conf_content:
-                    conf_content = conf_content.replace(
-                        'CROWDSEC_BOUNCER_KEY=""',
-                        'CROWDSEC_BOUNCER_KEY="%s"' % key,
-                    )
-                else:
-                    conf_content += '\nCROWDSEC_BOUNCER_KEY="%s"\n' % key
-                with open(config_file, "w") as fh:
-                    fh.write(conf_content)
-                click.echo("CrowdSec bouncer key generated.")
+    # Generate CrowdSec bouncer key if missing (idempotent — skips if already set)
+    if shutil.which("cscli"):
+        _generate_bouncer_key(config_file)
 
     # Fix config permissions (older installs may have 600 root:root)
     import grp
