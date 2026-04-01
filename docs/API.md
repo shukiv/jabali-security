@@ -1095,7 +1095,7 @@ List all hosting users with shell status. Works even when `SSHJAIL_ENABLED=no` (
 
 ### `POST /ssh/shell/enable`
 
-Enable shell access for a user (adds to shellusers group, sets bash, creates jail home).
+Enable shell access for a user (adds to shellusers group, sets bash shell).
 
 **Body:** `{"username": "user1"}`
 

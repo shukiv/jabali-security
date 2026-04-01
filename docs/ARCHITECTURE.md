@@ -174,11 +174,11 @@ CrowdSec is jabali-security's primary community intelligence source. The integra
 
 | File | Purpose |
 |---|---|
-| `manager.py` | `SSHJailManager` — shell enable/disable, key management, sshd_config updates, jail home bind mounts with nosuid/nodev |
+| `manager.py` | `SSHJailManager` — shell enable/disable, key management, sshd_config updates |
 | `validators.py` | Allowlist-based input validation (usernames, keys, key types). Rejects newlines in public keys to prevent authorized_keys injection. |
 | `models.py` | `SshKey`, `SshKeyGenResult`, `SshUserStatus` models |
 
-Two user groups: `sftpusers` (SFTP-only, chroot to `/home/%u`) and `shellusers` (jailed shell at `/var/jail`). The jail includes bash, coreutils, tar, gzip, PHP, and wp-cli. No wget/curl/dd to prevent downloading exploits.
+Two user groups: `sftpusers` (SFTP-only, chroot to `/home/%u`) and `shellusers` (shell via jabali-isolator nspawn containers). Isolation is handled by `jabali-shell` wrapper + systemd-nspawn — jabali-security only manages group membership and SSH keys.
 
 ### WebShield (`lib/webshield/`)
 
@@ -424,7 +424,7 @@ Wants=crowdsec.service
 - `X-API-Key` header required on all API requests (except `/health`)
 - Key auto-generated on install (44-char URL-safe token)
 - Socket permissions: `0660 root:www-data`
-- Config file written with `0o600` permissions
+- Config file written with `0o640 root:www-data` permissions (panel readable)
 
 ### Input Validation
 

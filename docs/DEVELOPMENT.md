@@ -333,7 +333,7 @@ Update the version in `pyproject.toml` (`version = "X.Y.Z"`) and `lib/constants.
 
 ```bash
 # Via install script (from Git)
-curl -fsSL https://git.linux-hosting.co.il/shukivaknin/jabali-security/raw/branch/master/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/shukiv/jabali-security/master/install.sh | sudo bash
 
 # Via .deb package
 sudo dpkg -i jabali-security_X.Y.Z_amd64.deb
