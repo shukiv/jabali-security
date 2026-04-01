@@ -270,15 +270,16 @@ deny_action: DROP
 deny_log: false
 BOUNCERCONF
                     fi
+                    # Tell dpkg to keep our pre-written config on conffile conflict
+                    echo "force-confold" > /etc/dpkg/dpkg.cfg.d/jabali-tmp-confold
                     run_with_spinner "Installing firewall bouncer" bash -c '
                         DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
-                            -o Dpkg::Options::="--force-confold" \
-                            crowdsec-firewall-bouncer-nftables 2>/dev/null
+                            crowdsec-firewall-bouncer-nftables 2>&1
                     ' || {
-                        # Fix broken dpkg state so subsequent apt operations work
                         dpkg --configure -a 2>/dev/null || true
                         yellow "  Firewall bouncer install failed (non-critical)."
                     }
+                    rm -f /etc/dpkg/dpkg.cfg.d/jabali-tmp-confold
                 fi
                 ;;
         esac
