@@ -140,12 +140,12 @@ do_uninstall() {
     require_root
     yellow "Uninstalling Jabali Security..."
 
-    # Stop and disable services
-    for svc in "$SERVICE_NAME"; do
+    # Stop and disable all managed services
+    for svc in "$SERVICE_NAME" crowdsec-firewall-bouncer crowdsec clamav-freshclam; do
         systemctl stop "$svc" 2>/dev/null || true
         systemctl disable "$svc" 2>/dev/null || true
-        rm -f "/etc/systemd/system/${svc}.service"
     done
+    rm -f "/etc/systemd/system/${SERVICE_NAME}.service"
     systemctl daemon-reload 2>/dev/null || true
 
     # Remove installation
