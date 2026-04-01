@@ -165,11 +165,45 @@ do_uninstall() {
     echo "Removing quarantine ($QUARANTINE_DIR)..."
     rm -rf "$QUARANTINE_DIR"
 
+    # Remove CrowdSec bouncer and agent
+    if command -v cscli &>/dev/null; then
+        echo "Removing CrowdSec bouncer..."
+        cscli bouncers delete jabali-fw-bouncer 2>/dev/null || true
+        cscli bouncers delete jabali-security 2>/dev/null || true
+        dpkg --purge crowdsec-firewall-bouncer-nftables 2>/dev/null || true
+        echo "Removing CrowdSec agent..."
+        systemctl stop crowdsec 2>/dev/null || true
+        DEBIAN_FRONTEND=noninteractive apt-get purge -y -qq crowdsec 2>/dev/null || true
+        rm -f /etc/apt/sources.list.d/crowdsec_crowdsec.list
+        rm -f /etc/apt/keyrings/crowdsec_crowdsec-archive-keyring.gpg
+    fi
+
+    # Remove ClamAV (CLI + freshclam only — we never install the daemon)
+    if command -v clamscan &>/dev/null; then
+        echo "Removing ClamAV..."
+        DEBIAN_FRONTEND=noninteractive apt-get purge -y -qq clamav clamav-freshclam 2>/dev/null || true
+    fi
+
+    # Remove Jabali Panel plugin
+    if [ -d "/var/www/jabali/app/JabaliSecurity" ]; then
+        echo "Removing Jabali Panel plugin..."
+        rm -rf "/var/www/jabali/app/JabaliSecurity"
+        # Remove plugin registration from AdminPanelProvider
+        PROVIDER="/var/www/jabali/app/Providers/Filament/AdminPanelProvider.php"
+        if [ -f "$PROVIDER" ] && grep -q "JabaliSecurityPlugin" "$PROVIDER" 2>/dev/null; then
+            sed -i '/JabaliSecurityPlugin/d' "$PROVIDER"
+            sed -i '/array_filter(\[/,/\]))/{ /array_filter/d; /\]\))/d; /? null,/d; }' "$PROVIDER"
+        fi
+    fi
+
     # Remove sysctl config
     if [ -f "$SYSCTL_CONF" ]; then
         rm -f "$SYSCTL_CONF"
         sysctl --system &>/dev/null || true
     fi
+
+    # Clean apt cache
+    apt-get autoremove -y -qq 2>/dev/null || true
 
     green "Jabali Security has been completely removed."
 }
