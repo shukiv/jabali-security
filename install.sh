@@ -275,42 +275,44 @@ do_install() {
                     sleep 2
                 fi
 
-                # Bouncer postinst starts the service, which needs a valid API key.
-                # Pre-write the config so the service starts cleanly on install.
-                # force-confold tells dpkg to keep our config on reinstall.
+                # The bouncer install is tricky because:
+                # 1. install.sh runs via curl|bash so stdin is EOF
+                # 2. dpkg conffile prompts read from stdin → EOF → error
+                # 3. A broken bouncer from a previous attempt blocks ALL apt ops
+                #
+                # Strategy: purge any old state, install clean (no conffile
+                # conflict), let postinst fail (no API key yet), then patch
+                # config and finalize.
                 if command -v cscli &>/dev/null; then
-                    _bouncer_key=$(cscli bouncers add jabali-fw-bouncer -o raw 2>/dev/null || echo "")
-                    if [ -n "$_bouncer_key" ]; then
-                        mkdir -p /etc/crowdsec/bouncers
-                        cat > /etc/crowdsec/bouncers/crowdsec-firewall-bouncer.yaml << BOUNCERCONF
-mode: nftables
-api_url: http://127.0.0.1:${_cs_port}/
-api_key: ${_bouncer_key}
-disable_ipv6: false
-update_frequency: 10s
-deny_action: DROP
-deny_log: false
-BOUNCERCONF
-                    fi
-                    # Verify CrowdSec LAPI is actually running before installing bouncer
+                    # Purge broken/old bouncer state including conffiles
+                    dpkg --purge --force-remove-reinstreq \
+                        crowdsec-firewall-bouncer-nftables 2>/dev/null || true
+
+                    # Verify CrowdSec LAPI is running
                     if ! systemctl is-active --quiet crowdsec 2>/dev/null; then
                         systemctl restart crowdsec 2>/dev/null
                         sleep 3
                     fi
 
-                    # apt-get delegates conffile handling to dpkg, but dpkg reads
-                    # from stdin for the prompt. Since install.sh runs via curl|bash,
-                    # stdin is EOF → dpkg errors. dpkg.cfg.d drop-ins don't help
-                    # on Debian 13. Bypass apt entirely: download the .deb, use
-                    # dpkg --force-confold directly (flag on CLI always works).
+                    # Install fresh — no old conffile means no conffile prompt.
+                    # Postinst will fail (no valid API key yet) — that's expected.
                     run_with_spinner "Installing firewall bouncer" bash -c '
-                        DEBIAN_FRONTEND=noninteractive apt-get install -y -d -qq \
-                            crowdsec-firewall-bouncer-nftables 2>&1 && \
-                        dpkg --force-confold -i \
-                            /var/cache/apt/archives/crowdsec-firewall-bouncer-nftables*.deb 2>&1
-                    ' || {
-                        # Postinst failed or download failed — clean dpkg state
-                        # so subsequent apt operations are not blocked.
+                        DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
+                            crowdsec-firewall-bouncer-nftables 2>&1
+                    ' || true
+
+                    # Generate API key and patch the config the package installed
+                    _bouncer_key=$(cscli bouncers add jabali-fw-bouncer -o raw 2>/dev/null || echo "")
+                    _bouncer_cfg="/etc/crowdsec/bouncers/crowdsec-firewall-bouncer.yaml"
+                    if [ -n "$_bouncer_key" ] && [ -f "$_bouncer_cfg" ]; then
+                        sed -i "s|^api_key:.*|api_key: ${_bouncer_key}|" "$_bouncer_cfg"
+                        sed -i "s|^api_url:.*|api_url: http://127.0.0.1:${_cs_port}/|" "$_bouncer_cfg"
+                    fi
+
+                    # Finalize: reconfigure the package (postinst restarts the
+                    # service, which now has a valid API key and correct LAPI URL).
+                    # --configure only runs postinst, no conffile prompts.
+                    dpkg --configure crowdsec-firewall-bouncer-nftables 2>/dev/null || {
                         dpkg --remove --force-remove-reinstreq \
                             crowdsec-firewall-bouncer-nftables 2>/dev/null || true
                         dpkg --configure -a 2>/dev/null || true
