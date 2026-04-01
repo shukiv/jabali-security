@@ -12,6 +12,9 @@ from lib.filter import PreFilter
 
 logger = logging.getLogger(__name__)
 
+# Cap mtime cache at 500K paths (~150MB worst-case for long paths, typically ~50MB)
+_MTIME_CACHE_MAX = 500_000
+
 
 class RapidScanEngine:
     """Parallel directory scanning with mtime-based skip optimization."""
@@ -97,7 +100,8 @@ class RapidScanEngine:
         tasks = [_scan_one(f) for f in files_to_scan]
         await asyncio.gather(*tasks)
 
-        # Save cache
+        # Save cache and trim if over limit
+        self._trim_mtime_cache()
         self._save_cache()
 
         return {
@@ -108,11 +112,30 @@ class RapidScanEngine:
             "results": results,
         }
 
+    def _trim_mtime_cache(self) -> None:
+        """Evict stale/excess entries from the mtime cache."""
+        if len(self._mtime_cache) <= _MTIME_CACHE_MAX:
+            return
+        # Remove paths that no longer exist on disk first
+        dead = [p for p in self._mtime_cache if not os.path.exists(p)]
+        for p in dead:
+            del self._mtime_cache[p]
+        # If still over limit, drop arbitrary oldest-inserted entries
+        if len(self._mtime_cache) > _MTIME_CACHE_MAX:
+            overflow = len(self._mtime_cache) - _MTIME_CACHE_MAX
+            for p in list(self._mtime_cache.keys())[:overflow]:
+                del self._mtime_cache[p]
+
     def _load_cache(self) -> None:
         if not self._cache_path or not self._cache_path.is_file():
             return
         try:
-            self._mtime_cache = json.loads(self._cache_path.read_text(encoding="utf-8"))
+            raw: dict[str, float] = json.loads(self._cache_path.read_text(encoding="utf-8"))
+            # Enforce cap immediately on load
+            if len(raw) > _MTIME_CACHE_MAX:
+                keys = list(raw.keys())[-_MTIME_CACHE_MAX:]
+                raw = {k: raw[k] for k in keys}
+            self._mtime_cache = raw
         except (json.JSONDecodeError, OSError):
             self._mtime_cache = {}
 
