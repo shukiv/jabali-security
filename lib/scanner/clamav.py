@@ -1,4 +1,10 @@
-"""Optional ClamAV backend — communicates with clamd via raw Unix socket."""
+"""Optional ClamAV backend — communicates with clamd via raw Unix socket.
+
+clamd is NOT installed by default (it uses ~950MB RSS). The base `clamav`
+package provides `clamscan` CLI and virus definitions. Admins who want
+daemon-based scanning can install clamav-daemon themselves; this scanner
+auto-detects the socket when present.
+"""
 
 from __future__ import annotations
 

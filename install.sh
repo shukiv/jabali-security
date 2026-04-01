@@ -234,11 +234,14 @@ do_install() {
     fi
     done_ok "Python $(python3 --version 2>&1)"
 
-    if ! command -v clamd &>/dev/null && ! command -v clamdscan &>/dev/null; then
+    if ! command -v clamscan &>/dev/null; then
+        # Install ClamAV CLI + definitions only — NOT clamav-daemon.
+        # clamd runs ~950MB RSS permanently, unacceptable on small VPS.
+        # YARA-X is the primary real-time scanner; clamscan is for manual use.
         case "$pkg_mgr" in
-            apt) run_with_spinner "Installing ClamAV" pkg_install clamav-daemon clamav-freshclam ;;
-            dnf) run_with_spinner "Installing ClamAV" pkg_install clamav clamd clamav-update ;;
-            yum) run_with_spinner "Installing ClamAV" pkg_install clamav clamd clamav-update ;;
+            apt) run_with_spinner "Installing ClamAV" pkg_install clamav clamav-freshclam ;;
+            dnf) run_with_spinner "Installing ClamAV" pkg_install clamav clamav-update ;;
+            yum) run_with_spinner "Installing ClamAV" pkg_install clamav clamav-update ;;
         esac
     else
         green "[✓] ClamAV already installed"
