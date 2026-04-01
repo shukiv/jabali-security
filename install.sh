@@ -298,20 +298,24 @@ BOUNCERCONF
                         sleep 3
                     fi
 
-                    echo "force-confold" > /etc/dpkg/dpkg.cfg.d/jabali-tmp-confold
+                    # apt-get delegates conffile handling to dpkg, but dpkg reads
+                    # from stdin for the prompt. Since install.sh runs via curl|bash,
+                    # stdin is EOF → dpkg errors. dpkg.cfg.d drop-ins don't help
+                    # on Debian 13. Bypass apt entirely: download the .deb, use
+                    # dpkg --force-confold directly (flag on CLI always works).
                     run_with_spinner "Installing firewall bouncer" bash -c '
-                        DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
-                            crowdsec-firewall-bouncer-nftables 2>&1
+                        DEBIAN_FRONTEND=noninteractive apt-get install -y -d -qq \
+                            crowdsec-firewall-bouncer-nftables 2>&1 && \
+                        dpkg --force-confold -i \
+                            /var/cache/apt/archives/crowdsec-firewall-bouncer-nftables*.deb 2>&1
                     ' || {
-                        # Bouncer postinst failed (service won't start).
-                        # Force-remove the broken package so dpkg is clean
-                        # for all subsequent apt operations on the system.
+                        # Postinst failed or download failed — clean dpkg state
+                        # so subsequent apt operations are not blocked.
                         dpkg --remove --force-remove-reinstreq \
                             crowdsec-firewall-bouncer-nftables 2>/dev/null || true
                         dpkg --configure -a 2>/dev/null || true
                         yellow "  Firewall bouncer install failed (non-critical)."
                     }
-                    rm -f /etc/dpkg/dpkg.cfg.d/jabali-tmp-confold
                 fi
                 ;;
         esac
