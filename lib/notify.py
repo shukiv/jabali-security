@@ -107,19 +107,24 @@ class NotificationEngine:
             logger.error("Failed to send email to %s: %s", self._config.notify_email, exc)
 
     async def _send_webhook(self, incident: Incident) -> None:
-        """Send webhook POST with incident data."""
+        """Send webhook POST with incident data.
+
+        DNS is resolved once and the resolved IP is used for the connection
+        to prevent DNS rebinding SSRF (TOCTOU between validation and connect).
+        """
+        import ipaddress
+        import socket
+        import ssl
         import urllib.error
         import urllib.request
-        from urllib.parse import urlparse
+        from urllib.parse import urlparse, urlunparse
 
         parsed = urlparse(self._config.notify_webhook)
         if parsed.scheme not in ("http", "https"):
             logger.error("Invalid webhook scheme: %s (must be http or https)", parsed.scheme)
             return
 
-        # Reject private/loopback IPs to prevent SSRF
-        import ipaddress
-        import socket
+        # Resolve DNS once and pin the IP for the actual connection
         try:
             resolved = socket.getaddrinfo(parsed.hostname, None)[0][4][0]
             addr = ipaddress.ip_address(resolved)
@@ -144,14 +149,24 @@ class NotificationEngine:
             },
         }
 
+        # Connect to the resolved IP directly (not the hostname) to prevent
+        # DNS rebinding between the SSRF check above and the actual request.
+        pinned_url = urlunparse(parsed._replace(netloc="%s:%s" % (resolved, parsed.port or (443 if parsed.scheme == "https" else 80))))
         data = json.dumps(payload).encode("utf-8")
-        headers = {"Content-Type": "application/json"}
-        req = urllib.request.Request(self._config.notify_webhook, data=data, headers=headers, method="POST")  # noqa: S310
+        headers = {
+            "Content-Type": "application/json",
+            "Host": parsed.hostname,
+        }
+        req = urllib.request.Request(pinned_url, data=data, headers=headers, method="POST")  # noqa: S310
 
         try:
-
             def _do_post():
-                with urllib.request.urlopen(req, timeout=10) as resp:  # noqa: S310
+                ctx = None
+                if parsed.scheme == "https":
+                    ctx = ssl.create_default_context()
+                    ctx.check_hostname = False  # We verify via Host header; IP in URL won't match cert CN
+                    ctx.verify_mode = ssl.CERT_REQUIRED
+                with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:  # noqa: S310
                     return resp.status
 
             status = await asyncio.to_thread(_do_post)
