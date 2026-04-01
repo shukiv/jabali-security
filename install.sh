@@ -237,21 +237,42 @@ do_install() {
                 pkg_install git python3 python3-venv python3-pip file coreutils nftables ufw
             run_with_spinner "Installing ModSecurity (optional)" \
                 pkg_install libnginx-mod-http-modsecurity || true
-            pkg_install modsecurity-crs 2>/dev/null || true
+            # Install OWASP CRS from GitHub (apt package lags behind)
+            _crs_dir="/usr/local/share/owasp-crs"
+            if [ ! -d "$_crs_dir/rules" ]; then
+                run_with_spinner "Installing OWASP CRS" bash -c "
+                    git clone --depth 1 --quiet https://github.com/coreruleset/coreruleset.git '$_crs_dir' 2>&1 && \
+                    cp '$_crs_dir/crs-setup.conf.example' '$_crs_dir/crs-setup.conf' 2>/dev/null
+                " || true
+            else
+                green "[✓] OWASP CRS already installed"
+            fi
             ;;
         dnf)
             run_with_spinner "Installing core packages" \
                 pkg_install git python3 python3-pip file coreutils nftables ufw
             run_with_spinner "Installing ModSecurity (optional)" \
                 pkg_install mod_security || true
-            pkg_install mod_security_crs 2>/dev/null || true
+            _crs_dir="/usr/local/share/owasp-crs"
+            if [ ! -d "$_crs_dir/rules" ]; then
+                run_with_spinner "Installing OWASP CRS" bash -c "
+                    git clone --depth 1 --quiet https://github.com/coreruleset/coreruleset.git '$_crs_dir' 2>&1 && \
+                    cp '$_crs_dir/crs-setup.conf.example' '$_crs_dir/crs-setup.conf' 2>/dev/null
+                " || true
+            fi
             ;;
         yum)
             run_with_spinner "Installing core packages" \
                 pkg_install git python3 python3-pip file coreutils nftables ufw
             run_with_spinner "Installing ModSecurity (optional)" \
                 pkg_install mod_security || true
-            pkg_install mod_security_crs 2>/dev/null || true
+            _crs_dir="/usr/local/share/owasp-crs"
+            if [ ! -d "$_crs_dir/rules" ]; then
+                run_with_spinner "Installing OWASP CRS" bash -c "
+                    git clone --depth 1 --quiet https://github.com/coreruleset/coreruleset.git '$_crs_dir' 2>&1 && \
+                    cp '$_crs_dir/crs-setup.conf.example' '$_crs_dir/crs-setup.conf' 2>/dev/null
+                " || true
+            fi
             ;;
         *)
             red "Error: cannot detect package manager (apt/dnf/yum)."
@@ -544,7 +565,7 @@ with open(path, 'w') as f: f.write(content)
 
     section "Configuring WAF (ModSecurity)"
     CRS_DIR=""
-    for d in /usr/share/modsecurity-crs/rules /etc/modsecurity/crs /usr/share/modsecurity-crs; do
+    for d in /usr/local/share/owasp-crs/rules /usr/share/modsecurity-crs/rules /etc/modsecurity/crs /usr/share/modsecurity-crs; do
         if [ -d "$d" ] && ls "$d"/*.conf &>/dev/null; then
             CRS_DIR="$d"
             break
@@ -567,7 +588,7 @@ with open(path, 'w') as f: f.write(content)
 
         if [ -n "$CRS_DIR" ] && [ -f /etc/nginx/modsecurity_includes.conf ]; then
             CRS_SETUP=""
-            for f in /etc/modsecurity/crs/crs-setup.conf /usr/share/modsecurity-crs/crs-setup.conf; do
+            for f in /usr/local/share/owasp-crs/crs-setup.conf /etc/modsecurity/crs/crs-setup.conf /usr/share/modsecurity-crs/crs-setup.conf; do
                 if [ -f "$f" ]; then CRS_SETUP="$f"; break; fi
             done
             if [ -n "$CRS_SETUP" ]; then

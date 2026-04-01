@@ -545,6 +545,19 @@ def update() -> None:
         else:
             click.echo("  freshclam skipped (may already be running).")
 
+    # OWASP CRS rules (git-based)
+    crs_dir = "/usr/local/share/owasp-crs"
+    if os.path.isdir(os.path.join(crs_dir, ".git")):
+        click.echo("Updating OWASP CRS rules...")
+        result = subprocess.run(  # noqa: S603
+            ["/usr/bin/git", "-C", crs_dir, "pull", "--quiet"],
+            capture_output=True, timeout=30,
+        )
+        if result.returncode == 0:
+            click.echo("  OWASP CRS rules updated.")
+        else:
+            click.echo("  OWASP CRS update skipped.")
+
     # CrowdSec hub (parsers, scenarios, collections, postoverflows)
     if shutil.which("cscli"):
         click.echo("Updating CrowdSec hub...")
