@@ -257,13 +257,25 @@ do_install() {
                     systemctl start crowdsec 2>/dev/null
                     sleep 2
                 '
-                # Generate bouncer API key before installing the bouncer package
-                # (its post-install starts the service, which needs a valid key)
+                # Install bouncer package first (let dpkg write its own conffile),
+                # then patch in our API key. This avoids conffile prompts.
                 if command -v cscli &>/dev/null; then
+                    run_with_spinner "Installing firewall bouncer" bash -c '
+                        DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
+                            crowdsec-firewall-bouncer-nftables 2>&1
+                    ' || {
+                        dpkg --configure -a 2>/dev/null || true
+                        yellow "  Firewall bouncer install failed (non-critical)."
+                    }
+                    # Now generate API key and patch the config the package installed
                     _bouncer_key=$(cscli bouncers add jabali-fw-bouncer -o raw 2>/dev/null || echo "")
                     if [ -n "$_bouncer_key" ]; then
-                        mkdir -p /etc/crowdsec/bouncers
-                        cat > /etc/crowdsec/bouncers/crowdsec-firewall-bouncer.yaml << BOUNCERCONF
+                        _bouncer_cfg="/etc/crowdsec/bouncers/crowdsec-firewall-bouncer.yaml"
+                        if [ -f "$_bouncer_cfg" ]; then
+                            sed -i "s|^api_key:.*|api_key: ${_bouncer_key}|" "$_bouncer_cfg"
+                        else
+                            mkdir -p /etc/crowdsec/bouncers
+                            cat > "$_bouncer_cfg" << BOUNCERCONF
 mode: nftables
 api_url: http://127.0.0.1:8080/
 api_key: ${_bouncer_key}
@@ -272,17 +284,9 @@ update_frequency: 10s
 deny_action: DROP
 deny_log: false
 BOUNCERCONF
+                        fi
+                        systemctl restart crowdsec-firewall-bouncer 2>/dev/null || true
                     fi
-                    # Tell dpkg to keep our pre-written config on conffile conflict
-                    echo "force-confold" > /etc/dpkg/dpkg.cfg.d/jabali-tmp-confold
-                    run_with_spinner "Installing firewall bouncer" bash -c '
-                        DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
-                            crowdsec-firewall-bouncer-nftables 2>&1
-                    ' || {
-                        dpkg --configure -a 2>/dev/null || true
-                        yellow "  Firewall bouncer install failed (non-critical)."
-                    }
-                    rm -f /etc/dpkg/dpkg.cfg.d/jabali-tmp-confold
                 fi
                 ;;
         esac
