@@ -286,11 +286,22 @@ deny_action: DROP
 deny_log: false
 BOUNCERCONF
                     fi
+                    # Verify CrowdSec LAPI is actually running before installing bouncer
+                    if ! systemctl is-active --quiet crowdsec 2>/dev/null; then
+                        systemctl restart crowdsec 2>/dev/null
+                        sleep 3
+                    fi
+
                     echo "force-confold" > /etc/dpkg/dpkg.cfg.d/jabali-tmp-confold
                     run_with_spinner "Installing firewall bouncer" bash -c '
                         DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
                             crowdsec-firewall-bouncer-nftables 2>&1
                     ' || {
+                        # Bouncer postinst failed (service won't start).
+                        # Force-remove the broken package so dpkg is clean
+                        # for all subsequent apt operations on the system.
+                        dpkg --remove --force-remove-reinstreq \
+                            crowdsec-firewall-bouncer-nftables 2>/dev/null || true
                         dpkg --configure -a 2>/dev/null || true
                         yellow "  Firewall bouncer install failed (non-critical)."
                     }
