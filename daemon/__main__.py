@@ -406,29 +406,48 @@ def update() -> None:
 
     # Install CrowdSec if not present
     if not shutil.which("cscli"):
-        click.echo("Installing CrowdSec...")
-        subprocess.run(  # noqa: S603
-            ["/bin/bash", "-c",
-             "curl -fsSL https://install.crowdsec.net 2>/dev/null | bash 2>/dev/null"
-             " && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq crowdsec 2>/dev/null"
-             " && systemctl start crowdsec 2>/dev/null && sleep 2"
-             " && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq crowdsec-firewall-bouncer-nftables 2>/dev/null || true"],
-            capture_output=True, timeout=120,
-        )
+        click.echo("Installing CrowdSec (this may take a minute)...")
+        try:
+            click.echo("  Adding CrowdSec repository...")
+            subprocess.run(  # noqa: S603
+                ["/bin/bash", "-c",
+                 "curl -fsSL https://install.crowdsec.net 2>/dev/null | bash 2>/dev/null"],
+                capture_output=True, timeout=60,
+            )
+            click.echo("  Installing crowdsec package...")
+            subprocess.run(  # noqa: S603
+                ["/bin/bash", "-c",
+                 "DEBIAN_FRONTEND=noninteractive apt-get install -y -qq crowdsec 2>/dev/null"
+                 " && systemctl start crowdsec 2>/dev/null && sleep 2"],
+                capture_output=True, timeout=90,
+            )
+            click.echo("  Installing firewall bouncer...")
+            subprocess.run(  # noqa: S603
+                ["/bin/bash", "-c",
+                 "DEBIAN_FRONTEND=noninteractive apt-get install -y -qq"
+                 " crowdsec-firewall-bouncer-nftables 2>/dev/null || true"],
+                capture_output=True, timeout=60,
+            )
+        except subprocess.TimeoutExpired:
+            click.echo("  CrowdSec install timed out — skipping (will retry on next update).")
 
     # Install CrowdSec collections only on first setup (skip if already installed)
     if shutil.which("cscli"):
-        result = subprocess.run(  # noqa: S603
-            ["cscli", "collections", "list", "-o", "raw"],
-            capture_output=True, text=True, timeout=10,
-        )
-        installed = result.stdout if result.returncode == 0 else ""
-        for col in ["linux", "sshd", "nginx", "base-http-scenarios"]:
-            if "crowdsecurity/%s" % col not in installed:
-                subprocess.run(  # noqa: S603
-                    ["cscli", "collections", "install", "crowdsecurity/%s" % col],
-                    capture_output=True, timeout=30,
-                )
+        try:
+            result = subprocess.run(  # noqa: S603
+                ["cscli", "collections", "list", "-o", "raw"],
+                capture_output=True, text=True, timeout=10,
+            )
+            installed = result.stdout if result.returncode == 0 else ""
+            for col in ["linux", "sshd", "nginx", "base-http-scenarios"]:
+                if "crowdsecurity/%s" % col not in installed:
+                    click.echo("  Installing collection crowdsecurity/%s..." % col)
+                    subprocess.run(  # noqa: S603
+                        ["cscli", "collections", "install", "crowdsecurity/%s" % col],
+                        capture_output=True, timeout=30,
+                    )
+        except subprocess.TimeoutExpired:
+            click.echo("  CrowdSec collections timed out — skipping.")
 
     # Generate CrowdSec bouncer key if missing
     if shutil.which("cscli") and os.path.isfile(config_file):
