@@ -174,7 +174,7 @@ uv run pytest tests/ -v
 ./tests/test_security.sh jabali.site --quick   # skip port scan
 ```
 
-Tests WebShield bot filtering, rate limiting, WAF blocking (SQLi/XSS/path traversal/command injection), WordPress hardening (user enum, XML-RPC, sensitive files), proactive defense (PHP hardening, process killer), and dashboard/API exposure.
+Tests WebShield bot filtering, rate limiting, WAF blocking (SQLi/XSS/path traversal/command injection), WordPress hardening (user enum, XML-RPC, sensitive files), proactive defense (process killer), and dashboard/API exposure.
 
 ## Uninstall
 

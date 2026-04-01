@@ -464,7 +464,7 @@ jabali-security waf update
 
 ### proactive status
 
-Show proactive defense status (process killer, PHP hardening).
+Show proactive defense status (process killer).
 
 ```bash
 jabali-security proactive status [--json]

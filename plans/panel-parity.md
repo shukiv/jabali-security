@@ -23,7 +23,7 @@ Durable decisions that apply across all phases:
 
 ### What to build
 
-Add a "Protection Modules" section to the Overview tab showing all 17 toggleable features with enable/disable switches. Each toggle calls `PATCH /api/v1/config` to flip the config key (`yes`/`no`), then triggers a daemon restart. Group toggles into "Core Modules" (heuristic, entropy, yara, process monitor, behavior tracking, auto quarantine) and "Advanced Protection" (WAF, brute-force, proactive, process killer, PHP hardening, webshield, threat intel, cleanup, UFW, scheduled scans, auto suspend) — matching the web dashboard layout.
+Add a "Protection Modules" section to the Overview tab showing all 16 toggleable features with enable/disable switches. Each toggle calls `PATCH /api/v1/config` to flip the config key (`yes`/`no`), then triggers a daemon restart. Group toggles into "Core Modules" (heuristic, entropy, yara, process monitor, behavior tracking, auto quarantine) and "Advanced Protection" (WAF, brute-force, proactive, process killer, webshield, threat intel, cleanup, UFW, scheduled scans, auto suspend) — matching the web dashboard layout.
 
 Also add the missing "Queue Pending" stat to the stats widget.
 
@@ -86,14 +86,12 @@ Add a "Brute-Force" tab with:
 
 ## Phase 4: Proactive + WebShield Tabs
 
-**User stories**: Admin can view PHP pool hardening status, process kills, WebShield status, and manage bot rules.
+**User stories**: Admin can view process kills, WebShield status, and manage bot rules.
 
 ### What to build
 
 **Proactive tab:**
-- Status cards: process_kill_enabled, kill_count, php_hardening_enabled — from `GET /proactive/status`
-- PHP-FPM pools table: pool_name, php_version, user, hardened (icon), issues — from `GET /proactive/php/pools`
-- Row actions: Harden / Unharden pool — via `POST /proactive/php/harden` and `/unharden`
+- Status cards: process_kill_enabled, kill_count — from `GET /proactive/status`
 - Process kills table: pid, username, score, reason, success — from `GET /proactive/kills`
 
 **WebShield tab:**
@@ -103,7 +101,6 @@ Add a "Brute-Force" tab with:
 
 ### Acceptance criteria
 
-- [ ] Proactive tab shows PHP pool hardening status with harden/unharden actions
 - [ ] Process kills table shows recent kills
 - [ ] WebShield tab shows install status and bot rules
 - [ ] Admin can install/uninstall WebShield
