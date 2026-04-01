@@ -297,6 +297,7 @@ def start(foreground: bool, config_path: str | None) -> None:
 
 def _generate_bouncer_key(config_file: str) -> None:
     """Generate CrowdSec bouncer API key and save to config. Skips if already set."""
+    import subprocess
     if not os.path.isfile(config_file):
         return
     with open(config_file) as fh:
@@ -327,6 +328,7 @@ def _write_bouncer_config() -> None:
     The bouncer package post-install starts the service immediately.
     Without a valid config, it fails and leaves dpkg in a broken state.
     """
+    import subprocess
     yaml_path = "/etc/crowdsec/bouncers/crowdsec-firewall-bouncer.yaml"
     if os.path.isfile(yaml_path):
         return  # already configured
