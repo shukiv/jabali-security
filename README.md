@@ -3,12 +3,6 @@
 **Event-driven security suite for Linux shared hosting.**
 A lightweight, panel-agnostic alternative to Imunify360.
 
-<!-- badges -->
-<!-- ![Build](https://img.shields.io/badge/build-passing-brightgreen) -->
-<!-- ![Tests](https://img.shields.io/badge/tests-244%20passing-brightgreen) -->
-<!-- ![Python](https://img.shields.io/badge/python-3.12%2B-blue) -->
-<!-- ![License](https://img.shields.io/badge/license-proprietary-red) -->
-
 ---
 
 ## Features
@@ -16,22 +10,26 @@ A lightweight, panel-agnostic alternative to Imunify360.
 | Category | Capabilities |
 |---|---|
 | **Real-time monitoring** | inotify file watcher, process tree monitor, behavior lifecycle tracking |
-| **Multi-engine scanning** | Heuristic regex, Shannon entropy, YARA-X signatures, ClamAV (optional) |
+| **Multi-engine scanning** | Heuristic regex, Shannon entropy, YARA-X signatures, ClamAV CLI (optional) |
 | **Threat scoring** | Aggregated score per event with configurable log/quarantine/suspend thresholds |
 | **Automated response** | Quarantine, process kill, IP blocking via nftables/iptables |
+| **CrowdSec integration** | LAPI bouncer client, decision streaming, community threat signals |
 | **UFW management** | Full UFW firewall rule CRUD, enable/disable/reload, app profiles via REST API |
 | **Brute-force protection** | SSH + mail (Dovecot/Postfix/Exim/Stalwart) with progressive blocking |
 | **WAF integration** | ModSecurity audit log parsing, OWASP CRS management, rule toggling |
 | **Proactive defense** | Suspicious process killer (reverse shells, crypto miners, malicious scripts) |
+| **Attack mode** | Elevated defense posture with tighter thresholds on demand |
 | **Malware cleanup** | Injection removal, CMS integrity checks (WordPress/Joomla), backup-before-clean |
 | **Threat intelligence** | Spamhaus, blocklist.de, MalwareBazaar, Tor exit nodes; IP + hash lookups |
 | **WebShield** | Nginx rate limiting, JS challenge pages, bot UA filtering |
 | **Database scanning** | MySQL table scanning for injected payloads (WordPress, Joomla) |
 | **RapidScan** | Parallel directory scanner with mtime cache for unchanged-file skipping |
 | **Scheduled scans** | Configurable periodic full-path scanning |
+| **SSH management** | SSH key management, shell access control, sshd hardening |
 | **Multi-tenant** | Automatic file-to-user mapping for shared hosting accounts |
-| **REST API** | aiohttp on port 9876 with API key auth, 40+ endpoints |
+| **REST API** | aiohttp on Unix socket with API key auth, 50+ endpoints |
 | **CLI** | 30+ click commands for full management |
+| **Panel plugin** | Filament-based admin page for Jabali Panel integration |
 
 ## Quick Install
 
@@ -39,7 +37,7 @@ A lightweight, panel-agnostic alternative to Imunify360.
 curl -fsSL https://git.linux-hosting.co.il/shukivaknin/jabali-security/raw/branch/master/install.sh | sudo bash
 ```
 
-The installer will: clone the repo, create a Python venv, install dependencies, generate an API key, configure systemd services, and raise the inotify watch limit.
+The installer will: clone the repo, create a Python venv, install dependencies, generate an API key, configure CrowdSec + firewall bouncer, set up UFW rules, harden SSH, and start the daemon.
 
 ```bash
 jabali-security status              # check daemon status
@@ -48,48 +46,61 @@ jabali-security scan /home -r       # on-demand recursive scan
 journalctl -u jabali-security -f    # watch live logs
 ```
 
-<!-- screenshot placeholder -->
-<!-- ![Dashboard](docs/images/dashboard.png) -->
-
 ## Architecture
 
 ```
-+------------------+    +-------------------+    +------------------+
-| File Watcher     +--->|                   +--->| Response Engine  |
-| (inotify)        |    |                   |    | - Quarantine     |
-+------------------+    |   Scan Queue      |    | - Process kill   |
-                        |       |           |    | - IP block       |
-+------------------+    |   Scan Workers    |    | - Notifications  |
-| Process Monitor  +--->|       |           |    +------------------+
-| (/proc polling)  |    |   Detection       |
-+------------------+    |   - Heuristic     |    +------------------+
-                        |   - Entropy       +--->| Incident Store   |
-+------------------+    |   - YARA-X        |    | (SQLite)         |
-| Behavior Tracker +--->|   - ClamAV        |    +------------------+
-|                  |    |       |           |
-+------------------+    |   Scoring Engine  |    +------------------+
-                        |                   +--->| REST API         |
-+------------------+    +-------------------+    | (aiohttp, :9876) |
-| Auth Log Parser  |                             +------------------+
-| (SSH/Mail/Stalw) +---> Brute-Force Detector ---> Firewall Manager
-+------------------+                               (nftables/iptables)
+                          ┌──────────────────────┐
+                          │   Security Daemon     │
+                          │   (asyncio supervisor)│
+                          └──────────┬───────────┘
+                                     │
+          ┌──────────────────────────┼──────────────────────────┐
+          │                          │                          │
+  ┌───────▼────────┐      ┌─────────▼─────────┐     ┌─────────▼─────────┐
+  │ Event Sources   │      │ Detection Pipeline │     │ Response Engine   │
+  │                 │      │                    │     │                   │
+  │ inotify watcher │─────>│ Scan Queue (50K)   │────>│ Quarantine        │
+  │ /proc monitor   │      │     │              │     │ Process kill      │
+  │ behavior tracker│      │ Scan Workers (×4)  │     │ IP block (nft)    │
+  │ auth log parser │      │     │              │     │ User suspend      │
+  │ WAF audit log   │      │ Scanners:          │     │ Notifications     │
+  └─────────────────┘      │  - Heuristic       │     └───────────────────┘
+                           │  - Entropy         │
+                           │  - YARA-X          │     ┌───────────────────┐
+                           │  - ClamAV (opt)    │────>│ Incident Store    │
+                           │     │              │     │ (SQLite)          │
+                           │ Scoring Engine     │     └───────────────────┘
+                           └────────────────────┘
 
-+------------------+    +-------------------+    +------------------+
-| ModSec Audit Log +--->| WAF Rule Manager  |    | Threat Intel     |
-+------------------+    +-------------------+    | Feed Manager     |
-                                                 +------------------+
-+------------------+    +-------------------+    +------------------+
-| PHP-FPM Hardener |    | WebShield Manager |    | UFW Manager      |
-+------------------+    +-------------------+    +------------------+
+  ┌───────────────────┐    ┌────────────────────┐    ┌───────────────────┐
+  │ CrowdSec Client   │    │ Threat Intel Feeds │    │ REST API          │
+  │ LAPI bouncer      │    │ IP reputation (bisect)│ │ (Unix socket)     │
+  │ decision stream   │    │ hash reputation     │    │ 50+ endpoints     │
+  └───────────────────┘    │ periodic updates    │    └───────────────────┘
+                           └────────────────────┘
+  ┌───────────────────┐    ┌────────────────────┐    ┌───────────────────┐
+  │ WebShield Manager │    │ WAF Rule Manager   │    │ UFW Manager       │
+  │ nginx rate limit  │    │ ModSecurity + CRS  │    │ firewall CRUD     │
+  └───────────────────┘    └────────────────────┘    └───────────────────┘
 ```
+
+### Key design decisions
+
+- **YARA-X primary scanner** — Rust-based, fast, low memory. ClamAV CLI available for manual scans but the daemon (`clamd`) is not installed (it uses ~950MB RSS).
+- **IP reputation via sorted int ranges + bisect** — O(log n) lookups instead of O(n) linear scan. Feeds like blocklist.de (500K+ entries) use ~30MB instead of ~150MB.
+- **Bounded scan queue** — 50,000 max entries with backpressure to prevent unbounded memory growth during inotify storms.
+- **Unix socket API** — not network-exposed by default. Panel communicates via `JabaliSecurityClient.php`.
+- **CrowdSec as signal source** — community threat intelligence decisions streamed into the unified blocklist, not a standalone firewall.
+- **PHP-FPM isolation is NOT managed here** — that's `jabali-isolator` (systemd-nspawn containers). This daemon only monitors.
 
 ## Requirements
 
 - Linux with kernel 2.6.13+ (inotify support)
 - Python 3.12+
 - systemd (for service management)
-- Optional: ClamAV, nftables/iptables, UFW, nginx, ModSecurity + OWASP CRS
-- Optional: SSH access to target (for proactive defense tests)
+- Optional: ClamAV (CLI scanner + freshclam for definitions)
+- Optional: CrowdSec (installed automatically)
+- Optional: nftables/iptables, UFW, nginx, ModSecurity + OWASP CRS
 
 ## CLI Reference
 
@@ -111,11 +122,12 @@ Full command reference: [docs/CLI.md](docs/CLI.md)
 | **Cleanup** | `cleanup records`, `cleanup file`, `cleanup cms` |
 | **Threat Intel** | `threat-intel feeds`, `threat-intel update`, `threat-intel check-ip`, `threat-intel check-hash` |
 | **WebShield** | `webshield status`, `webshield install`, `webshield uninstall`, `webshield rules` |
+| **SSH** | `ssh users`, `ssh keys` |
 | **Web** | `web` |
 
 ## REST API
 
-Base URL: `http://127.0.0.1:9876/api/v1/`
+Socket: `/run/jabali-security/jabali-security.sock`
 Authentication: `X-API-Key` header.
 Full reference: [docs/API.md](docs/API.md)
 
@@ -126,19 +138,22 @@ Full reference: [docs/API.md](docs/API.md)
 | `/incidents` | GET | List incidents |
 | `/incidents/{id}` | GET | Get incident detail |
 | `/scan` | POST | On-demand file or directory scan |
+| `/scan/rapid` | POST | Fast parallel scan |
+| `/scan/database` | POST | MySQL database scan |
 | `/quarantine` | GET | List quarantined files |
 | `/users` | GET | User risk scores |
 | `/blocklist` | GET | Blocked IPs |
 | `/config` | GET/PATCH | Configuration |
 | `/bruteforce/*` | GET/POST/DELETE | Brute-force management |
 | `/waf/*` | GET/POST | WAF events and rules |
-| `/proactive/*` | GET/POST | Proactive defense |
+| `/proactive/*` | GET | Process killer status and kills |
 | `/cleanup/*` | GET/POST | Cleanup operations |
 | `/threat-intel/*` | GET/POST | Threat intelligence |
 | `/webshield/*` | GET/POST | WebShield management |
 | `/firewall/ufw/*` | GET/POST/PUT/DELETE | UFW firewall rule management |
-| `/scan/database` | POST | MySQL database scan |
-| `/scan/rapid` | POST | Fast parallel scan |
+| `/crowdsec/*` | GET/DELETE | CrowdSec decisions and status |
+| `/attack-mode` | GET/POST | Attack mode toggle |
+| `/ssh/*` | GET/POST/DELETE | SSH keys, shell access, sshd settings |
 
 ## Configuration
 
@@ -153,7 +168,7 @@ Full reference: [docs/CONFIGURATION.md](docs/CONFIGURATION.md)
 ```bash
 uv sync                                    # install dependencies
 uv run jabali-security start --foreground  # run daemon locally
-uv run pytest tests/ -v                    # run 244 tests (~0.25s)
+uv run pytest tests/ -v                    # run 332 tests (~0.3s)
 uv run ruff check .                        # lint
 ```
 
@@ -165,7 +180,7 @@ Full developer guide: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
 uv run pytest tests/ -v
 ```
 
-244 unit tests covering: config parsing, heuristic/entropy/YARA scanners, scoring engine, incident store, quarantine, response engine, behavior tracker, brute-force detection, IP reputation, log parsing, WebShield config, CMS detection, injection cleaning, and security hardening.
+332 unit tests covering: config parsing, heuristic/entropy/YARA scanners, scoring engine, incident store, quarantine, response engine, behavior tracker, brute-force detection, IP reputation, log parsing, WebShield config, CMS detection, injection cleaning, UFW management, and CrowdSec integration.
 
 ### External Security Testing
 
