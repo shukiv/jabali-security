@@ -257,11 +257,23 @@ do_install() {
                     systemctl start crowdsec 2>/dev/null
                     sleep 2
                 '
-                # Install bouncer package, then patch in our API key.
-                # force-confold: the crowdsec agent install may create the
-                # bouncer yaml before the bouncer package is installed,
-                # causing a conffile conflict on install/reinstall.
+                # Bouncer postinst starts the service, which needs a valid API key.
+                # Pre-write the config so the service starts cleanly on install.
+                # force-confold tells dpkg to keep our config on reinstall.
                 if command -v cscli &>/dev/null; then
+                    _bouncer_key=$(cscli bouncers add jabali-fw-bouncer -o raw 2>/dev/null || echo "")
+                    if [ -n "$_bouncer_key" ]; then
+                        mkdir -p /etc/crowdsec/bouncers
+                        cat > /etc/crowdsec/bouncers/crowdsec-firewall-bouncer.yaml << BOUNCERCONF
+mode: nftables
+api_url: http://127.0.0.1:8080/
+api_key: ${_bouncer_key}
+disable_ipv6: false
+update_frequency: 10s
+deny_action: DROP
+deny_log: false
+BOUNCERCONF
+                    fi
                     echo "force-confold" > /etc/dpkg/dpkg.cfg.d/jabali-tmp-confold
                     run_with_spinner "Installing firewall bouncer" bash -c '
                         DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
@@ -271,26 +283,6 @@ do_install() {
                         yellow "  Firewall bouncer install failed (non-critical)."
                     }
                     rm -f /etc/dpkg/dpkg.cfg.d/jabali-tmp-confold
-                    # Now generate API key and patch the config the package installed
-                    _bouncer_key=$(cscli bouncers add jabali-fw-bouncer -o raw 2>/dev/null || echo "")
-                    if [ -n "$_bouncer_key" ]; then
-                        _bouncer_cfg="/etc/crowdsec/bouncers/crowdsec-firewall-bouncer.yaml"
-                        if [ -f "$_bouncer_cfg" ]; then
-                            sed -i "s|^api_key:.*|api_key: ${_bouncer_key}|" "$_bouncer_cfg"
-                        else
-                            mkdir -p /etc/crowdsec/bouncers
-                            cat > "$_bouncer_cfg" << BOUNCERCONF
-mode: nftables
-api_url: http://127.0.0.1:8080/
-api_key: ${_bouncer_key}
-disable_ipv6: false
-update_frequency: 10s
-deny_action: DROP
-deny_log: false
-BOUNCERCONF
-                        fi
-                        systemctl restart crowdsec-firewall-bouncer 2>/dev/null || true
-                    fi
                 fi
                 ;;
         esac
