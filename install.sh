@@ -266,8 +266,9 @@ do_install() {
                 if command -v cscli &>/dev/null && [ -f /etc/crowdsec/config.yaml ]; then
                     if ss -tlnH | grep -q ":8080 "; then
                         _cs_port=8180
-                        sed -i "s|listen_uri: 127.0.0.1:8080|listen_uri: 127.0.0.1:${_cs_port}|" \
-                            /etc/crowdsec/config.yaml
+                        sed -i "s|127.0.0.1:8080|127.0.0.1:${_cs_port}|g" \
+                            /etc/crowdsec/config.yaml \
+                            /etc/crowdsec/local_api_credentials.yaml 2>/dev/null
                         echo "  CrowdSec LAPI moved to port ${_cs_port} (8080 in use)."
                     fi
                     systemctl restart crowdsec 2>/dev/null
