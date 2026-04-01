@@ -236,19 +236,22 @@ do_install() {
             run_with_spinner "Installing core packages" \
                 pkg_install git python3 python3-venv python3-pip file coreutils nftables ufw
             run_with_spinner "Installing ModSecurity (optional)" \
-                pkg_install libnginx-mod-http-modsecurity modsecurity-crs || true
+                pkg_install libnginx-mod-http-modsecurity || true
+            pkg_install modsecurity-crs 2>/dev/null || true
             ;;
         dnf)
             run_with_spinner "Installing core packages" \
                 pkg_install git python3 python3-pip file coreutils nftables ufw
             run_with_spinner "Installing ModSecurity (optional)" \
-                pkg_install mod_security mod_security_crs || true
+                pkg_install mod_security || true
+            pkg_install mod_security_crs 2>/dev/null || true
             ;;
         yum)
             run_with_spinner "Installing core packages" \
                 pkg_install git python3 python3-pip file coreutils nftables ufw
             run_with_spinner "Installing ModSecurity (optional)" \
-                pkg_install mod_security mod_security_crs || true
+                pkg_install mod_security || true
+            pkg_install mod_security_crs 2>/dev/null || true
             ;;
         *)
             red "Error: cannot detect package manager (apt/dnf/yum)."
