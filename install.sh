@@ -124,7 +124,7 @@ pkg_install() {
     local pkg_mgr
     pkg_mgr="$(detect_pkg_manager)"
     case "$pkg_mgr" in
-        apt) DEBIAN_FRONTEND=noninteractive apt-get update -qq 2>/dev/null && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq "$@" >/dev/null 2>&1 ;;
+        apt) DEBIAN_FRONTEND=noninteractive apt-get update -qq 2>/dev/null && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq "$@" ;;
         dnf) dnf install -y -q "$@" ;;
         yum) yum install -y -q "$@" ;;
         *)
@@ -199,19 +199,22 @@ do_install() {
 
     case "$pkg_mgr" in
         apt)
-            run_with_spinner "Installing system packages (apt)" \
-                pkg_install git python3 python3-venv python3-pip file coreutils \
-                nftables ufw libnginx-mod-http-modsecurity modsecurity-crs
+            run_with_spinner "Installing core packages" \
+                pkg_install git python3 python3-venv python3-pip file coreutils nftables ufw
+            run_with_spinner "Installing ModSecurity (optional)" \
+                pkg_install libnginx-mod-http-modsecurity modsecurity-crs || true
             ;;
         dnf)
-            run_with_spinner "Installing system packages (dnf)" \
-                pkg_install git python3 python3-pip file coreutils \
-                nftables ufw mod_security mod_security_crs
+            run_with_spinner "Installing core packages" \
+                pkg_install git python3 python3-pip file coreutils nftables ufw
+            run_with_spinner "Installing ModSecurity (optional)" \
+                pkg_install mod_security mod_security_crs || true
             ;;
         yum)
-            run_with_spinner "Installing system packages (yum)" \
-                pkg_install git python3 python3-pip file coreutils \
-                nftables ufw mod_security mod_security_crs
+            run_with_spinner "Installing core packages" \
+                pkg_install git python3 python3-pip file coreutils nftables ufw
+            run_with_spinner "Installing ModSecurity (optional)" \
+                pkg_install mod_security mod_security_crs || true
             ;;
         *)
             red "Error: cannot detect package manager (apt/dnf/yum)."
