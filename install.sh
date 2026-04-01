@@ -248,13 +248,36 @@ do_install() {
     if ! command -v cscli &>/dev/null; then
         case "$pkg_mgr" in
             apt)
-                run_with_spinner "Installing CrowdSec" bash -c '
+                run_with_spinner "Installing CrowdSec agent" bash -c '
                     curl -fsSL https://install.crowdsec.net | bash 2>/dev/null
                     DEBIAN_FRONTEND=noninteractive apt-get install -y -qq crowdsec 2>/dev/null
                     systemctl start crowdsec 2>/dev/null
                     sleep 2
-                    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq crowdsec-firewall-bouncer-nftables 2>/dev/null || true
                 '
+                # Generate bouncer API key before installing the bouncer package
+                # (its post-install starts the service, which needs a valid key)
+                if command -v cscli &>/dev/null; then
+                    _bouncer_key=$(cscli bouncers add jabali-fw-bouncer -o raw 2>/dev/null || echo "")
+                    if [ -n "$_bouncer_key" ]; then
+                        mkdir -p /etc/crowdsec/bouncers
+                        cat > /etc/crowdsec/bouncers/crowdsec-firewall-bouncer.yaml << BOUNCERCONF
+mode: nftables
+api_url: http://127.0.0.1:8080/
+api_key: ${_bouncer_key}
+disable_ipv6: false
+update_frequency: 10s
+deny_action: DROP
+deny_log: false
+BOUNCERCONF
+                    fi
+                    run_with_spinner "Installing firewall bouncer" bash -c '
+                        DEBIAN_FRONTEND=noninteractive apt-get install -y -qq crowdsec-firewall-bouncer-nftables 2>/dev/null
+                    ' || {
+                        # Fix broken dpkg state so subsequent apt operations work
+                        dpkg --configure -a 2>/dev/null || true
+                        yellow "  Firewall bouncer install failed (non-critical)."
+                    }
+                fi
                 ;;
         esac
     else

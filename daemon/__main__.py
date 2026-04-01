@@ -321,6 +321,43 @@ def _generate_bouncer_key(config_file: str) -> None:
         click.echo("  CrowdSec bouncer key generated.")
 
 
+def _write_bouncer_config() -> None:
+    """Write bouncer YAML config with API key before package install.
+
+    The bouncer package post-install starts the service immediately.
+    Without a valid config, it fails and leaves dpkg in a broken state.
+    """
+    yaml_path = "/etc/crowdsec/bouncers/crowdsec-firewall-bouncer.yaml"
+    if os.path.isfile(yaml_path):
+        return  # already configured
+    # Read the API key we just generated via cscli
+    result = subprocess.run(  # noqa: S603
+        ["cscli", "bouncers", "list", "-o", "raw"],
+        capture_output=True, text=True, timeout=10,
+    )
+    api_key = ""
+    for line in result.stdout.splitlines():
+        if "jabali" in line.lower():
+            parts = line.split(",")
+            if len(parts) >= 2:
+                api_key = parts[0].strip()
+                break
+    if not api_key:
+        return
+    os.makedirs("/etc/crowdsec/bouncers", exist_ok=True)
+    with open(yaml_path, "w") as fh:
+        fh.write(
+            "mode: nftables\n"
+            "api_url: http://127.0.0.1:8080/\n"
+            "api_key: %s\n"
+            "disable_ipv6: false\n"
+            "update_frequency: 10s\n"
+            "deny_action: DROP\n"
+            "deny_log: false\n" % api_key
+        )
+    os.chmod(yaml_path, 0o600)
+
+
 @cli.command()
 def update() -> None:
     """Update jabali-security to the latest version."""
@@ -447,17 +484,26 @@ def update() -> None:
                  " && systemctl start crowdsec 2>/dev/null && sleep 2"],
                 capture_output=True, timeout=90,
             )
-            # Generate bouncer API key BEFORE installing bouncer package
-            # (bouncer post-install tries to start the service immediately)
+            # Generate bouncer API key and write bouncer config BEFORE
+            # installing the package — its post-install starts the service
+            # immediately and needs a valid API key or it fails and breaks dpkg.
             if shutil.which("cscli"):
                 _generate_bouncer_key(config_file)
+                _write_bouncer_config()
             click.echo("  Installing firewall bouncer...")
-            subprocess.run(  # noqa: S603
+            result = subprocess.run(  # noqa: S603
                 ["/bin/bash", "-c",
                  "DEBIAN_FRONTEND=noninteractive apt-get install -y -qq"
-                 " crowdsec-firewall-bouncer-nftables 2>/dev/null || true"],
+                 " crowdsec-firewall-bouncer-nftables 2>/dev/null"],
                 capture_output=True, timeout=60,
             )
+            if result.returncode != 0:
+                # Fix broken dpkg state so subsequent apt operations work
+                subprocess.run(  # noqa: S603
+                    ["dpkg", "--configure", "-a"],
+                    capture_output=True, timeout=30,
+                )
+                click.echo("  Firewall bouncer install failed (non-critical).")
         except subprocess.TimeoutExpired:
             click.echo("  CrowdSec install timed out — skipping (will retry on next update).")
 
