@@ -252,7 +252,13 @@ do_install() {
         case "$pkg_mgr" in
             apt)
                 run_with_spinner "Installing CrowdSec agent" bash -c '
-                    curl -fsSL https://install.crowdsec.net | bash 2>/dev/null
+                    mkdir -p /etc/apt/keyrings
+                    curl -fsSL https://packagecloud.io/crowdsec/crowdsec/gpgkey \
+                        | gpg --dearmor -o /etc/apt/keyrings/crowdsec-archive-keyring.gpg 2>/dev/null
+                    . /etc/os-release
+                    echo "deb [signed-by=/etc/apt/keyrings/crowdsec-archive-keyring.gpg] https://packagecloud.io/crowdsec/crowdsec/${ID} ${VERSION_CODENAME} main" \
+                        > /etc/apt/sources.list.d/crowdsec.list
+                    apt-get update -qq 2>/dev/null
                     DEBIAN_FRONTEND=noninteractive apt-get install -y -qq crowdsec 2>/dev/null
                 '
                 # CrowdSec LAPI defaults to 8080, which conflicts with
