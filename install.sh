@@ -360,6 +360,7 @@ do_install() {
                     ' || true
 
                     # Generate API key and patch the config the package installed
+                    cscli bouncers delete jabali-fw-bouncer 2>/dev/null || true
                     _bouncer_key=$(cscli bouncers add jabali-fw-bouncer -o raw 2>/dev/null || echo "")
                     _bouncer_cfg="/etc/crowdsec/bouncers/crowdsec-firewall-bouncer.yaml"
                     if [ -n "$_bouncer_key" ] && [ -f "$_bouncer_cfg" ]; then
@@ -533,6 +534,8 @@ with open(path, 'w') as f: f.write(content)
     # Generate CrowdSec bouncer API key and set LAPI URL
     if command -v cscli &>/dev/null; then
         if ! grep -q '^CROWDSEC_BOUNCER_KEY="..*"' "$CONFIG_DIR/jabali-security.conf" 2>/dev/null; then
+            # Delete existing bouncer first (reinstall leaves stale entry, add fails silently)
+            cscli bouncers delete jabali-security 2>/dev/null || true
             bouncer_key=$(cscli bouncers add jabali-security -o raw 2>/dev/null || echo "")
             if [ -n "$bouncer_key" ]; then
                 if grep -q "^CROWDSEC_BOUNCER_KEY=" "$CONFIG_DIR/jabali-security.conf"; then

@@ -304,6 +304,11 @@ def _generate_bouncer_key(config_file: str) -> None:
         conf_content = fh.read()
     if 'CROWDSEC_BOUNCER_KEY=""' not in conf_content and "CROWDSEC_BOUNCER_KEY" in conf_content:
         return  # already has a key
+    # Delete stale bouncer entry first (reinstall leaves it, add fails silently)
+    subprocess.run(  # noqa: S603
+        ["cscli", "bouncers", "delete", "jabali-security"],
+        capture_output=True, timeout=10,
+    )
     result = subprocess.run(  # noqa: S603
         ["cscli", "bouncers", "add", "jabali-security", "-o", "raw"],
         capture_output=True, text=True, timeout=10,
