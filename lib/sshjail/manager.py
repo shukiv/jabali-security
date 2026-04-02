@@ -455,6 +455,11 @@ class SSHJailManager:
                 logger.warning("Failed to set shell for %s", username)
                 return False
 
+            # Shell users don't use ChrootDirectory — make home dir writable
+            home = "/home/%s" % username
+            await self._run(["chown", "%s:%s" % (username, username), home])
+            await self._run(["chmod", "755", home])
+
         return True
 
     async def disable_shell(self, username: str) -> bool:
@@ -479,6 +484,11 @@ class SSHJailManager:
             if rc != 0:
                 logger.warning("Failed to set nologin for %s", username)
                 return False
+
+            # SFTP chroot requires root-owned home dir
+            home = "/home/%s" % username
+            await self._run(["chown", "root:%s" % username, home])
+            await self._run(["chmod", "750", home])
 
         return True
 
