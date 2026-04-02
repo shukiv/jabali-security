@@ -419,8 +419,8 @@ class Security extends Page implements HasActions, HasForms
 
     protected function ipProtectionTabs(): array
     {
-        $unified = $this->client()->get('/blocklist/unified');
-        $blockedCount = $unified['count'] ?? count($unified['blocked_ips'] ?? []);
+        $unified = $this->client()->get('/blocklist/unified?per_page=1');
+        $blockedCount = $unified['count'] ?? 0;
         $whitelist = $this->client()->get('/bruteforce/whitelist');
         $whitelistCount = $whitelist['count'] ?? count($whitelist['whitelist'] ?? []);
 

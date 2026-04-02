@@ -33,7 +33,11 @@ class UnifiedBlocklistTable extends Component implements HasActions, HasSchemas,
     public function table(Table $table): Table
     {
         return $table
-            ->records(fn () => $this->client()->get('/blocklist/unified')['blocked_ips'] ?? [])
+            ->records(function () {
+                $page = request()->query('blocklist_page', 1);
+                $data = $this->client()->get('/blocklist/unified?page=' . (int) $page . '&per_page=100');
+                return $data['blocked_ips'] ?? [];
+            })
             ->columns([
                 TextColumn::make('ip')
                     ->label(__('IP Address'))

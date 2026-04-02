@@ -98,34 +98,56 @@ async def get_blocklist(request: web.Request) -> web.Response:
 
 
 async def get_blocklist_unified(request: web.Request) -> web.Response:
-    """Unified blocklist: jabali blocked IPs + CrowdSec decisions merged."""
-    entries = []
+    """Unified blocklist: jabali blocked IPs + CrowdSec decisions merged.
+
+    Query params:
+        page (int): page number, default 1
+        per_page (int): items per page, default 100 (max 500)
+        source (str): filter by source (jabali, crowdsec, all), default all
+    """
+    page = max(1, int(request.query.get("page", "1")))
+    per_page = min(500, max(1, int(request.query.get("per_page", "100"))))
+    source_filter = request.query.get("source", "all")
+
+    entries: list[dict] = []
 
     # Jabali blocked IPs (brute-force, threat_intel, manual)
-    incidents = request.app["incidents"]
-    for b in await incidents.get_blocked_ips():
-        entries.append({
-            "ip": b["ip"],
-            "reason": b.get("reason", ""),
-            "source": b.get("blocked_by", "manual"),
-            "duration": b.get("expires_at", "permanent"),
-            "blocked_at": b.get("blocked_at", ""),
-        })
+    if source_filter in ("all", "jabali"):
+        incidents = request.app["incidents"]
+        for b in await incidents.get_blocked_ips():
+            entries.append({
+                "ip": b["ip"],
+                "reason": b.get("reason", ""),
+                "source": b.get("blocked_by", "manual"),
+                "duration": b.get("expires_at", "permanent"),
+                "blocked_at": b.get("blocked_at", ""),
+            })
 
     # CrowdSec decisions
-    seen_ips = {e["ip"] for e in entries}
-    crowdsec = request.app.get("crowdsec")
-    if crowdsec:
-        for d in crowdsec.get_all_decisions():
-            ip = d.get("value", "").split("/")[0]
-            if ip and ip not in seen_ips:
-                entries.append({
-                    "ip": ip,
-                    "reason": d.get("scenario", ""),
-                    "source": "crowdsec",
-                    "duration": d.get("duration", ""),
-                    "blocked_at": "",
-                })
-                seen_ips.add(ip)
+    if source_filter in ("all", "crowdsec"):
+        seen_ips = {e["ip"] for e in entries}
+        crowdsec = request.app.get("crowdsec")
+        if crowdsec:
+            for d in crowdsec.get_all_decisions():
+                ip = d.get("value", "").split("/")[0]
+                if ip and ip not in seen_ips:
+                    entries.append({
+                        "ip": ip,
+                        "reason": d.get("scenario", ""),
+                        "source": "crowdsec",
+                        "duration": d.get("duration", ""),
+                        "blocked_at": "",
+                    })
+                    seen_ips.add(ip)
 
-    return _ok({"blocked_ips": entries, "count": len(entries)})
+    total = len(entries)
+    start = (page - 1) * per_page
+    page_entries = entries[start:start + per_page]
+
+    return _ok({
+        "blocked_ips": page_entries,
+        "count": total,
+        "page": page,
+        "per_page": per_page,
+        "pages": (total + per_page - 1) // per_page if total else 0,
+    })
