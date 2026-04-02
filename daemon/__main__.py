@@ -1783,5 +1783,266 @@ def webshield_rules(as_json: bool) -> None:
         ))
 
 
+# ── Attack Mode ─────────────────────────────────────────────────────────────
+
+@cli.group("attack-mode")
+def attack_mode_cli() -> None:
+    """Manage attack mode (panic button)."""
+
+
+@attack_mode_cli.command("status")
+def attack_mode_status() -> None:
+    """Show attack mode status."""
+    config = load_config()
+    data = _api_call(config, "GET", "/attack-mode")
+    if data.get("enabled"):
+        click.echo("Attack mode: ENABLED (since %s)" % data.get("enabled_at", "unknown"))
+    else:
+        click.echo("Attack mode: disabled")
+
+
+@attack_mode_cli.command("enable")
+def attack_mode_enable() -> None:
+    """Enable attack mode — activates aggressive defenses."""
+    config = load_config()
+    data = _api_call(config, "POST", "/attack-mode/enable")
+    if data.get("enabled"):
+        click.echo("Attack mode ENABLED.")
+        for action in data.get("actions", []):
+            click.echo("  %s" % action)
+    else:
+        click.echo("Failed to enable attack mode.", err=True)
+
+
+@attack_mode_cli.command("disable")
+def attack_mode_disable() -> None:
+    """Disable attack mode — restore previous settings."""
+    config = load_config()
+    data = _api_call(config, "POST", "/attack-mode/disable")
+    click.echo("Attack mode disabled.")
+    for action in data.get("actions", []):
+        click.echo("  %s" % action)
+
+
+# ── Incidents: resolve ──────────────────────────────────────────────────────
+
+@incidents.command("resolve")
+@click.argument("incident_id")
+@click.option("--notes", default="", help="Resolution notes")
+def incidents_resolve(incident_id: str, notes: str) -> None:
+    """Mark an incident as resolved."""
+    config = load_config()
+    data = _api_call(config, "POST", "/incidents/%s/resolve" % incident_id, {"notes": notes})
+    if data:
+        click.echo("Incident %s resolved." % incident_id)
+    else:
+        click.echo("Failed to resolve incident.", err=True)
+
+
+# ── SSH Management ──────────────────────────────────────────────────────────
+
+@cli.group()
+def ssh() -> None:
+    """SSH key and shell management."""
+
+
+@ssh.command("users")
+@click.option("--json", "as_json", is_flag=True, help="JSON output")
+def ssh_users(as_json: bool) -> None:
+    """List hosting users with SSH status."""
+    config = load_config()
+    data = _api_call(config, "GET", "/ssh/users")
+    items = data if isinstance(data, list) else data.get("users", [])
+    if as_json:
+        click.echo(json.dumps(items, indent=2))
+        return
+    click.echo("%-20s  %-8s  %-8s  %s" % ("Username", "Shell", "SFTP", "Keys"))
+    for u in items:
+        click.echo("%-20s  %-8s  %-8s  %d" % (
+            u.get("username", ""),
+            "yes" if u.get("shell_enabled") else "no",
+            "yes" if u.get("sftp_enabled") else "no",
+            u.get("key_count", 0),
+        ))
+
+
+@ssh.command("keys")
+@click.argument("username")
+@click.option("--json", "as_json", is_flag=True, help="JSON output")
+def ssh_keys(username: str, as_json: bool) -> None:
+    """List SSH keys for a user."""
+    config = load_config()
+    data = _api_call(config, "GET", "/ssh/keys?username=%s" % username)
+    items = data if isinstance(data, list) else data.get("keys", [])
+    if as_json:
+        click.echo(json.dumps(items, indent=2))
+        return
+    for k in items:
+        click.echo("%s  %s  %s" % (k.get("id", ""), k.get("type", ""), k.get("name", "")))
+
+
+@ssh.command("add-key")
+@click.argument("username")
+@click.argument("name")
+@click.argument("public_key")
+def ssh_add_key(username: str, name: str, public_key: str) -> None:
+    """Add an SSH public key for a user."""
+    config = load_config()
+    data = _api_call(config, "POST", "/ssh/keys", {"username": username, "name": name, "public_key": public_key})
+    if data:
+        click.echo("Key added for %s." % username)
+
+
+@ssh.command("generate-key")
+@click.argument("username")
+@click.option("--name", default="generated", help="Key name")
+@click.option("--type", "key_type", default="ed25519", help="Key type (ed25519, rsa)")
+def ssh_generate_key(username: str, name: str, key_type: str) -> None:
+    """Generate a new SSH keypair for a user."""
+    config = load_config()
+    data = _api_call(config, "POST", "/ssh/keys/generate", {"username": username, "name": name, "key_type": key_type})
+    if data:
+        click.echo("Key generated for %s." % username)
+        if data.get("private_key"):
+            click.echo("\nPrivate key (save this, it won't be shown again):\n")
+            click.echo(data["private_key"])
+
+
+@ssh.command("delete-key")
+@click.argument("key_id")
+def ssh_delete_key(key_id: str) -> None:
+    """Delete an SSH key by ID."""
+    config = load_config()
+    _api_call(config, "DELETE", "/ssh/keys/%s" % key_id)
+    click.echo("Key deleted.")
+
+
+@ssh.command("shell-enable")
+@click.argument("username")
+def ssh_shell_enable(username: str) -> None:
+    """Enable shell access for a user (via nspawn container)."""
+    config = load_config()
+    data = _api_call(config, "POST", "/ssh/shell/enable", {"username": username})
+    if data:
+        click.echo("Shell access enabled for %s." % username)
+
+
+@ssh.command("shell-disable")
+@click.argument("username")
+def ssh_shell_disable(username: str) -> None:
+    """Disable shell access for a user."""
+    config = load_config()
+    data = _api_call(config, "POST", "/ssh/shell/disable", {"username": username})
+    if data:
+        click.echo("Shell access disabled for %s." % username)
+
+
+# ── UFW Firewall ────────────────────────────────────────────────────────────
+
+@cli.group()
+def firewall() -> None:
+    """UFW firewall management."""
+
+
+@firewall.command("status")
+@click.option("--json", "as_json", is_flag=True, help="JSON output")
+def firewall_status(as_json: bool) -> None:
+    """Show UFW firewall status and rules."""
+    config = load_config()
+    data = _api_call(config, "GET", "/firewall/ufw/status")
+    if as_json:
+        click.echo(json.dumps(data, indent=2))
+        return
+    click.echo("UFW: %s" % ("active" if data.get("active") else "inactive"))
+    click.echo("Default: incoming=%s outgoing=%s" % (data.get("default_incoming", ""), data.get("default_outgoing", "")))
+    for rule in data.get("rules", []):
+        click.echo("  %s" % rule.get("raw", rule))
+
+
+@firewall.command("enable")
+def firewall_enable() -> None:
+    """Enable UFW firewall."""
+    config = load_config()
+    _api_call(config, "POST", "/firewall/ufw/enable")
+    click.echo("Firewall enabled.")
+
+
+@firewall.command("disable")
+def firewall_disable() -> None:
+    """Disable UFW firewall."""
+    config = load_config()
+    _api_call(config, "POST", "/firewall/ufw/disable")
+    click.echo("Firewall disabled.")
+
+
+@firewall.command("reload")
+def firewall_reload() -> None:
+    """Reload UFW firewall rules."""
+    config = load_config()
+    _api_call(config, "POST", "/firewall/ufw/reload")
+    click.echo("Firewall reloaded.")
+
+
+@firewall.command("allow")
+@click.argument("port")
+@click.option("--proto", default="tcp", help="Protocol (tcp, udp, any)")
+@click.option("--from", "from_ip", default=None, help="Source IP")
+@click.option("--comment", default="", help="Rule comment")
+def firewall_allow(port: str, proto: str, from_ip: str | None, comment: str) -> None:
+    """Allow a port through the firewall."""
+    config = load_config()
+    body: dict = {"port": port, "protocol": proto, "action": "allow"}
+    if from_ip:
+        body["from_ip"] = from_ip
+    if comment:
+        body["comment"] = comment
+    _api_call(config, "POST", "/firewall/ufw/rules", body)
+    click.echo("Rule added: allow %s/%s" % (port, proto))
+
+
+@firewall.command("deny")
+@click.argument("port")
+@click.option("--proto", default="tcp", help="Protocol (tcp, udp, any)")
+@click.option("--from", "from_ip", default=None, help="Source IP")
+def firewall_deny(port: str, proto: str, from_ip: str | None) -> None:
+    """Deny a port through the firewall."""
+    config = load_config()
+    body: dict = {"port": port, "protocol": proto, "action": "deny"}
+    if from_ip:
+        body["from_ip"] = from_ip
+    _api_call(config, "POST", "/firewall/ufw/rules", body)
+    click.echo("Rule added: deny %s/%s" % (port, proto))
+
+
+@firewall.command("delete-rule")
+@click.argument("rule_number", type=int)
+def firewall_delete_rule(rule_number: int) -> None:
+    """Delete a firewall rule by number."""
+    config = load_config()
+    _api_call(config, "DELETE", "/firewall/ufw/rules/%d" % rule_number)
+    click.echo("Rule %d deleted." % rule_number)
+
+
+# ── CrowdSec: delete decision ──────────────────────────────────────────────
+
+@crowdsec_cli.command("unban")
+@click.argument("ip")
+def crowdsec_unban(ip: str) -> None:
+    """Remove a CrowdSec decision for an IP."""
+    config = load_config()
+    _api_call(config, "DELETE", "/crowdsec/decisions/%s" % ip)
+    click.echo("Decision removed for %s." % ip)
+
+
+# ── Daemon restart ──────────────────────────────────────────────────────────
+
+@cli.command()
+def restart() -> None:
+    """Restart the jabali-security daemon."""
+    import subprocess as sp
+    sp.run(["/usr/bin/systemctl", "restart", "jabali-security"])  # noqa: S603
+    click.echo("Daemon restarted.")
+
+
 if __name__ == "__main__":
     cli()
