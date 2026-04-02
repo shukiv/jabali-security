@@ -563,21 +563,17 @@ def update() -> None:
         else:
             click.echo("  OWASP CRS update skipped.")
 
-    # CrowdSec hub (parsers, scenarios, collections, postoverflows)
+    # CrowdSec hub index (fast — just refreshes the index, no downloads)
     if shutil.which("cscli"):
-        click.echo("Updating CrowdSec hub...")
-        subprocess.run(  # noqa: S603
+        click.echo("Updating CrowdSec hub index...")
+        result = subprocess.run(  # noqa: S603
             ["cscli", "hub", "update"],
             capture_output=True, timeout=30,
         )
-        result = subprocess.run(  # noqa: S603
-            ["cscli", "hub", "upgrade"],
-            capture_output=True, timeout=60,
-        )
         if result.returncode == 0:
-            click.echo("  CrowdSec hub upgraded.")
+            click.echo("  CrowdSec hub index updated.")
         else:
-            click.echo("  CrowdSec hub upgrade skipped.")
+            click.echo("  CrowdSec hub update skipped.")
 
     # Fix config permissions (older installs may have 600 root:root)
     import grp
