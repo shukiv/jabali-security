@@ -52,7 +52,7 @@ DEFAULTS: dict[str, str] = {
     "WAF_ENABLED": "yes",
     "WAF_AUDIT_LOG": "/var/log/modsec_audit.log",
     "WAF_AUDIT_LOG_TYPE": "serial",
-    "WAF_RULES_DIR": "/etc/modsecurity/crs",
+    "WAF_RULES_DIR": "/usr/local/share/owasp-crs/rules",
     "WAF_OVERRIDES_FILE": "/etc/modsecurity/jabali-overrides.conf",
     "WAF_CRS_AUTO_UPDATE": "yes",
     "WAF_WEB_SERVER": "auto",
