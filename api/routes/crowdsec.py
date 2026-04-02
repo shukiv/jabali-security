@@ -38,8 +38,9 @@ async def get_crowdsec_status(request: web.Request) -> web.Response:
         "enabled": True,
         "connected": client.connected,
         "lapi_url": request.app["config"].crowdsec_lapi_url,
-        "active_decisions": client.active_decisions_count,
-        "blocked_ips": len(client.blocked_ips),
+        "active_decisions": client.local_decisions_count,
+        "community_decisions": client.active_decisions_count,
+        "blocked_ips": client.local_decisions_count,
         "last_poll": client.last_poll,
         "error": client.error,
     })

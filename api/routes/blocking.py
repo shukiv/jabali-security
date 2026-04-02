@@ -123,12 +123,15 @@ async def get_blocklist_unified(request: web.Request) -> web.Response:
                 "blocked_at": b.get("blocked_at", ""),
             })
 
-    # CrowdSec decisions
+    # CrowdSec decisions — only local detections, not community (CAPI) bulk
     if source_filter in ("all", "crowdsec"):
         seen_ips = {e["ip"] for e in entries}
         crowdsec = request.app.get("crowdsec")
         if crowdsec:
             for d in crowdsec.get_all_decisions():
+                # Skip community decisions — they didn't attack this server
+                if d.get("origin") == "CAPI":
+                    continue
                 ip = d.get("value", "").split("/")[0]
                 if ip and ip not in seen_ips:
                     entries.append({

@@ -228,6 +228,14 @@ class CrowdSecClient:
     def error(self) -> str:
         return self._error
 
+    @property
+    def local_decisions_count(self) -> int:
+        """Count decisions from local detection only (not CAPI community)."""
+        return sum(
+            1 for decisions in self._decisions.values()
+            for d in decisions if d.origin != "CAPI"
+        )
+
     def get_all_decisions(self) -> list[dict]:
         """Return all active decisions as dicts (for API responses)."""
         result = []
