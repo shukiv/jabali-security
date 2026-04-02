@@ -589,7 +589,10 @@ def update() -> None:
 
     # Restart services
     click.echo("Restarting services...")
-    subprocess.run(["/usr/bin/systemctl", "restart", "jabali-security"], capture_output=True, timeout=30)  # noqa: S603
+    try:
+        subprocess.run(["/usr/bin/systemctl", "restart", "jabali-security"], capture_output=True, timeout=30)  # noqa: S603
+    except subprocess.TimeoutExpired:
+        click.echo("  Daemon restart timed out (will finish in background).")
     # Clear Laravel caches + restart panel (route/view cache has stale references)
     if os.path.isdir("/var/www/jabali/app/JabaliSecurity"):
         # Regenerate autoload so Filament discovers the updated plugin classes
@@ -603,7 +606,10 @@ def update() -> None:
                 ["/usr/bin/php", "artisan"] + artisan_cmd,
                 cwd="/var/www/jabali", capture_output=True, timeout=15,
             )
-        subprocess.run(["/usr/bin/systemctl", "restart", "jabali-panel"], capture_output=True, timeout=30)  # noqa: S603
+        try:
+            subprocess.run(["/usr/bin/systemctl", "restart", "jabali-panel"], capture_output=True, timeout=60)  # noqa: S603
+        except subprocess.TimeoutExpired:
+            click.echo("  Panel restart timed out (will finish in background).")
 
     click.echo("Updated successfully. Services restarted.")
 
