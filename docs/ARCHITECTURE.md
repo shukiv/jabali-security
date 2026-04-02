@@ -119,8 +119,6 @@ SQLite database via `aiosqlite` with tables for incidents, quarantine, blocked I
 
 | File | Purpose |
 |---|---|
-| `log_parser.py` | Auth log parser (unused — SSH/mail handled by CrowdSec, Stalwart has built-in blocking). |
-| `detector.py` | Sliding window counter per IP per service; triggers block on threshold |
 | `firewall.py` | `FirewallManager` -- auto-detects nftables/iptables; block/unblock IPs |
 | `models.py` | Data models for auth events and block records |
 
@@ -131,7 +129,7 @@ Progressive blocking: durations escalate per repeat offense (default: 10m, 1h, 1
 | File | Purpose |
 |---|---|
 | `audit_log_parser.py` | Parses ModSecurity audit logs (serial or concurrent format) |
-| `rule_manager.py` | Manages OWASP CRS rules: list, disable, enable, update |
+| `rule_manager.py` | Manages OWASP CRS rules: list, disable, enable, update. CRS installed from GitHub (`coreruleset/coreruleset`) to `/usr/local/share/owasp-crs/`, updated via `git pull`. |
 
 ### Proactive Defense (`lib/proactive/`)
 
@@ -183,9 +181,12 @@ Two user groups: `sftpusers` (SFTP-only, chroot to `/home/%u`) and `shellusers` 
 
 ### WebShield (`lib/webshield/`)
 
-- `manager.py` -- generates nginx config snippets for rate limiting, JS challenges, and bot UA filtering
-- Install generates nginx config snippets that must be included in the nginx `http{}` and `server{}` blocks; nginx must be reloaded manually
-- Install/uninstall manages files in the nginx config directory
+- `manager.py` -- generates nginx config snippets for bot UA filtering, rate limiting, and JS challenges
+- **Bot filtering** (sqlmap, nikto, nmap, masscan, etc.) is enabled by default on Jabali Panel servers — zero false positives
+- **Rate limiting** is off by default (can block legitimate high-traffic sites). Auto-enabled by Attack Mode.
+- `WEBSHIELD_RATE_LIMITING` config key controls rate limiting independently of bot filtering
+- On Jabali Panel servers, installer auto-enables via `/etc/nginx/jabali/includes/webshield.conf` bridge (same mechanism as WAF)
+- On non-Jabali servers, WebShield is opt-in (enable via panel or config)
 
 ### UFW Firewall Management (`lib/ufw/`)
 
@@ -288,11 +289,11 @@ The panel plugin is deployed to `/var/www/jabali/app/JabaliSecurity/` on servers
 ### Brute-Force Pipeline
 
 ```
-1. AuthLogParser tails log files
+1. CrowdSec detects SSH/HTTP brute-force attacks locally
        |
-2. Regex extracts (service, IP, username, success/fail)
+2. CrowdSec LAPI streams decisions to jabali-security
        |
-3. BruteForceDetector sliding window check
+3. Jabali enriches: CrowdSec attackers get halved brute-force thresholds
        |
 4. If threshold exceeded:
    - FirewallManager.block_ip() (nftables/iptables)

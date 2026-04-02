@@ -142,7 +142,7 @@ jabali-security/
 +-- etc/                    # Config + systemd service files
 |   +-- jabali-security.conf.example
 |   +-- jabali-security.service
-+-- tests/                  # pytest test suite (332 tests)
++-- tests/                  # pytest test suite (335 tests)
 +-- scripts/                # Build scripts
 |   +-- build-deb.sh        # .deb package builder
 +-- debian/                 # .deb packaging files

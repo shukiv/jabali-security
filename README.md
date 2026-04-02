@@ -21,7 +21,7 @@ A lightweight, panel-agnostic alternative to Imunify360.
 | **Attack mode** | Elevated defense posture with tighter thresholds on demand |
 | **Malware cleanup** | Injection removal, CMS integrity checks (WordPress/Joomla), backup-before-clean |
 | **Threat intelligence** | Spamhaus, blocklist.de, MalwareBazaar, Tor exit nodes; IP + hash lookups |
-| **WebShield** | Nginx rate limiting, JS challenge pages, bot UA filtering |
+| **WebShield** | Bot UA filtering (on by default), rate limiting (opt-in, auto-enabled in attack mode), JS challenge pages |
 | **Database scanning** | MySQL table scanning for injected payloads (WordPress, Joomla) |
 | **RapidScan** | Parallel directory scanner with mtime cache for unchanged-file skipping |
 | **Scheduled scans** | Configurable periodic full-path scanning |
@@ -37,7 +37,7 @@ A lightweight, panel-agnostic alternative to Imunify360.
 curl -fsSL https://git.linux-hosting.co.il/shukivaknin/jabali-security/raw/branch/master/install.sh | sudo bash
 ```
 
-The installer will: clone the repo, create a Python venv, install dependencies, generate an API key, configure CrowdSec + firewall bouncer, set up UFW rules, harden SSH, and start the daemon.
+The installer will: clone the repo, create a Python venv, install dependencies, generate an API key, configure CrowdSec + firewall bouncer, install OWASP CRS from GitHub, set up UFW rules, enable WebShield bot filtering (on Jabali Panel servers), harden SSH, and start the daemon.
 
 ```bash
 jabali-security status              # check daemon status
@@ -168,7 +168,7 @@ Full reference: [docs/CONFIGURATION.md](docs/CONFIGURATION.md)
 ```bash
 uv sync                                    # install dependencies
 uv run jabali-security start --foreground  # run daemon locally
-uv run pytest tests/ -v                    # run 332 tests (~0.3s)
+uv run pytest tests/ -v                    # run 335 tests (~0.3s)
 uv run ruff check .                        # lint
 ```
 

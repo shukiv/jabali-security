@@ -156,7 +156,7 @@ SSH and HTTP brute-force detection is handled by CrowdSec. Stalwart mail server 
 | `WAF_ENABLED` | bool | `no` | Enable ModSecurity WAF audit log parsing and rule management |
 | `WAF_AUDIT_LOG` | path | `/var/log/modsec_audit.log` | ModSecurity audit log file path. Path varies by installation: nginx default is `/var/log/nginx/modsec_audit.log`, Apache default is `/var/log/modsec_audit.log`. |
 | `WAF_AUDIT_LOG_TYPE` | string | `serial` | Audit log type: `serial` (single file) or `concurrent` (directory-based) |
-| `WAF_RULES_DIR` | path | `/etc/modsecurity/crs` | OWASP Core Rule Set directory |
+| `WAF_RULES_DIR` | path | `/usr/local/share/owasp-crs/rules` | OWASP Core Rule Set directory. Installed from GitHub (`coreruleset/coreruleset`), updated via `git pull` on `jabali-security update`. |
 | `WAF_OVERRIDES_FILE` | path | `/etc/modsecurity/jabali-overrides.conf` | Jabali-managed overrides file for disabling rules |
 | `WAF_CRS_AUTO_UPDATE` | bool | `no` | Auto-update OWASP CRS on rules update |
 | `WAF_WEB_SERVER` | string | `auto` | Web server to reload: `auto`, `nginx`, `apache` |
@@ -203,8 +203,9 @@ Available feeds: `spamhaus_drop`, `spamhaus_edrop`, `blocklist_de_all`, `tor_exi
 
 | Key | Type | Default | Description |
 |---|---|---|---|
-| `WEBSHIELD_ENABLED` | bool | `no` | Enable WebShield nginx integration |
-| `WEBSHIELD_RATE_LIMIT` | int | `10` | Requests per second per IP (1-10000) |
+| `WEBSHIELD_ENABLED` | bool | `no` | Enable WebShield nginx integration. Auto-enabled on Jabali Panel servers. |
+| `WEBSHIELD_RATE_LIMITING` | bool | `no` | Enable rate limiting. Off by default (can block legitimate traffic). Auto-enabled by Attack Mode. |
+| `WEBSHIELD_RATE_LIMIT` | int | `10` | Requests per second per IP when rate limiting is on (1-10000) |
 | `WEBSHIELD_RATE_BURST` | int | `20` | Burst size above rate before 429 (1-100000) |
 | `WEBSHIELD_CHALLENGE_ENABLED` | bool | `yes` | Enable JS challenge page for suspicious bots |
 | `WEBSHIELD_BOT_FILTERING` | bool | `yes` | Enable user-agent based bot filtering |
