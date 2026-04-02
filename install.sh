@@ -715,7 +715,7 @@ WSEOF
             _open_port "53/udp" "DNS"                "PowerDNS detected"
         fi
         if [ -d "/var/www/jabali" ]; then
-            _panel_port=$(grep -oP '^PANEL_PORT=\K[0-9]+' /var/www/jabali/.env 2>/dev/null || echo "2223")
+            _panel_port=$(grep -oP '^PANEL_PORT=\K[0-9]+' /var/www/jabali/.env 2>/dev/null || echo "8443")
             _open_port "${_panel_port}/tcp" "Jabali Panel" "Admin + user panel"
         fi
         echo ""
