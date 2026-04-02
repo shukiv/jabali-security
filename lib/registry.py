@@ -268,6 +268,7 @@ def _build_webshield(config: JabaliConfig) -> WebShieldManager | None:
         return None
     return WebShieldManager(
         config_dir=config.webshield_nginx_conf_dir,
+        rate_limiting=config.webshield_rate_limiting,
         rate_limit=config.webshield_rate_limit,
         rate_burst=config.webshield_rate_burst,
         challenge_enabled=config.webshield_challenge_enabled,

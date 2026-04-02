@@ -25,12 +25,14 @@ class WebShieldManager:
     def __init__(
         self,
         config_dir: str = "/etc/nginx/jabali-security",
+        rate_limiting: bool = False,
         rate_limit: int = 10,
         rate_burst: int = 20,
         challenge_enabled: bool = True,
         bot_filtering: bool = True,
     ) -> None:
         self._config_dir = Path(config_dir)
+        self._rate_limiting = rate_limiting
         self._rate_limit = rate_limit
         self._rate_burst = rate_burst
         self._challenge_enabled = challenge_enabled
@@ -39,6 +41,7 @@ class WebShieldManager:
             config_dir=config_dir,
             rate_limit=rate_limit,
             rate_burst=rate_burst,
+            rate_limiting=rate_limiting,
         )
 
     async def install(self) -> dict:
@@ -114,7 +117,7 @@ class WebShieldManager:
         return WebShieldStatus(
             installed=http_conf.is_file() and server_conf.is_file(),
             nginx_available=shutil.which("nginx") is not None,
-            rate_limiting=server_conf.is_file(),
+            rate_limiting=self._rate_limiting and server_conf.is_file(),
             bot_filtering=http_conf.is_file(),
             challenge_enabled=self._challenge_enabled,
             blocked_ips_count=blocked_count,

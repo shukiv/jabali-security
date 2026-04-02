@@ -12,10 +12,11 @@ logger = logging.getLogger(__name__)
 class NginxConfigGenerator:
     """Generate nginx configuration for bot filtering and rate limiting."""
 
-    def __init__(self, config_dir: str, rate_limit: int = 10, rate_burst: int = 20) -> None:
+    def __init__(self, config_dir: str, rate_limit: int = 10, rate_burst: int = 20, rate_limiting: bool = False) -> None:
         self._config_dir = Path(config_dir)
         self._rate_limit = rate_limit
         self._rate_burst = rate_burst
+        self._rate_limiting = rate_limiting
 
     def generate_http_config(self) -> str:
         """Generate config for the nginx http{} block."""
@@ -23,10 +24,14 @@ class NginxConfigGenerator:
             "# Jabali Security WebShield -- HTTP-level config",
             "# Include this in your nginx http{} block",
             "",
-            "# Rate limiting zone",
-            "limit_req_zone $binary_remote_addr zone=jabali_ratelimit:10m rate=%dr/s;" % self._rate_limit,
-            "",
         ]
+
+        if self._rate_limiting:
+            lines += [
+                "# Rate limiting zone",
+                "limit_req_zone $binary_remote_addr zone=jabali_ratelimit:10m rate=%dr/s;" % self._rate_limit,
+                "",
+            ]
 
         # Bot detection map
         rules = get_rules()
@@ -61,10 +66,17 @@ class NginxConfigGenerator:
             "# Jabali Security WebShield -- server-level config",
             "# Include this in your nginx server{} blocks",
             "",
-            "# Rate limiting",
-            "limit_req zone=jabali_ratelimit burst=%d nodelay;" % self._rate_burst,
-            "limit_req_status 429;",
-            "",
+        ]
+
+        if self._rate_limiting:
+            lines += [
+                "# Rate limiting",
+                "limit_req zone=jabali_ratelimit burst=%d nodelay;" % self._rate_burst,
+                "limit_req_status 429;",
+                "",
+            ]
+
+        lines += [
             "# Bot blocking",
             "if ($jabali_bot_action = 'block') {",
             "    return 403;",
