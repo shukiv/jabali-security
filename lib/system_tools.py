@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import shutil
 
 
 def _validate_path(path: str) -> None:
@@ -32,23 +31,6 @@ async def get_mime_type(path: str) -> str | None:
     return None
 
 
-async def get_sha256(path: str) -> str | None:
-    """Run ``sha256sum <path>`` and return the hex digest."""
-    _validate_path(path)
-    try:
-        proc = await asyncio.create_subprocess_exec(
-            "sha256sum", path,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        stdout, _ = await proc.communicate()
-        if proc.returncode == 0 and stdout:
-            return stdout.decode().split()[0]
-    except OSError:
-        pass
-    return None
-
-
 async def run_freshclam() -> tuple[bool, str]:
     """Run ``freshclam --quiet`` and return (success, output)."""
     try:
@@ -64,6 +46,3 @@ async def run_freshclam() -> tuple[bool, str]:
         return (False, str(exc))
 
 
-def is_tool_available(name: str) -> bool:
-    """Check if a tool exists on PATH via shutil.which."""
-    return shutil.which(name) is not None

@@ -143,17 +143,6 @@ def _atomic_write(filepath: Path, content: str) -> None:
     os.rename(tmp_path, str(filepath))
 
 
-def write_conf(filepath: Path, data: dict[str, str]) -> None:
-    """Write config merging with existing values. Atomic write with mode 0o600."""
-    existing = parse_conf(filepath)
-    existing.update(data)
-    lines: list[str] = []
-    for key, value in sorted(existing.items()):
-        safe = _sanitize_value(value)
-        lines.append(f'{key}="{safe}"')
-    _atomic_write(filepath, "\n".join(lines) + "\n")
-
-
 def update_conf_key(filepath: Path, key: str, value: str) -> None:
     """Update a single key in-place, preserving other lines and comments. Atomic write."""
     safe = _sanitize_value(value)

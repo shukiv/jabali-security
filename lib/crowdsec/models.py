@@ -17,13 +17,3 @@ class CrowdSecDecision(BaseModel):
     scenario: str = ""  # e.g. "crowdsecurity/ssh-bf"
 
 
-class CrowdSecStatus(BaseModel):
-    """CrowdSec integration status for API responses."""
-
-    enabled: bool = False
-    connected: bool = False
-    lapi_url: str = ""
-    active_decisions: int = 0
-    blocked_ips: int = 0
-    last_poll: str = ""
-    error: str = ""
