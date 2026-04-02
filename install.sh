@@ -648,7 +648,42 @@ WAFEOF
     echo "  Process Killer ........... enabled"
     sed -i 's|^THREAT_INTEL_ENABLED="no"|THREAT_INTEL_ENABLED="yes"|' "$CONFIG_DIR/jabali-security.conf" 2>/dev/null
     echo "  Threat Intelligence ...... enabled"
-    echo "  WebShield ................ disabled (enable via panel)"
+    # WebShield: auto-enable on Jabali panel servers (known nginx structure)
+    if [ -d "/var/www/jabali" ] && [ -d "/etc/nginx/jabali/includes" ]; then
+        # Generate WebShield configs via the daemon API (must be running)
+        _ws_ok=false
+        _api_key=$(grep -oP '^API_KEY="\K[^"]+' "$CONFIG_DIR/jabali-security.conf" 2>/dev/null || echo "")
+        _sock="/run/jabali-security/jabali-security.sock"
+        if [ -S "$_sock" ] && [ -n "$_api_key" ]; then
+            _ws_result=$(curl -sf --unix-socket "$_sock" -X POST -H "X-API-Key: $_api_key" \
+                "http://localhost/api/v1/webshield/install" 2>/dev/null || echo "")
+            if echo "$_ws_result" | grep -q '"success": true'; then
+                _ws_ok=true
+            fi
+        fi
+
+        if [ "$_ws_ok" = true ]; then
+            # Bridge: per-site include points to the webshield server config
+            cat > /etc/nginx/jabali/includes/webshield.conf << 'WSEOF'
+# Managed by Jabali Security — WebShield per-site config
+include /etc/nginx/jabali-security/jabali-webshield-server.conf;
+WSEOF
+            # Validate before enabling
+            if nginx -t 2>/dev/null; then
+                sed -i 's|^WEBSHIELD_ENABLED="no"|WEBSHIELD_ENABLED="yes"|' "$CONFIG_DIR/jabali-security.conf"
+                systemctl reload nginx 2>/dev/null || true
+                echo "  WebShield ................ enabled"
+            else
+                # Rollback
+                rm -f /etc/nginx/jabali/includes/webshield.conf
+                echo "  WebShield ................ disabled (nginx config test failed)"
+            fi
+        else
+            echo "  WebShield ................ disabled (daemon not ready, enable via panel)"
+        fi
+    else
+        echo "  WebShield ................ disabled (enable via panel)"
+    fi
     sed -i 's|^CLEANUP_ENABLED="no"|CLEANUP_ENABLED="yes"|' "$CONFIG_DIR/jabali-security.conf" 2>/dev/null
     echo "  Auto Cleanup ............. enabled"
     done_ok "Protection modules configured"
