@@ -318,18 +318,8 @@ do_install() {
                     apt-get update -qq 2>/dev/null
                     DEBIAN_FRONTEND=noninteractive apt-get install -y -qq crowdsec 2>/dev/null
                 '
-                # CrowdSec LAPI defaults to 8080, which conflicts with
-                # Stalwart mail server. Pick a free port.
-                _cs_port=8080
-                if command -v cscli &>/dev/null && [ -f /etc/crowdsec/config.yaml ]; then
-                    if ss -tlnH | grep -q ":8080 "; then
-                        _cs_port=8180
-                        sed -i "s|127.0.0.1:8080|127.0.0.1:${_cs_port}|g" \
-                            /etc/crowdsec/config.yaml \
-                            /etc/crowdsec/local_api_credentials.yaml 2>/dev/null
-                        echo "  CrowdSec LAPI moved to port ${_cs_port} (8080 in use)."
-                    fi
-                    systemctl restart crowdsec 2>/dev/null
+                if command -v cscli &>/dev/null; then
+                    systemctl start crowdsec 2>/dev/null
                     sleep 2
                 fi
 
@@ -365,7 +355,7 @@ do_install() {
                     _bouncer_cfg="/etc/crowdsec/bouncers/crowdsec-firewall-bouncer.yaml"
                     if [ -n "$_bouncer_key" ] && [ -f "$_bouncer_cfg" ]; then
                         sed -i "s|^api_key:.*|api_key: ${_bouncer_key}|" "$_bouncer_cfg"
-                        sed -i "s|^api_url:.*|api_url: http://127.0.0.1:${_cs_port}/|" "$_bouncer_cfg"
+                        sed -i "s|^api_url:.*|api_url: http://127.0.0.1:8080/|" "$_bouncer_cfg"
                     fi
 
                     # Finalize: reconfigure the package (postinst restarts the
@@ -544,15 +534,6 @@ with open(path, 'w') as f: f.write(content)
                     echo "CROWDSEC_BOUNCER_KEY=\"${bouncer_key}\"" >> "$CONFIG_DIR/jabali-security.conf"
                 fi
                 echo "  CrowdSec bouncer key generated."
-            fi
-        fi
-        # Detect actual LAPI port from CrowdSec config (may have been moved from 8080)
-        _lapi_port=$(grep -oP 'listen_uri:\s*127\.0\.0\.1:\K[0-9]+' /etc/crowdsec/config.yaml 2>/dev/null || echo "8080")
-        if [ "$_lapi_port" != "8080" ]; then
-            if grep -q "^CROWDSEC_LAPI_URL=" "$CONFIG_DIR/jabali-security.conf"; then
-                sed -i "s|^CROWDSEC_LAPI_URL=.*|CROWDSEC_LAPI_URL=\"http://127.0.0.1:${_lapi_port}\"|" "$CONFIG_DIR/jabali-security.conf"
-            else
-                echo "CROWDSEC_LAPI_URL=\"http://127.0.0.1:${_lapi_port}\"" >> "$CONFIG_DIR/jabali-security.conf"
             fi
         fi
     fi
