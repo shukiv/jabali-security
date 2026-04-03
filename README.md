@@ -108,9 +108,9 @@ Full command reference: [docs/CLI.md](docs/CLI.md)
 
 | Group | Commands |
 |---|---|
-| **Daemon** | `start`, `stop`, `status`, `update` |
+| **Daemon** | `start`, `stop`, `restart`, `status`, `update` |
 | **Scanning** | `scan`, `scan-full`, `scan-db`, `scan-rapid` |
-| **Incidents** | `incidents list` |
+| **Incidents** | `incidents list`, `incidents resolve` |
 | **Quarantine** | `quarantine list`, `quarantine restore`, `quarantine delete` |
 | **Config** | `config show`, `config set`, `config test` |
 | **Rules** | `rules list`, `rules update` |
@@ -122,8 +122,10 @@ Full command reference: [docs/CLI.md](docs/CLI.md)
 | **Cleanup** | `cleanup records`, `cleanup file`, `cleanup cms` |
 | **Threat Intel** | `threat-intel feeds`, `threat-intel update`, `threat-intel check-ip`, `threat-intel check-hash` |
 | **WebShield** | `webshield status`, `webshield install`, `webshield uninstall`, `webshield rules` |
-| **SSH** | `ssh users`, `ssh keys` |
-| **Web** | `web` |
+| **CrowdSec** | `crowdsec status`, `crowdsec decisions`, `crowdsec check`, `crowdsec unban` |
+| **Attack Mode** | `attack-mode status`, `attack-mode enable`, `attack-mode disable` |
+| **SSH** | `ssh users`, `ssh keys`, `ssh add-key`, `ssh generate-key`, `ssh delete-key`, `ssh shell-enable`, `ssh shell-disable` |
+| **Firewall** | `firewall status`, `firewall enable`, `firewall disable`, `firewall reload`, `firewall allow`, `firewall deny`, `firewall delete-rule` |
 
 ## REST API
 
@@ -180,7 +182,7 @@ Full developer guide: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
 uv run pytest tests/ -v
 ```
 
-332 unit tests covering: config parsing, heuristic/entropy/YARA scanners, scoring engine, incident store, quarantine, response engine, behavior tracker, brute-force detection, IP reputation, log parsing, WebShield config, CMS detection, injection cleaning, UFW management, and CrowdSec integration.
+335 unit tests covering: config parsing, heuristic/entropy/YARA scanners, scoring engine, incident store, quarantine, response engine, behavior tracker, brute-force detection, IP reputation, log parsing, WebShield config, CMS detection, injection cleaning, UFW management, and CrowdSec integration.
 
 ### External Security Testing
 

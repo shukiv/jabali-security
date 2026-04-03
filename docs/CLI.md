@@ -656,5 +656,225 @@ jabali-security crowdsec check 203.0.113.50
 #   ban — crowdsecurity/ssh-bf (4h0m0s)
 ```
 
+### crowdsec unban
+
+Remove a CrowdSec decision for an IP.
+
+```bash
+jabali-security crowdsec unban <IP>
+```
+
+```bash
+jabali-security crowdsec unban 198.51.100.1
+# Decision removed for 198.51.100.1.
+```
+
+---
+
+## Attack Mode
+
+Panic button for active attacks. Enables aggressive defenses: process killer, auto-block IPs, WAF blocking, WebShield rate limiting, tighter brute-force thresholds, progressive IP bans.
+
+### attack-mode status
+
+Show current attack mode status.
+
+```bash
+jabali-security attack-mode status
+```
+
+### attack-mode enable
+
+Activate attack mode — all aggressive defenses enabled immediately.
+
+```bash
+jabali-security attack-mode enable
+```
+
+```bash
+jabali-security attack-mode enable
+# Attack mode ENABLED.
+#   WebShield rate limiting installed (10 req/s)
+#   Brute-force thresholds lowered (SSH: 3/120s, Mail: 3/120s)
+#   Process killer threshold lowered
+#   All tracked brute-force IPs blocked
+```
+
+### attack-mode disable
+
+Deactivate attack mode — restore previous settings.
+
+```bash
+jabali-security attack-mode disable
+```
+
+---
+
+## SSH Management
+
+Manage SSH keys and shell access for hosting users.
+
+### ssh users
+
+List all hosting users (UID >= 1000) with shell and SFTP status.
+
+```bash
+jabali-security ssh users [--json]
+```
+
+```bash
+jabali-security ssh users
+# Username              Shell     SFTP      Keys
+# john                  no        yes       2
+# alice                 yes       no        1
+```
+
+### ssh keys
+
+List SSH keys for a specific user.
+
+```bash
+jabali-security ssh keys <USERNAME> [--json]
+```
+
+### ssh add-key
+
+Add an SSH public key for a user.
+
+```bash
+jabali-security ssh add-key <USERNAME> <NAME> <PUBLIC_KEY>
+```
+
+```bash
+jabali-security ssh add-key john laptop "ssh-ed25519 AAAA... john@laptop"
+```
+
+### ssh generate-key
+
+Generate a new SSH keypair for a user.
+
+```bash
+jabali-security ssh generate-key <USERNAME> [--name NAME] [--type ed25519|rsa]
+```
+
+```bash
+jabali-security ssh generate-key john --name deploy --type ed25519
+# Key generated for john.
+# Private key (save this, it won't be shown again):
+# -----BEGIN OPENSSH PRIVATE KEY-----
+# ...
+```
+
+### ssh delete-key
+
+Delete an SSH key by ID.
+
+```bash
+jabali-security ssh delete-key <KEY_ID>
+```
+
+### ssh shell-enable
+
+Enable shell access for a user (via nspawn container). Changes home dir ownership to `user:user 755`.
+
+```bash
+jabali-security ssh shell-enable <USERNAME>
+```
+
+### ssh shell-disable
+
+Disable shell access for a user. Restores home dir to `root:user 750` for SFTP chroot.
+
+```bash
+jabali-security ssh shell-disable <USERNAME>
+```
+
+---
+
+## Firewall (UFW)
+
+Manage UFW firewall rules, enable/disable, and reload.
+
+### firewall status
+
+Show UFW status and current rules.
+
+```bash
+jabali-security firewall status [--json]
+```
+
+```bash
+jabali-security firewall status
+# UFW: active
+# Default: incoming=deny outgoing=allow
+#   22/tcp ALLOW Anywhere
+#   443/tcp ALLOW Anywhere
+#   8443/tcp ALLOW Anywhere
+```
+
+### firewall enable
+
+Enable UFW firewall.
+
+```bash
+jabali-security firewall enable
+```
+
+### firewall disable
+
+Disable UFW firewall.
+
+```bash
+jabali-security firewall disable
+```
+
+### firewall reload
+
+Reload UFW rules.
+
+```bash
+jabali-security firewall reload
+```
+
+### firewall allow
+
+Allow a port through the firewall.
+
+```bash
+jabali-security firewall allow <PORT> [--proto tcp|udp|any] [--from IP] [--comment TEXT]
+```
+
+```bash
+jabali-security firewall allow 3306 --proto tcp --from 10.0.0.0/8 --comment "MySQL from LAN"
+```
+
+### firewall deny
+
+Deny a port through the firewall.
+
+```bash
+jabali-security firewall deny <PORT> [--proto tcp|udp|any] [--from IP]
+```
+
+### firewall delete-rule
+
+Delete a firewall rule by number (as shown in `firewall status`).
+
+```bash
+jabali-security firewall delete-rule <RULE_NUMBER>
+```
+
+---
+
+## Daemon Control
+
+### restart
+
+Restart the jabali-security daemon.
+
+```bash
+jabali-security restart
+```
+
 ---
 
