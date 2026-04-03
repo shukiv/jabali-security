@@ -34,11 +34,10 @@ The firewall bouncer is installed as a separate defense layer but jabali-securit
 - Unified threat scoring: CrowdSec signals are weighted alongside YARA findings, WAF events, brute-force detection, and threat intel feeds
 - Community intelligence: known attackers from the CrowdSec network are flagged before they attack
 - Brute-force enrichment: IPs flagged by CrowdSec get tighter thresholds (halved), catching attacks faster
-- CrowdSec LAPI port conflict handled automatically (installer detects 8080 in use, moves to 8180)
-
 ### Negative
 - Dependency on CrowdSec LAPI being available (graceful degradation: `auto` mode disables if LAPI is unreachable)
 - Two systems managing nftables rules (CrowdSec bouncer + jabali-security firewall manager)
+- CrowdSec LAPI uses port 8080 — other services (e.g., Stalwart HTTP/JMAP) must avoid this port
 
 ### Risks
-- CrowdSec LAPI port conflicts with Stalwart mail server (port 8080) — mitigated by installer auto-detection and port migration to 8180, updating both `config.yaml` and `local_api_credentials.yaml`
+- Port 8080 conflict with Stalwart mail server — mitigated by moving Stalwart's HTTP listener to a different port (panel-side fix)
