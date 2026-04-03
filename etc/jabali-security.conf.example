@@ -126,7 +126,8 @@ WAF_AUDIT_LOG="/var/log/modsec_audit.log"
 WAF_AUDIT_LOG_TYPE="serial"
 
 # Directory containing OWASP Core Rule Set .conf files
-WAF_RULES_DIR="/etc/modsecurity/crs"
+# Installed from GitHub (coreruleset/coreruleset), updated via git pull
+WAF_RULES_DIR="/usr/local/share/owasp-crs/rules"
 
 # Jabali-managed overrides file for disabling individual rules
 WAF_OVERRIDES_FILE="/etc/modsecurity/jabali-overrides.conf"
@@ -223,9 +224,14 @@ THREAT_INTEL_AUTO_BLOCK_THRESHOLD="3"
 # -- WebShield (Bot Filtering + Rate Limiting) ------------------------------
 
 # Enable WebShield nginx integration (generates nginx config snippets)
+# Auto-enabled on Jabali Panel servers with bot filtering on by default
 WEBSHIELD_ENABLED="no"
 
-# Requests per second allowed per IP before rate limiting kicks in
+# Enable rate limiting (off by default — can block legitimate high-traffic sites)
+# Auto-enabled by Attack Mode
+WEBSHIELD_RATE_LIMITING="no"
+
+# Requests per second allowed per IP when rate limiting is enabled
 WEBSHIELD_RATE_LIMIT="10"
 
 # Burst size for rate limiter (requests allowed above the rate before 429)
@@ -239,6 +245,9 @@ WEBSHIELD_BOT_FILTERING="yes"
 
 # Directory for generated nginx config snippets
 WEBSHIELD_NGINX_CONF_DIR="/etc/nginx/jabali-security"
+
+# Nginx access log path (for WebShield stats)
+NGINX_ACCESS_LOG="/var/log/nginx/access.log"
 
 # -- RapidScan ---------------------------------------------------------------
 

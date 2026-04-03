@@ -210,6 +210,7 @@ Available feeds: `spamhaus_drop`, `spamhaus_edrop`, `blocklist_de_all`, `tor_exi
 | `WEBSHIELD_CHALLENGE_ENABLED` | bool | `yes` | Enable JS challenge page for suspicious bots |
 | `WEBSHIELD_BOT_FILTERING` | bool | `yes` | Enable user-agent based bot filtering |
 | `WEBSHIELD_NGINX_CONF_DIR` | path | `/etc/nginx/jabali-security` | Directory for generated nginx config snippets |
+| `NGINX_ACCESS_LOG` | path | `/var/log/nginx/access.log` | Nginx access log path (for WebShield stats) |
 
 ## UFW Firewall Management
 
