@@ -920,6 +920,29 @@ do_update() {
         cp "$tmp_dir"/panel/Pages/*.php "$JABALI_PANEL_DIR/app/JabaliSecurity/Pages/"
         cp "$tmp_dir"/panel/Widgets/*.php "$JABALI_PANEL_DIR/app/JabaliSecurity/Widgets/"
         cp "$tmp_dir"/panel/views/*.blade.php "$JABALI_PANEL_DIR/app/JabaliSecurity/views/"
+        # Merge translation strings into panel lang files
+        if [ -d "$tmp_dir/panel/lang" ] && [ -d "$JABALI_PANEL_DIR/lang" ]; then
+            for lang_file in "$tmp_dir"/panel/lang/*.json; do
+                [ -f "$lang_file" ] || continue
+                base=$(basename "$lang_file")
+                dst="$JABALI_PANEL_DIR/lang/$base"
+                if [ -f "$dst" ]; then
+                    # Merge: add new keys without overwriting existing translations
+                    python3 -c "
+import json, sys
+with open(sys.argv[1]) as f: new = json.load(f)
+with open(sys.argv[2]) as f: existing = json.load(f)
+for k, v in new.items():
+    if k not in existing:
+        existing[k] = v
+with open(sys.argv[2], 'w') as f:
+    json.dump(existing, f, ensure_ascii=False, indent=4, sort_keys=True)
+" "$lang_file" "$dst" 2>/dev/null || true
+                else
+                    cp "$lang_file" "$dst"
+                fi
+            done
+        fi
         # Clear Laravel caches so Filament discovers updated plugin classes
         composer dump-autoload -q -d "$JABALI_PANEL_DIR" 2>/dev/null || true
         php "$JABALI_PANEL_DIR/artisan" filament:cache-components 2>/dev/null || true
