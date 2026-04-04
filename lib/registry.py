@@ -29,7 +29,7 @@ from lib.waf.rule_manager import WafRuleManager
 from lib.watcher.inotify import InotifyWatcher
 from lib.ufw.manager import UFWManager
 from lib.webshield.manager import WebShieldManager
-from lib.sshjail.manager import SSHJailManager
+
 
 logger = logging.getLogger("jabali-security")
 
@@ -61,7 +61,6 @@ class ComponentRegistry:
     feed_manager: FeedManager | None = None
     webshield: WebShieldManager | None = None
     ufw: UFWManager | None = None
-    sshjail: SSHJailManager | None = None
     crowdsec: CrowdSecClient | None = None
 
     @classmethod
@@ -114,9 +113,6 @@ class ComponentRegistry:
         ufw = (
             _build_ufw(config) if "ufw" not in disabled else None
         )
-        sshjail = (
-            _build_sshjail(config) if "sshjail" not in disabled else None
-        )
         crowdsec = (
             _build_crowdsec(config) if "crowdsec" not in disabled else None
         )
@@ -143,7 +139,6 @@ class ComponentRegistry:
             feed_manager=feed_manager,
             webshield=webshield,
             ufw=ufw,
-            sshjail=sshjail,
             crowdsec=crowdsec,
         )
 
@@ -180,7 +175,6 @@ class ComponentRegistry:
         app["threat_intel"] = self.feed_manager
         app["webshield"] = self.webshield
         app["ufw"] = self.ufw
-        app["sshjail"] = self.sshjail
         app["crowdsec"] = self.crowdsec
         # GeoIP manager (lazy-loaded, lives alongside webshield)
         if self.config.geoip_enabled:
@@ -288,13 +282,6 @@ def _build_webshield(config: JabaliConfig) -> WebShieldManager | None:
         geoip_allowed_countries=config.geoip_allowed_countries,
         geoip_action=config.geoip_action,
     )
-
-
-def _build_sshjail(config: JabaliConfig) -> SSHJailManager | None:
-    if not config.sshjail_enabled:
-        return None
-    logger.info("SSH management enabled (isolation via jabali-isolator)")
-    return SSHJailManager()
 
 
 def _build_crowdsec(config: JabaliConfig) -> CrowdSecClient | None:

@@ -257,14 +257,6 @@ RAPIDSCAN_WORKERS="4"
 # Cache file modification times to skip unchanged files between scans
 RAPIDSCAN_MTIME_CACHE="yes"
 
-# -- SSH Management ----------------------------------------------------------
-
-# Enable SSH key and shell management (isolation via jabali-isolator nspawn)
-SSHJAIL_ENABLED="yes"
-
-# Allow shell access for hosting users (disable to force SFTP-only)
-SSH_SHELL_ACCESS_ENABLED="no"
-
 # -- CrowdSec (Community Threat Intelligence) --------------------------------
 
 # Enable CrowdSec LAPI integration: "auto" (detect if running), "yes", "no"

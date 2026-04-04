@@ -12,7 +12,6 @@ use App\JabaliSecurity\Widgets\FirewallRulesTable;
 use App\JabaliSecurity\Widgets\IncidentsTable;
 use App\JabaliSecurity\Widgets\QuarantineTable;
 use App\JabaliSecurity\Widgets\ScanUsersTable;
-use App\JabaliSecurity\Widgets\SshKeysTable;
 use App\JabaliSecurity\Widgets\ThreatFeedsTable;
 use App\JabaliSecurity\Widgets\UsersTable;
 use App\JabaliSecurity\Widgets\WafEventsTable;
@@ -99,14 +98,12 @@ class Security extends Page implements HasActions, HasForms
                 $this->moduleStates[$key] = in_array($config[$key] ?? 'no', ['yes', 'true', '1']);
             }
         }
-        // SSH Jail is not in module toggles but needs state tracking
-        $this->moduleStates['SSHJAIL_ENABLED'] = in_array($config['SSHJAIL_ENABLED'] ?? 'no', ['yes', 'true', '1']);
     }
 
     /** Keys allowed through moduleStates Livewire binding. */
     private static function allowedModuleKeys(): array
     {
-        $keys = ['SSHJAIL_ENABLED'];
+        $keys = [];
         foreach (static::getModuleToggles() as $group) {
             foreach ($group as $key => $mod) {
                 $keys[] = $key;
@@ -265,16 +262,6 @@ class Security extends Page implements HasActions, HasForms
                                                     ]),
                                             ],
                                             [EmbeddedTable::make(GeoBlockTable::class)],
-                                        )),
-                                    'ssh' => Tab::make(__('SSH Jail'))
-                                        ->schema(array_merge(
-                                            [
-                                                Text::make(__('SSH/SFTP access management. Users get SFTP-only access by default. Shell access runs inside isolated nspawn containers via jabali-isolator.'))
-                                                    ->size(TextSize::Small)
-                                                    ->color('gray'),
-                                            ],
-                                            $this->sshdSettingsStats(),
-                                            [EmbeddedTable::make(SshKeysTable::class)],
                                         )),
                                 ]),
                         ]),
@@ -523,74 +510,6 @@ class Security extends Page implements HasActions, HasForms
             ->iconColor($stat['color'])
             ->schema([]);
     }
-
-    protected function sshdSettingsStats(): array
-    {
-        $s = $this->client()->get('/ssh/sshd-settings') ?? [];
-        $passAuth = $s['password_auth'] ?? true;
-        $port = (int) ($s['port'] ?? 22);
-
-        $jailEnabled = in_array($this->moduleStates['SSHJAIL_ENABLED'] ?? false, [true, 'yes', '1', 1]);
-
-        $config = $this->client()->get('/config') ?? [];
-        $shellDefault = in_array($config['SSH_SHELL_ACCESS_ENABLED'] ?? 'no', ['yes', 'true', '1']);
-
-        return [
-            Grid::make(3)->dense()->schema([
-                Section::make(new \Illuminate\Support\HtmlString(
-                    __('SSH Shell Default') . ': <span style="color:' . ($shellDefault ? '#22c55e' : '#ef4444') . '">' . ($shellDefault ? __('Enabled') : __('Disabled')) . '</span>'
-                ))
-                    ->compact()
-                    ->headerActions([
-                        Action::make('toggleShellDefault')
-                            ->label($shellDefault ? __('Disable') : __('Enable'))
-                            ->color($shellDefault ? 'gray' : 'success')
-                            ->size('xs')
-                            ->action('toggleShellDefault'),
-                    ])
-                    ->schema([]),
-                Section::make(new \Illuminate\Support\HtmlString(
-                    __('Password Auth') . ': <span style="color:' . ($passAuth ? '#22c55e' : '#ef4444') . '">' . ($passAuth ? __('Enabled') : __('Disabled')) . '</span>'
-                ))
-                    ->compact()
-                    ->headerActions([
-                        Action::make('toggleSshPasswordAuth')
-                            ->label($passAuth ? __('Disable') : __('Enable'))
-                            ->color($passAuth ? 'gray' : 'success')
-                            ->size('xs')
-                            ->requiresConfirmation()
-                            ->modalDescription($passAuth
-                                ? __('Users will only be able to log in with SSH keys.')
-                                : __('Users will be able to log in with passwords.'))
-                            ->action($passAuth ? 'disableSshPasswordAuth' : 'enableSshPasswordAuth'),
-                    ])
-                    ->schema([]),
-                Section::make(new \Illuminate\Support\HtmlString(
-                    __('SSH Port') . ': <span style="color:#eab308">' . $port . '</span>'
-                ))
-                    ->compact()
-                    ->headerActions([
-                        Action::make('changeSshPort')
-                            ->label(__('Change'))
-                            ->color('gray')
-                            ->size('xs')
-                            ->form([
-                                TextInput::make('port')
-                                    ->label(__('SSH Port'))
-                                    ->numeric()
-                                    ->default($port)
-                                    ->minValue(1)
-                                    ->maxValue(65535)
-                                    ->required(),
-                            ])
-                            ->requiresConfirmation()
-                            ->action('changeSshPortAction'),
-                    ])
-                    ->schema([]),
-            ]),
-        ];
-    }
-
 
     // ── Overview Tab ─────────────────────────────────────────────────
 
@@ -915,72 +834,6 @@ class Security extends Page implements HasActions, HasForms
         $this->redirect(static::getUrl(['tab' => 'defense', 'defense' => 'firewall']));
     }
 
-    // ── SSH Settings Actions ────────────────────────────────────────
-
-    public function toggleSshJail(): void
-    {
-        $enabled = $this->moduleStates['SSHJAIL_ENABLED'] ?? false;
-        $newValue = $enabled ? 'no' : 'yes';
-        $this->client()->patch('/config', ['SSHJAIL_ENABLED' => $newValue]);
-        // Daemon restart needed to load/unload SSHJailManager
-        $this->client()->post('/daemon/restart');
-        // Wait for daemon to restart before redirecting
-        sleep(3);
-        Notification::make()
-            ->title($enabled ? __('SSH Jail disabled') : __('SSH Jail enabled'))
-            ->body(__('Daemon restarted'))
-            ->{$enabled ? 'warning' : 'success'}()
-            ->send();
-        $this->redirect(static::getUrl(['tab' => 'defense', 'defense' => 'ssh']));
-    }
-
-    public function toggleShellDefault(): void
-    {
-        $config = $this->client()->get('/config') ?? [];
-        $current = in_array($config['SSH_SHELL_ACCESS_ENABLED'] ?? 'no', ['yes', 'true', '1']);
-        $newValue = $current ? 'no' : 'yes';
-        $this->client()->patch('/config', ['SSH_SHELL_ACCESS_ENABLED' => $newValue]);
-        Notification::make()
-            ->title($current ? __('SSH shell disabled by default for new users') : __('SSH shell enabled by default for new users'))
-            ->{$current ? 'warning' : 'success'}()
-            ->send();
-        $this->redirect(static::getUrl(['tab' => 'defense', 'defense' => 'ssh']));
-    }
-
-    public function enableSshPasswordAuth(): void
-    {
-        $result = $this->client()->post('/ssh/sshd-settings', ['password_auth' => true]);
-        Notification::make()
-            ->title($result !== null ? __('Password auth enabled') : __('Failed to update setting'))
-            ->{($result !== null ? "success" : "danger")}()
-            ->send();
-        $this->redirect(static::getUrl(['tab' => 'defense', 'defense' => 'ssh']));
-    }
-
-    public function disableSshPasswordAuth(): void
-    {
-        $result = $this->client()->post('/ssh/sshd-settings', ['password_auth' => false]);
-        Notification::make()
-            ->title($result !== null ? __('Password auth disabled') : __('Failed to update setting'))
-            ->{($result !== null ? "success" : "danger")}()
-            ->send();
-        $this->redirect(static::getUrl(['tab' => 'defense', 'defense' => 'ssh']));
-    }
-
-
-
-    public function changeSshPortAction(array $data): void
-    {
-        $result = $this->client()->post('/ssh/sshd-settings', ['port' => (int) $data['port']]);
-        Notification::make()
-            ->title($result !== null
-                ? __('SSH port changed to :port', ['port' => $data['port']])
-                : __('Failed to change SSH port'))
-            ->{($result !== null ? "success" : "danger")}()
-            ->send();
-        $this->redirect(static::getUrl(['tab' => 'defense', 'defense' => 'ssh']));
-    }
-
     public static array $configHelp = [
         'LOG_LEVEL' => 'Logging verbosity: debug shows everything, error shows only errors',
         'LOG_DIR' => 'Directory for daemon log files',
@@ -1040,8 +893,6 @@ class Security extends Page implements HasActions, HasForms
         'NGINX_ACCESS_LOG' => 'Nginx access log path for counting blocked requests',
         'RAPIDSCAN_WORKERS' => 'Parallel workers for rapid directory scans',
         'RAPIDSCAN_MTIME_CACHE' => 'Cache file modification times to skip unchanged files',
-        'SSHJAIL_ENABLED' => 'Enable SSH key and shell management (isolation via nspawn)',
-        'SSH_SHELL_ACCESS_ENABLED' => 'Allow users to enable terminal shell access',
         'CROWDSEC_ENABLED' => 'CrowdSec community threat intelligence: auto (detect), yes, no',
         'CROWDSEC_LAPI_URL' => 'CrowdSec Local API URL (default: http://127.0.0.1:8080)',
         'CROWDSEC_BOUNCER_KEY' => 'Bouncer API key (generated by installer)',
@@ -1083,7 +934,7 @@ class Security extends Page implements HasActions, HasForms
         'SCHEDULED_SCAN_ENABLED', 'THREAT_INTEL_ENABLED', 'THREAT_INTEL_AUTO_BLOCK',
         'WEBSHIELD_ENABLED', 'WEBSHIELD_CHALLENGE_ENABLED', 'WEBSHIELD_BOT_FILTERING',
         'RAPIDSCAN_MTIME_CACHE', 'FRESHCLAM_ON_UPDATE',
-        'UFW_ENABLED', 'SSHJAIL_ENABLED', 'SSH_SHELL_ACCESS_ENABLED',
+        'UFW_ENABLED',
     ];
 
     public static array $selectKeys = [

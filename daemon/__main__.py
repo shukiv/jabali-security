@@ -490,20 +490,6 @@ def update() -> None:
                 fh.write(conf_content)
             click.echo("Config migrated to Unix socket.")
 
-    # Migrate SSHJAIL_ENABLED: enable if jabali-shell (nspawn isolation) exists
-    if os.path.isfile(config_file):
-        with open(config_file) as fh:
-            conf_content = fh.read()
-        if 'SSHJAIL_ENABLED="no"' in conf_content:
-            has_isolator = shutil.which("jabali-shell") is not None
-            if has_isolator:
-                conf_content = conf_content.replace(
-                    'SSHJAIL_ENABLED="no"', 'SSHJAIL_ENABLED="yes"',
-                )
-                with open(config_file, "w") as fh:
-                    fh.write(conf_content)
-                click.echo("Enabled SSH management (jabali-shell detected).")
-
     # Install CrowdSec if not present
     if not shutil.which("cscli"):
         click.echo("Installing CrowdSec (this may take a minute)...")
@@ -1975,102 +1961,6 @@ def incidents_resolve(incident_id: str, notes: str) -> None:
 
 
 # ── SSH Management ──────────────────────────────────────────────────────────
-
-@cli.group()
-def ssh() -> None:
-    """SSH key and shell management."""
-
-
-@ssh.command("users")
-@click.option("--json", "as_json", is_flag=True, help="JSON output")
-def ssh_users(as_json: bool) -> None:
-    """List hosting users with SSH status."""
-    config = load_config()
-    data = _api_call(config, "GET", "/ssh/users")
-    items = data if isinstance(data, list) else data.get("users", [])
-    if as_json:
-        click.echo(json.dumps(items, indent=2))
-        return
-    click.echo("%-20s  %-8s  %-8s  %s" % ("Username", "Shell", "SFTP", "Keys"))
-    for u in items:
-        click.echo("%-20s  %-8s  %-8s  %d" % (
-            u.get("username", ""),
-            "yes" if u.get("shell_enabled") else "no",
-            "yes" if u.get("sftp_enabled") else "no",
-            u.get("key_count", 0),
-        ))
-
-
-@ssh.command("keys")
-@click.argument("username")
-@click.option("--json", "as_json", is_flag=True, help="JSON output")
-def ssh_keys(username: str, as_json: bool) -> None:
-    """List SSH keys for a user."""
-    config = load_config()
-    data = _api_call(config, "GET", "/ssh/keys?username=%s" % username)
-    items = data if isinstance(data, list) else data.get("keys", [])
-    if as_json:
-        click.echo(json.dumps(items, indent=2))
-        return
-    for k in items:
-        click.echo("%s  %s  %s" % (k.get("id", ""), k.get("type", ""), k.get("name", "")))
-
-
-@ssh.command("add-key")
-@click.argument("username")
-@click.argument("name")
-@click.argument("public_key")
-def ssh_add_key(username: str, name: str, public_key: str) -> None:
-    """Add an SSH public key for a user."""
-    config = load_config()
-    data = _api_call(config, "POST", "/ssh/keys", {"username": username, "name": name, "public_key": public_key})
-    if data:
-        click.echo("Key added for %s." % username)
-
-
-@ssh.command("generate-key")
-@click.argument("username")
-@click.option("--name", default="generated", help="Key name")
-@click.option("--type", "key_type", default="ed25519", help="Key type (ed25519, rsa)")
-def ssh_generate_key(username: str, name: str, key_type: str) -> None:
-    """Generate a new SSH keypair for a user."""
-    config = load_config()
-    data = _api_call(config, "POST", "/ssh/keys/generate", {"username": username, "name": name, "key_type": key_type})
-    if data:
-        click.echo("Key generated for %s." % username)
-        if data.get("private_key"):
-            click.echo("\nPrivate key (save this, it won't be shown again):\n")
-            click.echo(data["private_key"])
-
-
-@ssh.command("delete-key")
-@click.argument("key_id")
-def ssh_delete_key(key_id: str) -> None:
-    """Delete an SSH key by ID."""
-    config = load_config()
-    _api_call(config, "DELETE", "/ssh/keys/%s" % key_id)
-    click.echo("Key deleted.")
-
-
-@ssh.command("shell-enable")
-@click.argument("username")
-def ssh_shell_enable(username: str) -> None:
-    """Enable shell access for a user (via nspawn container)."""
-    config = load_config()
-    data = _api_call(config, "POST", "/ssh/shell/enable", {"username": username})
-    if data:
-        click.echo("Shell access enabled for %s." % username)
-
-
-@ssh.command("shell-disable")
-@click.argument("username")
-def ssh_shell_disable(username: str) -> None:
-    """Disable shell access for a user."""
-    config = load_config()
-    data = _api_call(config, "POST", "/ssh/shell/disable", {"username": username})
-    if data:
-        click.echo("Shell access disabled for %s." % username)
-
 
 # ── UFW Firewall ────────────────────────────────────────────────────────────
 

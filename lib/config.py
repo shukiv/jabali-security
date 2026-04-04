@@ -91,8 +91,6 @@ DEFAULTS: dict[str, str] = {
     "NGINX_ACCESS_LOG": "/var/log/nginx/access.log",
     "RAPIDSCAN_WORKERS": "4",
     "RAPIDSCAN_MTIME_CACHE": "yes",
-    "SSHJAIL_ENABLED": "yes",
-    "SSH_SHELL_ACCESS_ENABLED": "no",
     "CROWDSEC_ENABLED": "yes",
     "CROWDSEC_LAPI_URL": "http://127.0.0.1:8080",
     "CROWDSEC_BOUNCER_KEY": "",
@@ -267,8 +265,6 @@ class JabaliConfig:
     nginx_access_log: str = "/var/log/nginx/access.log"
     rapidscan_workers: int = 4
     rapidscan_mtime_cache: bool = True
-    sshjail_enabled: bool = True
-    ssh_shell_access_enabled: bool = True
     crowdsec_enabled: str = "auto"
     crowdsec_lapi_url: str = "http://127.0.0.1:8080"
     crowdsec_bouncer_key: str = ""
@@ -400,8 +396,6 @@ def load_config(filepath: Path | None = None) -> JabaliConfig:
         nginx_access_log=merged["NGINX_ACCESS_LOG"],
         rapidscan_workers=_safe_int(merged["RAPIDSCAN_WORKERS"], 4, min_val=1, max_val=32),
         rapidscan_mtime_cache=_bool(merged["RAPIDSCAN_MTIME_CACHE"]),
-        sshjail_enabled=_bool(merged["SSHJAIL_ENABLED"]),
-        ssh_shell_access_enabled=_bool(merged["SSH_SHELL_ACCESS_ENABLED"]),
         crowdsec_enabled=merged["CROWDSEC_ENABLED"],
         crowdsec_lapi_url=merged["CROWDSEC_LAPI_URL"],
         crowdsec_bouncer_key=merged["CROWDSEC_BOUNCER_KEY"],

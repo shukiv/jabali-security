@@ -403,8 +403,6 @@ do_install() {
     cp "$tmp_dir"/lib/threat_intel/*.py "$INSTALL_DIR/lib/threat_intel/"
     cp "$tmp_dir"/lib/webshield/*.py "$INSTALL_DIR/lib/webshield/"
     cp "$tmp_dir"/lib/ufw/*.py "$INSTALL_DIR/lib/ufw/"
-    mkdir -p "$INSTALL_DIR/lib/sshjail"
-    cp "$tmp_dir"/lib/sshjail/*.py "$INSTALL_DIR/lib/sshjail/"
     cp "$tmp_dir"/lib/crowdsec/*.py "$INSTALL_DIR/lib/crowdsec/"
     cp "$tmp_dir"/api/*.py "$INSTALL_DIR/api/"
     mkdir -p "$INSTALL_DIR/api/routes"
@@ -889,7 +887,7 @@ do_update() {
     # -- Update application files (preserve config/data/venv) --
     cp "$tmp_dir"/daemon/*.py "$INSTALL_DIR/daemon/"
     cp "$tmp_dir"/lib/*.py "$INSTALL_DIR/lib/"
-    for subdir in watcher scanner bruteforce waf proactive cleanup threat_intel webshield ufw sshjail crowdsec; do
+    for subdir in watcher scanner bruteforce waf proactive cleanup threat_intel webshield ufw crowdsec; do
         mkdir -p "$INSTALL_DIR/lib/$subdir"
         cp "$tmp_dir"/lib/$subdir/*.py "$INSTALL_DIR/lib/$subdir/" 2>/dev/null || true
     done
@@ -939,14 +937,6 @@ do_update() {
 
     # Clean up
     rm -rf "$tmp_dir"
-
-    # -- Migrate config: enable SSHJAIL if jail infrastructure exists --
-    if [ -f "$CONFIG_DIR/jabali-security.conf" ] && grep -q 'SSHJAIL_ENABLED="no"' "$CONFIG_DIR/jabali-security.conf"; then
-        if grep -q "Jabali SSH Jail" /etc/ssh/sshd_config 2>/dev/null; then
-            sed -i 's/SSHJAIL_ENABLED="no"/SSHJAIL_ENABLED="yes"/' "$CONFIG_DIR/jabali-security.conf"
-            echo "  Enabled SSHJAIL (jail infrastructure already configured)"
-        fi
-    fi
 
     # -- Remove PasswordAuthentication overrides from sshd_config.d/ drop-ins --
     for dropfile in /etc/ssh/sshd_config.d/*.conf; do
