@@ -154,12 +154,15 @@ async def get_geo_rules(request: web.Request) -> web.Response:
     else:
         mode = "none"
 
-    return _ok({"rules": rules, "mode": mode, "action": action})
+    geoip = request.app.get("geoip")
+    db_info = geoip.db_info() if geoip else {"available": False}
+
+    return _ok({"rules": rules, "mode": mode, "action": action, "enabled": config.geoip_enabled, "db": db_info})
 
 
 async def post_geo_rules(request: web.Request) -> web.Response:
     """Set blocked or allowed countries. Regenerates nginx config."""
-    from lib.config import update_conf_key
+    from lib.config import load_config, update_conf_key
     from lib.constants import CONFIG_FILE
 
     try:
@@ -197,6 +200,12 @@ async def post_geo_rules(request: web.Request) -> web.Response:
     if clean:
         update_conf_key(config_file, "GEOIP_ENABLED", "yes")
 
+    # Reload in-memory config so GET reflects changes immediately
+    new_config = load_config(config_file)
+    old_config = request.app["config"]
+    for attr in vars(new_config):
+        setattr(old_config, attr, getattr(new_config, attr))
+
     # Reinstall WebShield to regenerate nginx config
     webshield = request.app.get("webshield")
     if webshield:
@@ -224,6 +233,12 @@ async def delete_geo_rule(request: web.Request) -> web.Response:
     if cc in allowed:
         allowed.remove(cc)
         update_conf_key(CONFIG_FILE, "GEOIP_ALLOWED_COUNTRIES", ",".join(allowed))
+
+    # Reload in-memory config
+    new_config = load_config(CONFIG_FILE)
+    old_config = request.app["config"]
+    for attr in vars(new_config):
+        setattr(old_config, attr, getattr(new_config, attr))
 
     webshield = request.app.get("webshield")
     if webshield:

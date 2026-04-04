@@ -232,6 +232,9 @@ class Security extends Page implements HasActions, HasForms
                                         ->schema(array_merge(
                                             [
                                                 Text::make(__('Block or allow traffic by country using MaxMind GeoLite2 database.'))->size(TextSize::Small)->color('gray'),
+                                            ],
+                                            $this->geoipStats(),
+                                            [
                                                 Section::make(__('MaxMind Configuration'))
                                                     ->compact()
                                                     ->collapsible()
@@ -848,6 +851,26 @@ class Security extends Page implements HasActions, HasForms
     }
 
     // ── GeoIP Actions ────────────────────────────────────────────────
+
+    protected function geoipStats(): array
+    {
+        $data = $this->client()->get('/webshield/geo-rules') ?? [];
+        $enabled = $data['enabled'] ?? false;
+        $dbAvail = $data['db']['available'] ?? false;
+        $ruleCount = count($data['rules'] ?? []);
+        $dbDate = '';
+        if ($dbAvail && isset($data['db']['build_epoch'])) {
+            $dbDate = date('Y-m-d', (int) $data['db']['build_epoch']);
+        }
+
+        return [
+            Grid::make(3)->dense()->schema([
+                $this->dashboardCard(['value' => $enabled ? __('On') : __('Off'), 'label' => __('GeoIP'), 'icon' => 'heroicon-o-globe-alt', 'color' => $enabled ? 'success' : 'gray']),
+                $this->dashboardCard(['value' => $dbAvail ? $dbDate : __('Missing'), 'label' => __('Database'), 'icon' => 'heroicon-o-circle-stack', 'color' => $dbAvail ? 'success' : 'danger']),
+                $this->dashboardCard(['value' => (string) $ruleCount, 'label' => __('Country Rules'), 'icon' => 'heroicon-o-flag', 'color' => $ruleCount > 0 ? 'warning' : 'gray']),
+            ]),
+        ];
+    }
 
     public function saveGeoipSettings(): void
     {
