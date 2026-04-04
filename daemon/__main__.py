@@ -563,8 +563,18 @@ def update() -> None:
         else:
             click.echo("  OWASP CRS update skipped.")
 
-    # GeoIP database (if license key configured)
-    if os.path.isfile(config_file):
+    # GeoIP database via geoipupdate CLI (preferred) or Python fallback
+    if shutil.which("geoipupdate") and os.path.isfile("/etc/GeoIP.conf"):
+        click.echo("Updating GeoIP database (geoipupdate)...")
+        result = subprocess.run(  # noqa: S603
+            ["geoipupdate", "-v"],
+            capture_output=True, timeout=60,
+        )
+        if result.returncode == 0:
+            click.echo("  GeoIP database updated.")
+        else:
+            click.echo("  GeoIP update skipped (check /etc/GeoIP.conf).")
+    elif os.path.isfile(config_file):
         with open(config_file) as fh:
             _conf = fh.read()
         if 'GEOIP_MAXMIND_LICENSE_KEY="' in _conf and 'GEOIP_MAXMIND_LICENSE_KEY=""' not in _conf:

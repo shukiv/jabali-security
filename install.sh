@@ -297,9 +297,12 @@ do_install() {
         # clamd runs ~950MB RSS permanently, unacceptable on small VPS.
         # YARA-X is the primary real-time scanner; clamscan is for manual use.
         case "$pkg_mgr" in
-            apt) run_with_spinner "Installing ClamAV" pkg_install clamav clamav-freshclam ;;
-            dnf) run_with_spinner "Installing ClamAV" pkg_install clamav clamav-update ;;
-            yum) run_with_spinner "Installing ClamAV" pkg_install clamav clamav-update ;;
+            apt) run_with_spinner "Installing ClamAV" pkg_install clamav clamav-freshclam
+                 pkg_install geoipupdate 2>/dev/null || true ;;
+            dnf) run_with_spinner "Installing ClamAV" pkg_install clamav clamav-update
+                 pkg_install geoipupdate 2>/dev/null || true ;;
+            yum) run_with_spinner "Installing ClamAV" pkg_install clamav clamav-update
+                 pkg_install geoipupdate 2>/dev/null || true ;;
         esac
     else
         green "[✓] ClamAV already installed"
@@ -821,7 +824,7 @@ SSHJAIL
     fi
 
     if [ -f "$_venv_dir/bin/pip" ]; then
-        local pip_pkgs="pydantic>=2.0 yara-x>=0.11 click>=8.0 aiohttp>=3.9 pyyaml>=6.0 aiosqlite>=0.20"
+        local pip_pkgs="pydantic>=2.0 yara-x>=0.11 click>=8.0 aiohttp>=3.9 pyyaml>=6.0 aiosqlite>=0.20 maxminddb>=2.0"
         if command -v uv &>/dev/null; then
             # shellcheck disable=SC2086
             run_with_spinner "Installing Python packages (uv)" \
