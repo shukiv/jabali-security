@@ -563,6 +563,31 @@ def update() -> None:
         else:
             click.echo("  OWASP CRS update skipped.")
 
+    # GeoIP database (if license key configured)
+    if os.path.isfile(config_file):
+        with open(config_file) as fh:
+            _conf = fh.read()
+        if 'GEOIP_MAXMIND_LICENSE_KEY="' in _conf and 'GEOIP_MAXMIND_LICENSE_KEY=""' not in _conf:
+            click.echo("Updating GeoIP database...")
+            try:
+                from lib.webshield.geoip import GeoIPManager
+                import re as _re
+                _key_match = _re.search(r'GEOIP_MAXMIND_LICENSE_KEY="([^"]+)"', _conf)
+                _db_match = _re.search(r'GEOIP_DB_PATH="([^"]+)"', _conf)
+                if _key_match:
+                    _geoip = GeoIPManager(
+                        db_path=_db_match.group(1) if _db_match else "/var/lib/jabali-security/GeoLite2-Country.mmdb",
+                        license_key=_key_match.group(1),
+                    )
+                    import asyncio as _aio
+                    _ok_geo, _msg = _aio.get_event_loop().run_until_complete(_geoip.download_database())
+                    if _ok_geo:
+                        click.echo("  GeoIP database updated.")
+                    else:
+                        click.echo("  GeoIP update skipped: %s" % _msg)
+            except Exception:
+                click.echo("  GeoIP update skipped.")
+
     # CrowdSec hub index (fast — just refreshes the index, no downloads)
     if shutil.which("cscli"):
         click.echo("Updating CrowdSec hub index...")
@@ -1781,6 +1806,76 @@ def webshield_rules(as_json: bool) -> None:
             rule.get("pattern", "")[:25],
             "yes" if rule.get("enabled") else "no",
         ))
+
+
+# ── GeoIP (WebShield sub-commands) ──────────────────────────────────────────
+
+@webshield.command("geo-status")
+def webshield_geo_status() -> None:
+    """Show GeoIP database status."""
+    config = load_config()
+    data = _api_call(config, "GET", "/api/v1/webshield/geo-status")
+    if not data.get("enabled"):
+        click.echo("GeoIP: disabled")
+        return
+    click.echo("GeoIP: enabled")
+    click.echo("  Database: %s" % ("available" if data.get("available") else "not found"))
+    click.echo("  Path: %s" % data.get("path", ""))
+    if data.get("database_type"):
+        click.echo("  Type: %s" % data.get("database_type"))
+
+
+@webshield.command("geo-list")
+@click.option("--json", "as_json", is_flag=True, help="JSON output")
+def webshield_geo_list(as_json: bool) -> None:
+    """List GeoIP country rules."""
+    config = load_config()
+    data = _api_call(config, "GET", "/api/v1/webshield/geo-rules")
+    if as_json:
+        click.echo(json.dumps(data, indent=2))
+        return
+    rules = data.get("rules", [])
+    mode = data.get("mode", "none")
+    click.echo("Mode: %s" % mode)
+    if not rules:
+        click.echo("No country rules configured.")
+        return
+    click.echo("%-6s  %-20s  %s" % ("Code", "Country", "Action"))
+    for r in rules:
+        click.echo("%-6s  %-20s  %s" % (r.get("country_code", ""), r.get("country_name", ""), r.get("action", "")))
+
+
+@webshield.command("geo-block")
+@click.argument("country_codes", nargs=-1, required=True)
+@click.option("--action", default="block", type=click.Choice(["block", "challenge", "log"]), help="Action to take")
+def webshield_geo_block(country_codes: tuple[str, ...], action: str) -> None:
+    """Block one or more countries by ISO code (e.g., CN RU KP)."""
+    config = load_config()
+    codes = [cc.upper() for cc in country_codes]
+    data = _api_call(config, "POST", "/api/v1/webshield/geo-rules", {"countries": codes, "action": action, "mode": "blocklist"})
+    if data:
+        click.echo("Blocked: %s (action=%s)" % (", ".join(codes), action))
+
+
+@webshield.command("geo-unblock")
+@click.argument("country_code")
+def webshield_geo_unblock(country_code: str) -> None:
+    """Remove a country from the block list."""
+    config = load_config()
+    data = _api_call(config, "DELETE", "/api/v1/webshield/geo-rules/%s" % country_code.upper())
+    if data:
+        click.echo("Removed: %s" % country_code.upper())
+
+
+@webshield.command("geo-update-db")
+def webshield_geo_update_db() -> None:
+    """Download/update the MaxMind GeoIP database."""
+    config = load_config()
+    data = _api_call(config, "POST", "/api/v1/webshield/geo-update-db")
+    if data:
+        click.echo(data.get("message", "Database updated."))
+    else:
+        click.echo("Failed to update GeoIP database.", err=True)
 
 
 # ── Attack Mode ─────────────────────────────────────────────────────────────

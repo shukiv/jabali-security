@@ -30,6 +30,11 @@ class WebShieldManager:
         rate_burst: int = 20,
         challenge_enabled: bool = True,
         bot_filtering: bool = True,
+        geoip_enabled: bool = False,
+        geoip_db_path: str = "",
+        geoip_blocked_countries: list[str] | None = None,
+        geoip_allowed_countries: list[str] | None = None,
+        geoip_action: str = "block",
     ) -> None:
         self._config_dir = Path(config_dir)
         self._rate_limiting = rate_limiting
@@ -37,11 +42,18 @@ class WebShieldManager:
         self._rate_burst = rate_burst
         self._challenge_enabled = challenge_enabled
         self._bot_filtering = bot_filtering
+        self._geoip_enabled = geoip_enabled
+        self._geoip_db_path = geoip_db_path
         self._generator = NginxConfigGenerator(
             config_dir=config_dir,
             rate_limit=rate_limit,
             rate_burst=rate_burst,
             rate_limiting=rate_limiting,
+            geoip_enabled=geoip_enabled,
+            geoip_db_path=geoip_db_path,
+            geoip_blocked_countries=geoip_blocked_countries,
+            geoip_allowed_countries=geoip_allowed_countries,
+            geoip_action=geoip_action,
         )
 
     async def install(self) -> dict:

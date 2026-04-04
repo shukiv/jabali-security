@@ -80,6 +80,12 @@ DEFAULTS: dict[str, str] = {
     "WEBSHIELD_CHALLENGE_ENABLED": "yes",
     "WEBSHIELD_BOT_FILTERING": "yes",
     "WEBSHIELD_NGINX_CONF_DIR": "/etc/nginx/jabali-security",
+    "GEOIP_ENABLED": "no",
+    "GEOIP_DB_PATH": "/var/lib/jabali-security/GeoLite2-Country.mmdb",
+    "GEOIP_MAXMIND_LICENSE_KEY": "",
+    "GEOIP_BLOCKED_COUNTRIES": "",
+    "GEOIP_ALLOWED_COUNTRIES": "",
+    "GEOIP_ACTION": "block",
     "NGINX_ACCESS_LOG": "/var/log/nginx/access.log",
     "RAPIDSCAN_WORKERS": "4",
     "RAPIDSCAN_MTIME_CACHE": "yes",
@@ -248,6 +254,12 @@ class JabaliConfig:
     webshield_challenge_enabled: bool = True
     webshield_bot_filtering: bool = True
     webshield_nginx_conf_dir: str = "/etc/nginx/jabali-security"
+    geoip_enabled: bool = False
+    geoip_db_path: str = "/var/lib/jabali-security/GeoLite2-Country.mmdb"
+    geoip_maxmind_license_key: str = ""
+    geoip_blocked_countries: list[str] = field(default_factory=list)
+    geoip_allowed_countries: list[str] = field(default_factory=list)
+    geoip_action: str = "block"
     nginx_access_log: str = "/var/log/nginx/access.log"
     rapidscan_workers: int = 4
     rapidscan_mtime_cache: bool = True
@@ -373,6 +385,12 @@ def load_config(filepath: Path | None = None) -> JabaliConfig:
         webshield_challenge_enabled=_bool(merged["WEBSHIELD_CHALLENGE_ENABLED"]),
         webshield_bot_filtering=_bool(merged["WEBSHIELD_BOT_FILTERING"]),
         webshield_nginx_conf_dir=merged["WEBSHIELD_NGINX_CONF_DIR"],
+        geoip_enabled=_bool(merged["GEOIP_ENABLED"]),
+        geoip_db_path=merged["GEOIP_DB_PATH"],
+        geoip_maxmind_license_key=merged["GEOIP_MAXMIND_LICENSE_KEY"],
+        geoip_blocked_countries=_csv_list(merged["GEOIP_BLOCKED_COUNTRIES"]),
+        geoip_allowed_countries=_csv_list(merged["GEOIP_ALLOWED_COUNTRIES"]),
+        geoip_action=merged["GEOIP_ACTION"],
         nginx_access_log=merged["NGINX_ACCESS_LOG"],
         rapidscan_workers=_safe_int(merged["RAPIDSCAN_WORKERS"], 4, min_val=1, max_val=32),
         rapidscan_mtime_cache=_bool(merged["RAPIDSCAN_MTIME_CACHE"]),

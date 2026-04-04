@@ -23,3 +23,10 @@ class BotRule(BaseModel):
     action: str = "block"    # "block", "challenge", "allow"
     category: str = ""       # "malicious", "suspicious", "crawler", "verified"
     enabled: bool = True
+
+
+class GeoRule(BaseModel):
+    country_code: str        # ISO 3166-1 alpha-2 (e.g., "CN", "RU")
+    country_name: str = ""
+    action: str = "block"    # "block", "challenge", "log"
+    enabled: bool = True

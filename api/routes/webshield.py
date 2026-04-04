@@ -1,10 +1,37 @@
-"""WebShield status/install/uninstall/rules/blocklist route handlers."""
+"""WebShield status/install/uninstall/rules/blocklist/geoip route handlers."""
 
 from __future__ import annotations
+
+import re
 
 from aiohttp import web
 
 from api.routes.helpers import _err, _ok, _validate_ip
+
+_COUNTRY_CODE_RE = re.compile(r"^[A-Z]{2}$")
+
+# ISO 3166-1 alpha-2 country names (subset — full list in production)
+_COUNTRY_NAMES: dict[str, str] = {
+    "AF": "Afghanistan", "AL": "Albania", "DZ": "Algeria", "AR": "Argentina",
+    "AU": "Australia", "AT": "Austria", "BD": "Bangladesh", "BY": "Belarus",
+    "BE": "Belgium", "BR": "Brazil", "BG": "Bulgaria", "CA": "Canada",
+    "CL": "Chile", "CN": "China", "CO": "Colombia", "HR": "Croatia",
+    "CU": "Cuba", "CZ": "Czechia", "DK": "Denmark", "EG": "Egypt",
+    "FI": "Finland", "FR": "France", "DE": "Germany", "GR": "Greece",
+    "HK": "Hong Kong", "HU": "Hungary", "IN": "India", "ID": "Indonesia",
+    "IR": "Iran", "IQ": "Iraq", "IE": "Ireland", "IL": "Israel",
+    "IT": "Italy", "JP": "Japan", "KZ": "Kazakhstan", "KE": "Kenya",
+    "KP": "North Korea", "KR": "South Korea", "KW": "Kuwait",
+    "LB": "Lebanon", "LY": "Libya", "MY": "Malaysia", "MX": "Mexico",
+    "MA": "Morocco", "NL": "Netherlands", "NZ": "New Zealand",
+    "NG": "Nigeria", "NO": "Norway", "PK": "Pakistan", "PH": "Philippines",
+    "PL": "Poland", "PT": "Portugal", "QA": "Qatar", "RO": "Romania",
+    "RU": "Russia", "SA": "Saudi Arabia", "RS": "Serbia", "SG": "Singapore",
+    "ZA": "South Africa", "ES": "Spain", "SE": "Sweden", "CH": "Switzerland",
+    "SY": "Syria", "TW": "Taiwan", "TH": "Thailand", "TR": "Turkey",
+    "UA": "Ukraine", "AE": "UAE", "GB": "United Kingdom", "US": "United States",
+    "VN": "Vietnam", "YE": "Yemen",
+}
 
 
 def setup_routes(app: web.Application) -> None:
@@ -13,6 +40,11 @@ def setup_routes(app: web.Application) -> None:
     app.router.add_post("/api/v1/webshield/uninstall", post_webshield_uninstall)
     app.router.add_get("/api/v1/webshield/rules", get_webshield_rules)
     app.router.add_post("/api/v1/webshield/update-blocklist", post_webshield_update_blocklist)
+    app.router.add_get("/api/v1/webshield/geo-status", get_geo_status)
+    app.router.add_get("/api/v1/webshield/geo-rules", get_geo_rules)
+    app.router.add_post("/api/v1/webshield/geo-rules", post_geo_rules)
+    app.router.add_delete("/api/v1/webshield/geo-rules/{country_code}", delete_geo_rule)
+    app.router.add_post("/api/v1/webshield/geo-update-db", post_geo_update_db)
 
 
 async def get_webshield_status(request: web.Request) -> web.Response:
@@ -83,3 +115,126 @@ async def post_webshield_update_blocklist(request: web.Request) -> web.Response:
         return _err("Failed to write blocked IPs file", 500)
 
     return _ok({"updated": True, "count": len(ips)})
+
+
+# ── GeoIP endpoints ────────────────────────────────────────────────────────
+
+
+async def get_geo_status(request: web.Request) -> web.Response:
+    """GeoIP database info and status."""
+    geoip = request.app.get("geoip")
+    if not geoip:
+        return _ok({"enabled": False, "available": False})
+    return _ok({"enabled": True, **geoip.db_info()})
+
+
+async def get_geo_rules(request: web.Request) -> web.Response:
+    """List blocked/allowed countries."""
+    config = request.app.get("config")
+    if not config:
+        return _ok({"rules": [], "mode": "none"})
+
+    blocked = config.geoip_blocked_countries
+    allowed = config.geoip_allowed_countries
+    action = config.geoip_action
+
+    rules = []
+    if allowed:
+        for cc in allowed:
+            rules.append({"country_code": cc, "country_name": _COUNTRY_NAMES.get(cc, cc), "action": "allow", "enabled": True})
+        mode = "whitelist"
+    elif blocked:
+        for cc in blocked:
+            rules.append({"country_code": cc, "country_name": _COUNTRY_NAMES.get(cc, cc), "action": action, "enabled": True})
+        mode = "blocklist"
+    else:
+        mode = "none"
+
+    return _ok({"rules": rules, "mode": mode, "action": action})
+
+
+async def post_geo_rules(request: web.Request) -> web.Response:
+    """Set blocked or allowed countries. Regenerates nginx config."""
+    from lib.config import update_conf_key
+    from lib.constants import CONFIG_FILE
+
+    try:
+        body = await request.json()
+    except Exception:
+        return _err("Invalid JSON body")
+
+    countries = body.get("countries", [])
+    action = body.get("action", "block")
+    mode = body.get("mode", "blocklist")  # "blocklist" or "whitelist"
+
+    if not isinstance(countries, list):
+        return _err("'countries' must be a list of ISO 3166-1 alpha-2 codes")
+
+    # Validate country codes
+    clean = []
+    for cc in countries:
+        cc = str(cc).upper().strip()
+        if not _COUNTRY_CODE_RE.match(cc):
+            return _err("Invalid country code: %s" % cc)
+        clean.append(cc)
+
+    if action not in ("block", "challenge", "log"):
+        return _err("Invalid action: %s (must be block, challenge, or log)" % action)
+
+    config_file = CONFIG_FILE
+    if mode == "whitelist":
+        update_conf_key(config_file, "GEOIP_ALLOWED_COUNTRIES", ",".join(clean))
+        update_conf_key(config_file, "GEOIP_BLOCKED_COUNTRIES", "")
+    else:
+        update_conf_key(config_file, "GEOIP_BLOCKED_COUNTRIES", ",".join(clean))
+        update_conf_key(config_file, "GEOIP_ALLOWED_COUNTRIES", "")
+
+    update_conf_key(config_file, "GEOIP_ACTION", action)
+    if clean:
+        update_conf_key(config_file, "GEOIP_ENABLED", "yes")
+
+    # Reinstall WebShield to regenerate nginx config
+    webshield = request.app.get("webshield")
+    if webshield:
+        await webshield.install()
+
+    return _ok({"countries": clean, "mode": mode, "action": action})
+
+
+async def delete_geo_rule(request: web.Request) -> web.Response:
+    """Remove a single country from the block/allow list."""
+    from lib.config import load_config, update_conf_key
+    from lib.constants import CONFIG_FILE
+
+    cc = request.match_info["country_code"].upper().strip()
+    if not _COUNTRY_CODE_RE.match(cc):
+        return _err("Invalid country code: %s" % cc)
+
+    config = load_config()
+    blocked = list(config.geoip_blocked_countries)
+    allowed = list(config.geoip_allowed_countries)
+
+    if cc in blocked:
+        blocked.remove(cc)
+        update_conf_key(CONFIG_FILE, "GEOIP_BLOCKED_COUNTRIES", ",".join(blocked))
+    if cc in allowed:
+        allowed.remove(cc)
+        update_conf_key(CONFIG_FILE, "GEOIP_ALLOWED_COUNTRIES", ",".join(allowed))
+
+    webshield = request.app.get("webshield")
+    if webshield:
+        await webshield.install()
+
+    return _ok({"removed": cc})
+
+
+async def post_geo_update_db(request: web.Request) -> web.Response:
+    """Download/update MaxMind GeoIP database."""
+    geoip = request.app.get("geoip")
+    if not geoip:
+        return _err("GeoIP not configured")
+
+    success, msg = await geoip.download_database()
+    if not success:
+        return _err(msg, 500)
+    return _ok({"message": msg})

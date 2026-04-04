@@ -182,6 +182,15 @@ class ComponentRegistry:
         app["ufw"] = self.ufw
         app["sshjail"] = self.sshjail
         app["crowdsec"] = self.crowdsec
+        # GeoIP manager (lazy-loaded, lives alongside webshield)
+        if self.config.geoip_enabled:
+            from lib.webshield.geoip import GeoIPManager
+            app["geoip"] = GeoIPManager(
+                db_path=self.config.geoip_db_path,
+                license_key=self.config.geoip_maxmind_license_key,
+            )
+        else:
+            app["geoip"] = None
 
     def background_tasks(self, daemon) -> list:
         tasks = []
@@ -273,6 +282,11 @@ def _build_webshield(config: JabaliConfig) -> WebShieldManager | None:
         rate_burst=config.webshield_rate_burst,
         challenge_enabled=config.webshield_challenge_enabled,
         bot_filtering=config.webshield_bot_filtering,
+        geoip_enabled=config.geoip_enabled,
+        geoip_db_path=config.geoip_db_path,
+        geoip_blocked_countries=config.geoip_blocked_countries,
+        geoip_allowed_countries=config.geoip_allowed_countries,
+        geoip_action=config.geoip_action,
     )
 
 
