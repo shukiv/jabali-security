@@ -897,6 +897,17 @@ do_update() {
     cp "$tmp_dir"/bin/jabali-security "$INSTALL_DIR/bin/"
     chmod +x "$INSTALL_DIR/bin/jabali-security"
 
+    # -- Ensure Python dependencies are up to date --
+    local _venv_dir="$INSTALL_DIR/venv"
+    if [ -f "$_venv_dir/bin/pip" ]; then
+        local pip_pkgs="pydantic>=2.0 yara-x>=0.11 click>=8.0 aiohttp>=3.9 pyyaml>=6.0 aiosqlite>=0.20 maxminddb>=2.0"
+        if command -v uv >/dev/null 2>&1; then
+            uv pip install --python "$_venv_dir/bin/python" $pip_pkgs 2>/dev/null || true
+        else
+            "$_venv_dir/bin/pip" install --quiet $pip_pkgs 2>/dev/null || true
+        fi
+    fi
+
     # -- Update Jabali Panel plugin if panel exists --
     JABALI_PANEL_DIR="/var/www/jabali"
     if [ -d "$JABALI_PANEL_DIR/app/Filament" ] && [ -d "$tmp_dir/panel" ]; then
