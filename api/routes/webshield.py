@@ -244,6 +244,8 @@ async def post_geo_update_db(request: web.Request) -> web.Response:
 
     try:
         body = await request.json()
+        if not isinstance(body, dict):
+            body = {}
     except Exception:
         body = {}
 
