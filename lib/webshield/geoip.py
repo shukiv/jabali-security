@@ -239,14 +239,13 @@ class GeoIPManager:
             "    set $jabali_do_geo_challenge '';",
             "}",
             "if ($jabali_do_geo_challenge = 'yes') {",
-            "    return 503;",
+            "    rewrite ^ /jabali-challenge.html last;",
             "}",
             "",
-            "# Challenge page",
-            "error_page 503 /jabali-challenge.html;",
+            "# Challenge page (served from filesystem, not proxied)",
             "location = /jabali-challenge.html {",
             "    root /etc/nginx/jabali/challenge;",
-            "    internal;",
+            "    default_type text/html;",
             "}",
         ]
 
