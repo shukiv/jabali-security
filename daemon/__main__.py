@@ -455,31 +455,6 @@ def update() -> None:
                 with open(provider, "w") as fh:
                     fh.write(content)
                 click.echo("Security plugin registered in AdminPanelProvider.")
-        # Merge translation strings into panel lang files
-        lang_src = os.path.join(panel_src, "lang")
-        lang_dst = "/var/www/jabali/lang"
-        if os.path.isdir(lang_src) and os.path.isdir(lang_dst):
-            import json
-            for lang_file in os.listdir(lang_src):
-                if not lang_file.endswith(".json"):
-                    continue
-                src_path = os.path.join(lang_src, lang_file)
-                dst_path = os.path.join(lang_dst, lang_file)
-                try:
-                    with open(src_path) as f:
-                        new_strings = json.load(f)
-                    existing = {}
-                    if os.path.isfile(dst_path):
-                        with open(dst_path) as f:
-                            existing = json.load(f)
-                    # Merge: add new keys without overwriting existing translations
-                    for key, val in new_strings.items():
-                        if key not in existing:
-                            existing[key] = val
-                    with open(dst_path, "w") as f:
-                        json.dump(existing, f, ensure_ascii=False, indent=4, sort_keys=True)
-                except Exception:
-                    pass
         click.echo("Jabali Panel plugin updated.")
 
     # Cleanup
