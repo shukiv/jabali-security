@@ -71,7 +71,7 @@ class GeoBlockTable extends Component implements HasActions, HasSchemas, HasTabl
                             ->title(__('Country removed: :cc', ['cc' => $cc]))
                             ->success()
                             ->send();
-                        $this->redirect(url('/jabali-admin/security?tab=defense&defense=webshield'), navigate: true);
+                        $this->redirect(url('/jabali-admin/security?tab=defense&defense=geoip'), navigate: true);
                     }),
             ])
             ->headerActions([
@@ -114,7 +114,7 @@ class GeoBlockTable extends Component implements HasActions, HasSchemas, HasTabl
                             ->title(__('Countries blocked: :codes', ['codes' => implode(', ', $codes)]))
                             ->success()
                             ->send();
-                        $this->redirect(url('/jabali-admin/security?tab=defense&defense=webshield'), navigate: true);
+                        $this->redirect(url('/jabali-admin/security?tab=defense&defense=geoip'), navigate: true);
                     }),
                 Action::make('update_db')
                     ->label(__('Update GeoIP DB'))
