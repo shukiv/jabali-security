@@ -81,11 +81,15 @@ class Security extends Page implements HasActions, HasForms
 
     public bool $expertMode = false;
 
+    public string $geoipLicenseKey = '';
+    public string $geoipAction = 'block';
+
     public function mount(): void
     {
         $config = $this->client()->get('/config') ?? [];
         $this->loadConfigData($config);
         $this->loadModuleStates($config);
+        $this->geoipAction = $config['GEOIP_ACTION'] ?? 'block';
     }
 
     protected function loadModuleStates(array $config): void
@@ -226,7 +230,37 @@ class Security extends Page implements HasActions, HasForms
                                     'geoip' => Tab::make(__('GeoIP'))
                                         ->icon('heroicon-o-globe-alt')
                                         ->schema(array_merge(
-                                            [Text::make(__('Block or allow traffic by country using MaxMind GeoLite2 database. Click "MaxMind Settings" to configure your free license key, then "Update GeoIP DB" to download.'))->size(TextSize::Small)->color('gray')],
+                                            [
+                                                Text::make(__('Block or allow traffic by country using MaxMind GeoLite2 database.'))->size(TextSize::Small)->color('gray'),
+                                                Section::make(__('MaxMind Configuration'))
+                                                    ->compact()
+                                                    ->collapsible()
+                                                    ->description(__('Sign up free at maxmind.com/en/geolite2/signup, then generate a license key under Account → Manage License Keys.'))
+                                                    ->headerActions([
+                                                        Action::make('saveGeoipSettings')
+                                                            ->label(__('Save'))
+                                                            ->icon('heroicon-o-check')
+                                                            ->color('success')
+                                                            ->size('xs')
+                                                            ->action('saveGeoipSettings'),
+                                                    ])
+                                                    ->schema([
+                                                        Grid::make(3)->schema([
+                                                            TextInput::make('geoipLicenseKey')
+                                                                ->label(__('MaxMind License Key'))
+                                                                ->password()
+                                                                ->revealable()
+                                                                ->placeholder(__('Enter license key')),
+                                                            Select::make('geoipAction')
+                                                                ->label(__('Default Action'))
+                                                                ->options([
+                                                                    'block' => __('Block (403)'),
+                                                                    'challenge' => __('Challenge (JS)'),
+                                                                    'log' => __('Log only'),
+                                                                ]),
+                                                        ]),
+                                                    ]),
+                                            ],
                                             [EmbeddedTable::make(GeoBlockTable::class)],
                                         )),
                                     'ssh' => Tab::make(__('SSH Jail'))
@@ -813,6 +847,29 @@ class Security extends Page implements HasActions, HasForms
         $this->redirect(static::getUrl(['tab' => 'overview']));
     }
 
+    // ── GeoIP Actions ────────────────────────────────────────────────
+
+    public function saveGeoipSettings(): void
+    {
+        $patch = ['GEOIP_ENABLED' => 'yes'];
+
+        if (! empty($this->geoipLicenseKey)) {
+            $patch['GEOIP_MAXMIND_LICENSE_KEY'] = $this->geoipLicenseKey;
+        }
+        if (! empty($this->geoipAction)) {
+            $patch['GEOIP_ACTION'] = $this->geoipAction;
+        }
+
+        $result = $this->client()->patch('/config', $patch);
+
+        Notification::make()
+            ->title($result ? __('GeoIP settings saved') : __('Failed to save settings'))
+            ->{($result ? 'success' : 'danger')}()
+            ->send();
+
+        $this->geoipLicenseKey = '';
+    }
+
     // ── Firewall Actions ─────────────────────────────────────────────
 
     public function enableFirewall(): void
@@ -966,6 +1023,12 @@ class Security extends Page implements HasActions, HasForms
         'CROWDSEC_LAPI_URL' => 'CrowdSec Local API URL (default: http://127.0.0.1:8080)',
         'CROWDSEC_BOUNCER_KEY' => 'Bouncer API key (generated by installer)',
         'CROWDSEC_SYNC_INTERVAL' => 'Decision polling interval in seconds',
+        'GEOIP_ENABLED' => 'Enable GeoIP country blocking with MaxMind database',
+        'GEOIP_MAXMIND_LICENSE_KEY' => 'MaxMind license key (free at maxmind.com/en/geolite2/signup)',
+        'GEOIP_DB_PATH' => 'Path to GeoLite2-Country.mmdb database file',
+        'GEOIP_ACTION' => 'Default action for blocked countries: block, challenge, or log',
+        'GEOIP_BLOCKED_COUNTRIES' => 'Comma-separated ISO country codes to block (e.g. CN,RU,KP)',
+        'GEOIP_ALLOWED_COUNTRIES' => 'Whitelist mode: only these countries allowed (overrides blocked list)',
     ];
 
     // ── Static Data ──────────────────────────────────────────────────
