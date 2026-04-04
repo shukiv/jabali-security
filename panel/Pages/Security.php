@@ -226,7 +226,7 @@ class Security extends Page implements HasActions, HasForms
                                     'geoip' => Tab::make(__('GeoIP'))
                                         ->icon('heroicon-o-globe-alt')
                                         ->schema(array_merge(
-                                            [Text::make(__('Block or allow traffic by country using MaxMind GeoLite2 database. Configure your MaxMind license key in Settings to enable auto-download.'))->size(TextSize::Small)->color('gray')],
+                                            [Text::make(__('Block or allow traffic by country using MaxMind GeoLite2 database. Click "MaxMind Settings" to configure your free license key, then "Update GeoIP DB" to download.'))->size(TextSize::Small)->color('gray')],
                                             [EmbeddedTable::make(GeoBlockTable::class)],
                                         )),
                                     'ssh' => Tab::make(__('SSH Jail'))

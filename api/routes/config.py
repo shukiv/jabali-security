@@ -40,6 +40,10 @@ async def get_config(request: web.Request) -> web.Response:
         # Redact sensitive values
         if key == "API_KEY":
             data[key] = "set" if config.api_key else "unset"
+            continue
+        if key == "GEOIP_MAXMIND_LICENSE_KEY":
+            data[key] = "set" if config.geoip_maxmind_license_key else ""
+            continue
         elif isinstance(value, list):
             data[key] = ",".join(str(v) for v in value)
         elif isinstance(value, bool):

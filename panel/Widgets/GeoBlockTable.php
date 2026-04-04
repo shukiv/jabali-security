@@ -6,6 +6,7 @@ namespace App\JabaliSecurity\Widgets;
 
 use App\JabaliSecurity\JabaliSecurityClient;
 use Filament\Actions\Action;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
@@ -120,13 +121,79 @@ class GeoBlockTable extends Component implements HasActions, HasSchemas, HasTabl
                     ->label(__('Update GeoIP DB'))
                     ->icon('heroicon-o-arrow-path')
                     ->requiresConfirmation()
-                    ->modalDescription(__('Download the latest MaxMind GeoLite2-Country database. Requires a license key in Settings.'))
+                    ->modalDescription(__('Download the latest MaxMind GeoLite2-Country database. Requires a license key configured below.'))
                     ->action(function (): void {
                         $result = $this->client()->post('/webshield/geo-update-db');
                         Notification::make()
                             ->title($result ? __('GeoIP database updated') : __('GeoIP update failed'))
                             ->{($result ? 'success' : 'danger')}()
                             ->send();
+                    }),
+                Action::make('configure_maxmind')
+                    ->label(__('MaxMind Settings'))
+                    ->icon('heroicon-o-cog-6-tooth')
+                    ->color('gray')
+                    ->modalHeading(__('MaxMind GeoIP Configuration'))
+                    ->modalWidth('lg')
+                    ->form(function (): array {
+                        $config = $this->client()->get('/config');
+                        $hasKey = ($config['GEOIP_MAXMIND_LICENSE_KEY'] ?? '') === 'set';
+
+                        return [
+                            Placeholder::make('instructions')
+                                ->label('')
+                                ->content(
+                                    __('To use GeoIP blocking, you need a free MaxMind account:') . "\n\n" .
+                                    '1. ' . __('Sign up at maxmind.com/en/geolite2/signup') . "\n" .
+                                    '2. ' . __('Go to Account → Manage License Keys → Generate New License Key') . "\n" .
+                                    '3. ' . __('Copy your Account ID and License Key below') . "\n" .
+                                    '4. ' . __('Click Save, then use "Update GeoIP DB" to download the database')
+                                ),
+                            TextInput::make('account_id')
+                                ->label(__('MaxMind Account ID'))
+                                ->helperText(__('Your numeric Account ID from maxmind.com'))
+                                ->placeholder('123456'),
+                            TextInput::make('license_key')
+                                ->label(__('License Key'))
+                                ->helperText($hasKey ? __('A license key is already configured. Leave blank to keep it.') : __('Generate this from your MaxMind account'))
+                                ->placeholder($hasKey ? '••••••••' : 'xxxx_xxxxxxxxxxxx')
+                                ->password()
+                                ->revealable(),
+                            Select::make('geoip_action')
+                                ->label(__('Default Action'))
+                                ->options([
+                                    'block' => __('Block (403 Forbidden)'),
+                                    'challenge' => __('Challenge (JS page)'),
+                                    'log' => __('Log only'),
+                                ])
+                                ->default($config['GEOIP_ACTION'] ?? 'block'),
+                        ];
+                    })
+                    ->action(function (array $data): void {
+                        $patch = ['GEOIP_ENABLED' => 'yes'];
+
+                        if (! empty($data['license_key'])) {
+                            $patch['GEOIP_MAXMIND_LICENSE_KEY'] = $data['license_key'];
+                        }
+                        if (! empty($data['geoip_action'])) {
+                            $patch['GEOIP_ACTION'] = $data['geoip_action'];
+                        }
+
+                        $this->client()->patch('/config', $patch);
+
+                        // Write /etc/GeoIP.conf for geoipupdate CLI tool
+                        if (! empty($data['account_id']) && ! empty($data['license_key'])) {
+                            $this->client()->post('/webshield/geo-update-db', [
+                                'account_id' => $data['account_id'],
+                                'license_key' => $data['license_key'],
+                            ]);
+                        }
+
+                        Notification::make()
+                            ->title(__('MaxMind settings saved'))
+                            ->success()
+                            ->send();
+                        $this->redirect(url('/jabali-admin/security?tab=defense&defense=geoip'), navigate: true);
                     }),
             ])
             ->emptyStateHeading(__('No country rules'))
