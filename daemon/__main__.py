@@ -401,6 +401,23 @@ def update() -> None:
     if os.path.exists(bin_src):
         shutil.copy2(bin_src, os.path.join(INSTALL_DIR, "bin", "jabali-security"))
 
+    # Ensure Python dependencies are up to date
+    venv_pip = os.path.join(INSTALL_DIR, "venv", "bin", "pip")
+    if os.path.isfile(venv_pip):
+        pip_pkgs = ["pydantic>=2.0", "yara-x>=0.11", "click>=8.0", "aiohttp>=3.9",
+                     "pyyaml>=6.0", "aiosqlite>=0.20", "maxminddb>=2.0"]
+        venv_python = os.path.join(INSTALL_DIR, "venv", "bin", "python")
+        if shutil.which("uv"):
+            subprocess.run(  # noqa: S603
+                ["uv", "pip", "install", "--python", venv_python] + pip_pkgs,
+                capture_output=True, timeout=120,
+            )
+        else:
+            subprocess.run(  # noqa: S603
+                [venv_pip, "install", "--quiet"] + pip_pkgs,
+                capture_output=True, timeout=120,
+            )
+
     # Update Jabali Panel plugin if panel exists
     panel_dir = "/var/www/jabali/app/JabaliSecurity"
     panel_src = os.path.join(tmp_dir, "panel")
