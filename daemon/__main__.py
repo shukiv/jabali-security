@@ -418,6 +418,19 @@ def update() -> None:
                 capture_output=True, timeout=120,
             )
 
+    # Deploy shared challenge page and njs validator
+    challenge_dir = "/etc/nginx/jabali/challenge"
+    njs_dir = "/etc/nginx/jabali-security"
+    os.makedirs(challenge_dir, exist_ok=True)
+    os.makedirs(njs_dir, exist_ok=True)
+    ws_dir = os.path.join(INSTALL_DIR, "etc", "webshield")
+    challenge_src = os.path.join(ws_dir, "challenge.html")
+    njs_src = os.path.join(ws_dir, "jabali_challenge.js")
+    if os.path.isfile(challenge_src):
+        shutil.copy2(challenge_src, os.path.join(challenge_dir, "jabali-challenge.html"))
+    if os.path.isfile(njs_src):
+        shutil.copy2(njs_src, os.path.join(njs_dir, "jabali_challenge.js"))
+
     # Update Jabali Panel plugin if panel exists
     panel_dir = "/var/www/jabali/app/JabaliSecurity"
     panel_src = os.path.join(tmp_dir, "panel")

@@ -170,9 +170,11 @@ class GeoIPManager:
             "# Jabali Security GeoIP -- auto-generated",
             "# Included in nginx http{} block",
             "",
-            "# Challenge cookie validation (njs)",
-            "js_import jabali from /etc/nginx/jabali-security/jabali_challenge.js;",
-            "js_set $jabali_challenge_valid jabali.validate;",
+            "# Challenge cookie bypass — check if jabali_passed cookie exists",
+            "map $cookie_jabali_passed $jabali_challenge_valid {",
+            "    default '0';",
+            "    '~.+' '1';",
+            "}",
         ]
 
         if not self._db_path.is_file():
