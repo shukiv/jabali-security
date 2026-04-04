@@ -298,7 +298,7 @@ do_install() {
         # YARA-X is the primary real-time scanner; clamscan is for manual use.
         case "$pkg_mgr" in
             apt) run_with_spinner "Installing ClamAV" pkg_install clamav clamav-freshclam
-                 pkg_install geoipupdate 2>/dev/null || true ;;
+                 pkg_install geoipupdate libnginx-mod-http-js 2>/dev/null || true ;;
             dnf) run_with_spinner "Installing ClamAV" pkg_install clamav clamav-update
                  pkg_install geoipupdate 2>/dev/null || true ;;
             yum) run_with_spinner "Installing ClamAV" pkg_install clamav clamav-update
@@ -415,6 +415,11 @@ do_install() {
     cp -r "$tmp_dir"/etc/webshield "$INSTALL_DIR/etc/" 2>/dev/null || true
     cp "$tmp_dir"/bin/jabali-security "$INSTALL_DIR/bin/"
     chmod +x "$INSTALL_DIR/bin/jabali-security"
+
+    # Deploy shared challenge page and njs validator
+    mkdir -p /etc/nginx/jabali/challenge /etc/nginx/jabali-security
+    cp "$INSTALL_DIR/etc/webshield/challenge.html" /etc/nginx/jabali/challenge/jabali-challenge.html 2>/dev/null || true
+    cp "$INSTALL_DIR/etc/webshield/jabali_challenge.js" /etc/nginx/jabali-security/jabali_challenge.js 2>/dev/null || true
 
     done_ok "Application files installed"
 
@@ -896,6 +901,11 @@ do_update() {
     cp -r "$tmp_dir"/etc/webshield "$INSTALL_DIR/etc/" 2>/dev/null || true
     cp "$tmp_dir"/bin/jabali-security "$INSTALL_DIR/bin/"
     chmod +x "$INSTALL_DIR/bin/jabali-security"
+
+    # Deploy shared challenge page and njs validator
+    mkdir -p /etc/nginx/jabali/challenge /etc/nginx/jabali-security
+    cp "$INSTALL_DIR/etc/webshield/challenge.html" /etc/nginx/jabali/challenge/jabali-challenge.html 2>/dev/null || true
+    cp "$INSTALL_DIR/etc/webshield/jabali_challenge.js" /etc/nginx/jabali-security/jabali_challenge.js 2>/dev/null || true
 
     # -- Ensure Python dependencies are up to date --
     local _venv_dir="$INSTALL_DIR/venv"

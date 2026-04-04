@@ -82,18 +82,25 @@ class NginxConfigGenerator:
             "    return 403;",
             "}",
             "",
-            "# Bot challenge (redirect to JS challenge page)",
+            "# Bot challenge: bypass if PoW cookie is valid",
+            "set $jabali_do_bot_challenge '';",
             "if ($jabali_bot_action = 'challenge') {",
+            "    set $jabali_do_bot_challenge 'yes';",
+            "}",
+            "if ($jabali_challenge_valid = '1') {",
+            "    set $jabali_do_bot_challenge '';",
+            "}",
+            "if ($jabali_do_bot_challenge = 'yes') {",
             "    return 503;",
             "}",
         ]
 
         lines += [
             "",
-            "# Custom error page for challenge",
+            "# Shared challenge page",
             "error_page 503 /jabali-challenge.html;",
             "location = /jabali-challenge.html {",
-            "    root %s;" % self._config_dir,
+            "    root /etc/nginx/jabali/challenge;",
             "    internal;",
             "}",
         ]

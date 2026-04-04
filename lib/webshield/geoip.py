@@ -169,6 +169,10 @@ class GeoIPManager:
         http_lines = [
             "# Jabali Security GeoIP -- auto-generated",
             "# Included in nginx http{} block",
+            "",
+            "# Challenge cookie validation (njs)",
+            "js_import jabali from /etc/nginx/jabali-security/jabali_challenge.js;",
+            "js_set $jabali_challenge_valid jabali.validate;",
         ]
 
         if not self._db_path.is_file():
@@ -215,7 +219,7 @@ class GeoIPManager:
         http_path.write_text("\n".join(http_lines) + "\n", encoding="utf-8")
         written.append(str(http_path))
 
-        # --- server-level config: if blocks ---
+        # --- server-level config: if blocks with cookie bypass ---
         server_lines = [
             "# Jabali Security GeoIP -- auto-generated",
             "# Included in nginx server{} blocks",
@@ -224,8 +228,23 @@ class GeoIPManager:
             "    return 403;",
             "}",
             "",
+            "# Challenge: bypass if PoW cookie is valid",
+            "set $jabali_do_geo_challenge '';",
             "if ($jabali_geo_action = 'challenge') {",
+            "    set $jabali_do_geo_challenge 'yes';",
+            "}",
+            "if ($jabali_challenge_valid = '1') {",
+            "    set $jabali_do_geo_challenge '';",
+            "}",
+            "if ($jabali_do_geo_challenge = 'yes') {",
             "    return 503;",
+            "}",
+            "",
+            "# Challenge page",
+            "error_page 503 /jabali-challenge.html;",
+            "location = /jabali-challenge.html {",
+            "    root /etc/nginx/jabali/challenge;",
+            "    internal;",
             "}",
         ]
 
@@ -233,6 +252,23 @@ class GeoIPManager:
         server_dir.mkdir(parents=True, exist_ok=True)
         server_path.write_text("\n".join(server_lines) + "\n", encoding="utf-8")
         written.append(str(server_path))
+
+        # Deploy challenge page and njs script
+        challenge_dir = Path("/etc/nginx/jabali/challenge")
+        challenge_dir.mkdir(parents=True, exist_ok=True)
+        njs_dir = Path("/etc/nginx/jabali-security")
+        njs_dir.mkdir(parents=True, exist_ok=True)
+
+        src_dir = Path(__file__).parent.parent.parent / "etc" / "webshield"
+        challenge_src = src_dir / "challenge.html"
+        njs_src = src_dir / "jabali_challenge.js"
+
+        if challenge_src.is_file():
+            shutil.copy2(str(challenge_src), str(challenge_dir / "jabali-challenge.html"))
+            written.append(str(challenge_dir / "jabali-challenge.html"))
+        if njs_src.is_file():
+            shutil.copy2(str(njs_src), str(njs_dir / "jabali_challenge.js"))
+            written.append(str(njs_dir / "jabali_challenge.js"))
 
         # Reload nginx
         import subprocess

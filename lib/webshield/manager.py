@@ -64,16 +64,21 @@ class WebShieldManager:
         try:
             written = self._generator.write_configs()
 
-            # Write challenge page
-            challenge_src = Path(__file__).parent.parent.parent / "etc" / "webshield" / "challenge.html"
-            challenge_dst = self._config_dir / "jabali-challenge.html"
+            # Deploy shared challenge page and njs script
+            src_dir = Path(__file__).parent.parent.parent / "etc" / "webshield"
+            challenge_dir = Path("/etc/nginx/jabali/challenge")
+            challenge_dir.mkdir(parents=True, exist_ok=True)
+            njs_dir = Path("/etc/nginx/jabali-security")
+            njs_dir.mkdir(parents=True, exist_ok=True)
+
+            challenge_src = src_dir / "challenge.html"
             if challenge_src.is_file():
-                shutil.copy2(str(challenge_src), str(challenge_dst))
-                written.append(str(challenge_dst))
-            else:
-                # Generate a minimal challenge page
-                challenge_dst.write_text(self._default_challenge_page(), encoding="utf-8")
-                written.append(str(challenge_dst))
+                shutil.copy2(str(challenge_src), str(challenge_dir / "jabali-challenge.html"))
+                written.append(str(challenge_dir / "jabali-challenge.html"))
+            njs_src = src_dir / "jabali_challenge.js"
+            if njs_src.is_file():
+                shutil.copy2(str(njs_src), str(njs_dir / "jabali_challenge.js"))
+                written.append(str(njs_dir / "jabali_challenge.js"))
 
             # Add http-level include to nginx.conf if not present
             self._add_nginx_http_include()
@@ -232,43 +237,3 @@ class WebShieldManager:
         except OSError:
             return False
 
-    @staticmethod
-    def _default_challenge_page() -> str:
-        """Generate a minimal JS challenge page."""
-        return """<!DOCTYPE html>
-<html>
-<head>
-    <title>Security Check</title>
-    <style>
-        body { font-family: sans-serif; text-align: center; padding: 50px; background: #f5f5f5; }
-        .box { background: white; padding: 40px; border-radius: 8px; display: inline-block; box-shadow: 0 2px 10px rgba(0,0,0,.1); }
-        h1 { color: #333; }
-        p { color: #666; }
-        .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    </style>
-</head>
-<body>
-    <div class="box">
-        <h1>Security Check</h1>
-        <div class="spinner"></div>
-        <p>Verifying your browser...</p>
-        <p id="status">Please wait</p>
-    </div>
-    <script>
-        (function() {
-            var t = Date.now();
-            var c = 0;
-            for (var i = 0; i < 1000000; i++) c += i;
-            var d = Date.now() - t;
-            if (d > 0 && d < 10000 && c > 0) {
-                document.cookie = "jabali_verified=" + btoa(t + ":" + d) + "; path=/; max-age=3600";
-                document.getElementById("status").textContent = "Verified! Redirecting...";
-                setTimeout(function() { location.reload(); }, 500);
-            } else {
-                document.getElementById("status").textContent = "Verification failed.";
-            }
-        })();
-    </script>
-</body>
-</html>"""
