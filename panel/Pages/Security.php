@@ -222,7 +222,10 @@ class Security extends Page implements HasActions, HasForms
                                             [Text::make(__('Nginx-level protection: rate limiting, bot user-agent filtering, and JavaScript challenge pages for suspicious clients. Requires nginx include after install.'))->size(TextSize::Small)->color('gray')],
                                             $this->webshieldStats(),
                                             [EmbeddedTable::make(WebshieldRulesTable::class)],
-                                            [Text::make(__('GeoIP Country Blocking'))->size(TextSize::Large)->weight(FontWeight::Bold)],
+                                        )),
+                                    'geoip' => Tab::make(__('GeoIP'))
+                                        ->icon('heroicon-o-globe-alt')
+                                        ->schema(array_merge(
                                             [Text::make(__('Block or allow traffic by country using MaxMind GeoLite2 database. Configure your MaxMind license key in Settings to enable auto-download.'))->size(TextSize::Small)->color('gray')],
                                             [EmbeddedTable::make(GeoBlockTable::class)],
                                         )),
