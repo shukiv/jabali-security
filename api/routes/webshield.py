@@ -206,10 +206,15 @@ async def post_geo_rules(request: web.Request) -> web.Response:
     for attr in vars(new_config):
         setattr(old_config, attr, getattr(new_config, attr))
 
-    # Reinstall WebShield to regenerate nginx config
-    webshield = request.app.get("webshield")
-    if webshield:
-        await webshield.install()
+    # Write standalone GeoIP nginx config and reload
+    geoip = request.app.get("geoip")
+    if geoip:
+        cfg = request.app["config"]
+        geoip.write_nginx_configs(
+            list(cfg.geoip_blocked_countries),
+            list(cfg.geoip_allowed_countries),
+            cfg.geoip_action,
+        )
 
     return _ok({"countries": clean, "mode": mode, "action": action})
 
@@ -240,9 +245,15 @@ async def delete_geo_rule(request: web.Request) -> web.Response:
     for attr in vars(new_config):
         setattr(old_config, attr, getattr(new_config, attr))
 
-    webshield = request.app.get("webshield")
-    if webshield:
-        await webshield.install()
+    # Regenerate GeoIP nginx config
+    geoip = request.app.get("geoip")
+    if geoip:
+        cfg = request.app["config"]
+        geoip.write_nginx_configs(
+            list(cfg.geoip_blocked_countries),
+            list(cfg.geoip_allowed_countries),
+            cfg.geoip_action,
+        )
 
     return _ok({"removed": cc})
 

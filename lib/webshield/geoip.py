@@ -149,6 +149,108 @@ class GeoIPManager:
             return "block" if country in blocked_countries else "pass"
         return "pass"
 
+    def write_nginx_configs(
+        self,
+        blocked_countries: list[str],
+        allowed_countries: list[str],
+        action: str = "block",
+    ) -> list[str]:
+        """Write standalone nginx GeoIP configs. Returns list of paths written.
+
+        Writes two files:
+        - /etc/nginx/jabali/cache-zones/geoip.conf  (http-level: geoip2 + map)
+        - /etc/nginx/jabali/includes/geo.conf        (server-level: if blocks)
+        """
+        http_dir = Path("/etc/nginx/jabali/cache-zones")
+        server_dir = Path("/etc/nginx/jabali/includes")
+        written: list[str] = []
+
+        # --- http-level config: geoip2 directive + country map ---
+        http_lines = [
+            "# Jabali Security GeoIP -- auto-generated",
+            "# Included in nginx http{} block",
+        ]
+
+        if not self._db_path.is_file():
+            # No database — write empty passthrough
+            http_lines += [
+                "# GeoIP database not available",
+                "map $remote_addr $jabali_geo_action {",
+                "    default 'pass';",
+                "}",
+            ]
+        else:
+            http_lines += [
+                "",
+                "geoip2 %s {" % self._db_path,
+                "    auto_reload 60m;",
+                "    $geoip2_country_code country iso_code;",
+                "}",
+                "",
+            ]
+
+            if allowed_countries:
+                http_lines.append("# Whitelist mode: block all except listed")
+                http_lines.append("map $geoip2_country_code $jabali_geo_action {")
+                http_lines.append("    default '%s';" % action)
+                for cc in allowed_countries:
+                    safe_cc = cc.upper()[:2]
+                    http_lines.append("    %s 'pass';" % safe_cc)
+                http_lines.append("}")
+            elif blocked_countries:
+                http_lines.append("# Blocklist mode: allow all except listed")
+                http_lines.append("map $geoip2_country_code $jabali_geo_action {")
+                http_lines.append("    default 'pass';")
+                for cc in blocked_countries:
+                    safe_cc = cc.upper()[:2]
+                    http_lines.append("    %s '%s';" % (safe_cc, action))
+                http_lines.append("}")
+            else:
+                http_lines.append("map $geoip2_country_code $jabali_geo_action {")
+                http_lines.append("    default 'pass';")
+                http_lines.append("}")
+
+        http_path = http_dir / "geoip.conf"
+        http_dir.mkdir(parents=True, exist_ok=True)
+        http_path.write_text("\n".join(http_lines) + "\n", encoding="utf-8")
+        written.append(str(http_path))
+
+        # --- server-level config: if blocks ---
+        server_lines = [
+            "# Jabali Security GeoIP -- auto-generated",
+            "# Included in nginx server{} blocks",
+            "",
+            "if ($jabali_geo_action = 'block') {",
+            "    return 403;",
+            "}",
+            "",
+            "if ($jabali_geo_action = 'challenge') {",
+            "    return 503;",
+            "}",
+        ]
+
+        server_path = server_dir / "geo.conf"
+        server_dir.mkdir(parents=True, exist_ok=True)
+        server_path.write_text("\n".join(server_lines) + "\n", encoding="utf-8")
+        written.append(str(server_path))
+
+        # Reload nginx
+        import subprocess
+        try:
+            subprocess.run(  # noqa: S603
+                ["/usr/sbin/nginx", "-t"],
+                capture_output=True, timeout=10,
+            )
+            subprocess.run(  # noqa: S603
+                ["/usr/sbin/nginx", "-s", "reload"],
+                capture_output=True, timeout=10,
+            )
+            logger.info("Nginx reloaded with GeoIP config")
+        except Exception:
+            logger.warning("Failed to reload nginx after GeoIP config update")
+
+        return written
+
     def close(self) -> None:
         """Close the database reader."""
         if self._reader:
