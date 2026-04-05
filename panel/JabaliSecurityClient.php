@@ -48,9 +48,11 @@ class JabaliSecurityClient
                 return $data['data'] ?? $data;
             }
 
+            Log::error('JabaliSecurity API error: '.$response->status().' on GET '.$path);
+
             return null;
         } catch (\Exception $e) {
-            Log::warning('JabaliSecurity API error: '.$e->getMessage());
+            Log::error('JabaliSecurity API unreachable: '.$e->getMessage());
 
             return null;
         }
@@ -68,9 +70,11 @@ class JabaliSecurityClient
                 return $result['data'] ?? $result;
             }
 
+            Log::error('JabaliSecurity API error: '.$response->status().' on POST '.$path);
+
             return null;
         } catch (\Exception $e) {
-            Log::warning('JabaliSecurity API error: '.$e->getMessage());
+            Log::error('JabaliSecurity API unreachable: '.$e->getMessage());
 
             return null;
         }
@@ -88,9 +92,11 @@ class JabaliSecurityClient
                 return $result['data'] ?? $result;
             }
 
+            Log::error('JabaliSecurity API error: '.$response->status().' on PATCH '.$path);
+
             return null;
         } catch (\Exception $e) {
-            Log::warning('JabaliSecurity API error: '.$e->getMessage());
+            Log::error('JabaliSecurity API unreachable: '.$e->getMessage());
 
             return null;
         }
@@ -108,9 +114,11 @@ class JabaliSecurityClient
                 return $result['data'] ?? $result;
             }
 
+            Log::error('JabaliSecurity API error: '.$response->status().' on DELETE '.$path);
+
             return null;
         } catch (\Exception $e) {
-            Log::warning('JabaliSecurity API error: '.$e->getMessage());
+            Log::error('JabaliSecurity API unreachable: '.$e->getMessage());
 
             return null;
         }
