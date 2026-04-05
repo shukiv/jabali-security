@@ -6,6 +6,7 @@ import asyncio
 import ipaddress
 import logging
 import os
+import re
 import shutil
 import tarfile
 import tempfile
@@ -14,6 +15,12 @@ from pathlib import Path
 import maxminddb
 
 logger = logging.getLogger(__name__)
+
+# SECURITY: Validate action parameter to prevent nginx directive injection
+_VALID_ACTIONS = {"block", "challenge", "log"}
+
+# SECURITY: Whitelist safe characters for nginx paths
+_SAFE_PATH_RE = re.compile(r"^[a-zA-Z0-9/_.\-]+$")
 
 _DOWNLOAD_URL = (
     "https://download.maxmind.com/app/geoip_download"
@@ -161,6 +168,10 @@ class GeoIPManager:
         - /etc/nginx/jabali/cache-zones/geoip.conf  (http-level: geoip2 + map)
         - /etc/nginx/jabali/includes/geo.conf        (server-level: if blocks)
         """
+        # SECURITY: Validate action before using in config
+        if action not in _VALID_ACTIONS:
+            raise ValueError(f"Invalid action: {action} (must be one of {_VALID_ACTIONS})")
+
         http_dir = Path("/etc/nginx/jabali/cache-zones")
         server_dir = Path("/etc/nginx/jabali/includes")
         written: list[str] = []
@@ -186,14 +197,30 @@ class GeoIPManager:
                 "}",
             ]
         else:
-            http_lines += [
-                "",
-                "geoip2 %s {" % self._db_path,
-                "    auto_reload 60m;",
-                "    $geoip2_country_code country iso_code;",
-                "}",
-                "",
-            ]
+            # SECURITY: Validate db_path contains only safe characters
+            db_path_str = str(self._db_path)
+            if not _SAFE_PATH_RE.match(db_path_str) or any(
+                char in db_path_str for char in ["'", '"', ";", "{", "}", "$", "`"]
+            ):
+                logger.error("Invalid characters in GeoIP db_path: %s", db_path_str)
+                # Fall back to empty passthrough config (GeoIP disabled)
+                http_lines += [
+                    "",
+                    "# GeoIP database path contains invalid characters (security measure)",
+                    "map $remote_addr $jabali_geo_action {",
+                    "    default 'pass';",
+                    "}",
+                    "",
+                ]
+            else:
+                http_lines += [
+                    "",
+                    "geoip2 %s {" % db_path_str,
+                    "    auto_reload 60m;",
+                    "    $geoip2_country_code country iso_code;",
+                    "}",
+                    "",
+                ]
 
             if allowed_countries:
                 http_lines.append("# Whitelist mode: block all except listed")

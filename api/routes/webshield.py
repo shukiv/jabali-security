@@ -177,6 +177,10 @@ async def post_geo_rules(request: web.Request) -> web.Response:
     if not isinstance(countries, list):
         return _err("'countries' must be a list of ISO 3166-1 alpha-2 codes")
 
+    # Validate action FIRST (before any config writes) — SECURITY
+    if action not in ("block", "challenge", "log"):
+        return _err("Invalid action: %s (must be block, challenge, or log)" % action)
+
     # Validate country codes
     clean = []
     for cc in countries:
@@ -184,9 +188,6 @@ async def post_geo_rules(request: web.Request) -> web.Response:
         if not _COUNTRY_CODE_RE.match(cc):
             return _err("Invalid country code: %s" % cc)
         clean.append(cc)
-
-    if action not in ("block", "challenge", "log"):
-        return _err("Invalid action: %s (must be block, challenge, or log)" % action)
 
     config_file = CONFIG_FILE
     if mode == "whitelist":
@@ -275,13 +276,28 @@ async def post_geo_update_db(request: web.Request) -> web.Response:
     except Exception:
         body = {}
 
-    account_id = body.get("account_id", "")
-    license_key = body.get("license_key", "")
+    account_id = body.get("account_id", "").strip()
+    license_key = body.get("license_key", "").strip()
 
-    # If credentials provided, write /etc/GeoIP.conf and update in-memory key
-    if account_id and license_key:
-        _write_geoip_conf(str(account_id), str(license_key))
-        geoip._license_key = str(license_key)
+    # If credentials provided, validate them — SECURITY
+    if account_id or license_key:
+        # Both must be provided together
+        if not account_id or not license_key:
+            return _err("Both account_id and license_key are required")
+
+        # Validate format of account_id (numeric)
+        if not re.match(r"^\d+$", account_id):
+            return _err("account_id must be numeric")
+
+        # Validate format of license_key (alphanumeric + underscore)
+        if not re.match(r"^[a-zA-Z0-9_]+$", license_key):
+            return _err("license_key must contain only alphanumeric characters and underscore")
+
+        # Write credentials to config file
+        _write_geoip_conf(account_id, license_key)
+
+        # Only update in-memory key AFTER successful file write
+        geoip._license_key = license_key
 
     success, msg = await geoip.download_database()
     if not success:
@@ -294,12 +310,12 @@ _GEOIP_CONF_PATH = "/etc/GeoIP.conf"
 
 def _write_geoip_conf(account_id: str, license_key: str) -> None:
     """Write /etc/GeoIP.conf for geoipupdate CLI tool."""
-    import re
-
     # Validate account_id is numeric and license_key is alphanumeric+underscore
     if not re.match(r"^\d+$", account_id):
+        logger.error("Invalid account_id format (must be numeric): %s", account_id[:4] + "***")
         return
     if not re.match(r"^[a-zA-Z0-9_]+$", license_key):
+        logger.error("Invalid license_key format (must be alphanumeric+_): %s", license_key[:4] + "***")
         return
 
     content = (
@@ -314,5 +330,6 @@ def _write_geoip_conf(account_id: str, license_key: str) -> None:
         with open(_GEOIP_CONF_PATH, "w") as f:
             f.write(content)
         os.chmod(_GEOIP_CONF_PATH, 0o600)
-    except OSError:
-        logger.warning("Could not write %s", _GEOIP_CONF_PATH)
+        logger.info("GeoIP.conf updated successfully")
+    except OSError as e:
+        logger.error("Failed to write %s: %s", _GEOIP_CONF_PATH, e)
