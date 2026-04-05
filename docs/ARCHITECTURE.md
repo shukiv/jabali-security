@@ -169,24 +169,30 @@ CrowdSec is jabali-security's primary community intelligence source. The integra
 - **Brute-force enrichment**: Known CrowdSec attackers (score >= 60) get halved brute-force thresholds via `set_ip_urgency()`.
 - **Auto mode**: `CROWDSEC_ENABLED=auto` (default) detects LAPI and enables if bouncer key is configured.
 
-### SSH Jail Management (`lib/sshjail/`)
-
-| File | Purpose |
-|---|---|
-| `manager.py` | `SSHJailManager` — shell enable/disable, key management, sshd_config updates |
-| `validators.py` | Allowlist-based input validation (usernames, keys, key types). Rejects newlines in public keys to prevent authorized_keys injection. |
-| `models.py` | `SshKey`, `SshKeyGenResult`, `SshUserStatus` models |
-
-Two user groups: `sftpusers` (SFTP-only, chroot to `/home/%u`) and `shellusers` (shell via jabali-isolator nspawn containers). Isolation is handled by `jabali-shell` wrapper + systemd-nspawn — jabali-security only manages group membership and SSH keys.
-
 ### WebShield (`lib/webshield/`)
 
-- `manager.py` -- generates nginx config snippets for bot UA filtering, rate limiting, and JS challenges
+- `manager.py` — generates nginx config snippets for bot UA filtering, rate limiting
+- `config_generator.py` — nginx config for bot maps, rate limiting zones, challenge integration
 - **Bot filtering** (sqlmap, nikto, nmap, masscan, etc.) is enabled by default on Jabali Panel servers — zero false positives
 - **Rate limiting** is off by default (can block legitimate high-traffic sites). Auto-enabled by Attack Mode.
 - `WEBSHIELD_RATE_LIMITING` config key controls rate limiting independently of bot filtering
-- On Jabali Panel servers, installer auto-enables via `/etc/nginx/jabali/includes/webshield.conf` bridge (same mechanism as WAF)
-- On non-Jabali servers, WebShield is opt-in (enable via panel or config)
+
+### GeoIP Blocking (`lib/webshield/geoip.py`)
+
+- Independent from WebShield — writes its own nginx configs
+- `geoip.py` — MaxMind GeoLite2-Country database manager (lookup, download, nginx config generation)
+- Writes to `/etc/nginx/jabali/cache-zones/geoip.conf` (http-level: geoip2 + country map) and `/etc/nginx/jabali/includes/geo.conf` (server-level: if blocks)
+- Actions: `block` (403), `challenge` (PoW page), `log` (pass through, log only)
+
+### Shared Challenge System (`etc/webshield/`)
+
+- `challenge.html` — SHA-256 proof-of-work page (~8kb, zero dependencies, pure JS)
+- Used by both GeoIP and WebShield when action is `challenge`
+- Visitor's browser solves a PoW puzzle (~0.5s), sets `jabali_passed` cookie (24h TTL)
+- nginx checks cookie via `$cookie_jabali_passed` map — if present, challenge is bypassed
+- Configurable: `CHALLENGE_DIFFICULTY` (default 18 bits), `CHALLENGE_TTL` (default 86400s)
+
+> **Note:** SSH management has been moved entirely to the Jabali Panel. jabali-security only handles SSH brute-force detection via CrowdSec.
 
 ### UFW Firewall Management (`lib/ufw/`)
 
@@ -237,7 +243,6 @@ Disabled by default (`UFW_ENABLED="no"`). Requires `ufw` to be installed on the 
 | `routes/threat_intel.py` | Threat intel feeds, IP/hash checks |
 | `routes/webshield.py` | WebShield status, install, rules |
 | `routes/ufw.py` | UFW firewall status, rules CRUD, enable/disable/reload, app profiles |
-| `routes/sshjail.py` | SSH jail user management, shell enable/disable, keys, sshd settings |
 | `routes/crowdsec.py` | CrowdSec LAPI status, decisions, IP check |
 | `routes/attack_mode.py` | Attack mode enable/disable |
 | `routes/helpers.py` | Shared response helpers (`_ok`, `_err`) |
@@ -248,7 +253,7 @@ Disabled by default (`UFW_ENABLED="no"`). Requires `ufw` to be installed on the 
 |---|---|
 | `JabaliSecurityPlugin.php` | Filament v5 plugin class |
 | `JabaliSecurityClient.php` | HTTP client for daemon API |
-| `Pages/Security.php` | Single page with 5 grouped tabs: Overview, Threats (Incidents, Quarantine, Cleanup), Scan, Defense (Firewall, Blocklist, WAF, Brute-Force, CrowdSec, Proactive, WebShield, SSH Jail), Intelligence (Users, Threat Intel, Rules), Settings (Config with basic/expert mode) |
+| `Pages/Security.php` | Single page with 5 grouped tabs: Overview, Threats (Incidents, Quarantine, Cleanup), Scan, Defense (Firewall, WAF, IP Protection, Proactive, WebShield, GeoIP), Intelligence (Users, Threat Intel, Rules), Settings (Config with basic/expert mode) |
 | `Widgets/SecurityStatsWidget.php` | Stats overview widget |
 | `views/security.blade.php` | Blade view template |
 
@@ -418,7 +423,7 @@ After=network.target crowdsec.service
 Wants=crowdsec.service
 ```
 
-`ProtectSystem=no` is required because `usermod` needs full `/etc` write access for lock files when managing SSH jail users. Weak dependency on `crowdsec.service` (starts after CrowdSec if installed, doesn't fail if absent).
+`ProtectSystem=no` is required because certain operations need `/etc` write access. Weak dependency on `crowdsec.service` (starts after CrowdSec if installed, doesn't fail if absent).
 
 ### API Authentication
 

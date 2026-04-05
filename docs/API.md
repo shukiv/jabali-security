@@ -1073,62 +1073,56 @@ Deny traffic for an application profile.
 
 ---
 
-## SSH Jail Management
+## GeoIP Blocking
 
-### `GET /ssh/users`
+GeoIP operates independently from WebShield. It writes its own nginx configs and uses MaxMind GeoLite2-Country database.
 
-List all hosting users with shell status. Works even when `SSHJAIL_ENABLED=no` (returns basic info from `/etc/passwd`). Excludes admin and root users.
+### `GET /webshield/geo-status`
 
-**Response:**
-
-```json
-[
-  {
-    "username": "user1",
-    "shell": "/usr/sbin/nologin",
-    "shell_enabled": false,
-    "sftp_only": true,
-    "key_count": 2
-  }
-]
-```
-
-### `POST /ssh/shell/enable`
-
-Enable shell access for a user (adds to shellusers group, sets bash shell).
-
-**Body:** `{"username": "user1"}`
-
-### `POST /ssh/shell/disable`
-
-Disable shell access (SFTP-only mode).
-
-**Body:** `{"username": "user1"}`
-
-### `GET /ssh/sshd-settings`
-
-Get effective sshd settings (reads drop-in files + main config).
+GeoIP database status and metadata.
 
 **Response:**
 
 ```json
-{"password_auth": false, "pubkey_auth": true, "port": 22}
+{"enabled": true, "available": true, "path": "/var/lib/jabali-security/GeoLite2-Country.mmdb", "build_epoch": 1775211257, "database_type": "GeoLite2-Country"}
 ```
 
-### `POST /ssh/sshd-settings`
+### `GET /webshield/geo-rules`
 
-Update sshd settings. Validates config with `sshd -t` before applying; rolls back on failure.
+List blocked/allowed countries with database status.
 
-**Body:** `{"password_auth": false, "port": 2222}`
+**Response:**
 
-### SSH Key Management
+```json
+{"rules": [{"country_code": "CN", "country_name": "China", "action": "block", "enabled": true}], "mode": "blocklist", "action": "block", "enabled": true, "db": {"available": true}}
+```
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/ssh/keys?username=user1` | List SSH keys for user |
-| `POST` | `/ssh/keys` | Add key: `{"username": "...", "name": "...", "public_key": "..."}` |
-| `DELETE` | `/ssh/keys/{key_id}` | Delete key by ID |
-| `POST` | `/ssh/keys/generate` | Generate new keypair: `{"name": "...", "key_type": "ed25519"}` |
+### `POST /webshield/geo-rules`
+
+Set blocked or allowed countries. Regenerates nginx config and reloads nginx.
+
+**Body:**
+
+```json
+{"countries": ["CN", "RU", "KP"], "action": "block", "mode": "blocklist"}
+```
+
+- `action`: `block` (403), `challenge` (PoW page), or `log`
+- `mode`: `blocklist` (block listed, allow rest) or `whitelist` (allow listed, block rest)
+
+### `DELETE /webshield/geo-rules/{country_code}`
+
+Remove a single country from the block/allow list.
+
+### `POST /webshield/geo-update-db`
+
+Download/update MaxMind GeoIP database. Optionally accepts `account_id` and `license_key` to write `/etc/GeoIP.conf` for the `geoipupdate` CLI tool.
+
+**Body (optional):**
+
+```json
+{"account_id": "123456", "license_key": "xxxx_xxxx"}
+```
 
 ---
 
@@ -1231,10 +1225,10 @@ Restart the jabali-security daemon via systemctl. Executes after a 1-second dela
 | WAF | 6 | `WAF_ENABLED` |
 | Process Killer | 2 | `PROCESS_KILL_ENABLED` |
 | Cleanup | 2 | `CLEANUP_ENABLED` |
-| SSH Jail | 8 | -- |
 | Threat Intel | 4 | `THREAT_INTEL_ENABLED` |
 | CrowdSec | 3 | `CROWDSEC_ENABLED` |
 | Attack Mode | 3 | -- |
 | WebShield | 5 | `WEBSHIELD_ENABLED` |
+| GeoIP | 5 | `GEOIP_ENABLED` |
 | UFW Firewall | 11 | `UFW_ENABLED` |
-| **Total** | **71** | |
+| **Total** | **68** | |

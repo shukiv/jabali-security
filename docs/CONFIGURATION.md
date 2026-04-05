@@ -212,18 +212,33 @@ Available feeds: `spamhaus_drop`, `spamhaus_edrop`, `blocklist_de_all`, `tor_exi
 | `WEBSHIELD_NGINX_CONF_DIR` | path | `/etc/nginx/jabali-security` | Directory for generated nginx config snippets |
 | `NGINX_ACCESS_LOG` | path | `/var/log/nginx/access.log` | Nginx access log path (for WebShield stats) |
 
+## GeoIP Blocking
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `GEOIP_ENABLED` | bool | `no` | Enable GeoIP country blocking with MaxMind database |
+| `GEOIP_DB_PATH` | path | `/var/lib/jabali-security/GeoLite2-Country.mmdb` | Path to MaxMind GeoLite2-Country database |
+| `GEOIP_MAXMIND_LICENSE_KEY` | string | (empty) | MaxMind license key for auto-downloading the database (free at maxmind.com) |
+| `GEOIP_BLOCKED_COUNTRIES` | csv | (empty) | Comma-separated ISO country codes to block (e.g. `CN,RU,KP`) |
+| `GEOIP_ALLOWED_COUNTRIES` | csv | (empty) | Whitelist mode: only these countries allowed (overrides blocked list) |
+| `GEOIP_ACTION` | string | `block` | Default action for blocked countries: `block` (403), `challenge` (PoW page), or `log` |
+
+> GeoIP operates independently from WebShield. It writes its own nginx configs to `/etc/nginx/jabali/cache-zones/geoip.conf` (http-level) and `/etc/nginx/jabali/includes/geo.conf` (server-level).
+
+## Challenge System
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `CHALLENGE_DIFFICULTY` | int | `18` | SHA-256 proof-of-work difficulty in leading zero bits. 18 ≈ 0.5s solve time on modern hardware. |
+| `CHALLENGE_TTL` | int | `86400` | Challenge cookie lifetime in seconds (default 24h). After solving, visitor bypasses challenges for this duration. |
+
+> The challenge page is shared by GeoIP and WebShield. When a visitor is challenged, they solve a SHA-256 proof-of-work puzzle in their browser. On success, a `jabali_passed` cookie bypasses future challenges.
+
 ## UFW Firewall Management
 
 | Key | Type | Default | Description |
 |---|---|---|---|
 | `UFW_ENABLED` | bool | `no` | Enable UFW firewall management via REST API. Requires `ufw` to be installed. Separate from the nftables/iptables-based brute-force IP blocking. |
-
-## SSH Management
-
-| Key | Type | Default | Description |
-|---|---|---|---|
-| `SSHJAIL_ENABLED` | bool | `yes` | Enable SSH key and shell management (isolation via jabali-isolator nspawn) |
-| `SSH_SHELL_ACCESS_ENABLED` | bool | `no` | Allow users to enable terminal shell access |
 
 ## CrowdSec
 

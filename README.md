@@ -21,11 +21,11 @@ A lightweight, panel-agnostic alternative to Imunify360.
 | **Attack mode** | Elevated defense posture with tighter thresholds on demand |
 | **Malware cleanup** | Injection removal, CMS integrity checks (WordPress/Joomla), backup-before-clean |
 | **Threat intelligence** | Spamhaus, blocklist.de, MalwareBazaar, Tor exit nodes; IP + hash lookups |
-| **WebShield** | Bot UA filtering (on by default), rate limiting (opt-in, auto-enabled in attack mode), JS challenge pages |
+| **WebShield** | Bot UA filtering (on by default), rate limiting (opt-in, auto-enabled in attack mode), shared PoW challenge pages |
+| **GeoIP blocking** | Country-level block/challenge/log with MaxMind GeoLite2, independent nginx config, auto-database updates |
 | **Database scanning** | MySQL table scanning for injected payloads (WordPress, Joomla) |
 | **RapidScan** | Parallel directory scanner with mtime cache for unchanged-file skipping |
 | **Scheduled scans** | Configurable periodic full-path scanning |
-| **SSH management** | SSH key management, shell access control, sshd hardening |
 | **Multi-tenant** | Automatic file-to-user mapping for shared hosting accounts |
 | **REST API** | aiohttp on Unix socket with API key auth, 50+ endpoints |
 | **CLI** | 30+ click commands for full management |
@@ -37,7 +37,7 @@ A lightweight, panel-agnostic alternative to Imunify360.
 curl -fsSL https://git.linux-hosting.co.il/shukivaknin/jabali-security/raw/branch/master/install.sh | sudo bash
 ```
 
-The installer will: clone the repo, create a Python venv, install dependencies, generate an API key, configure CrowdSec + firewall bouncer, install OWASP CRS from GitHub, set up UFW rules, enable WebShield bot filtering (on Jabali Panel servers), harden SSH, and start the daemon.
+The installer will: clone the repo, create a Python venv, install dependencies, generate an API key, configure CrowdSec + firewall bouncer, install OWASP CRS from GitHub, set up UFW rules, enable WebShield bot filtering (on Jabali Panel servers), and start the daemon.
 
 ```bash
 jabali-security status              # check daemon status
@@ -122,9 +122,9 @@ Full command reference: [docs/CLI.md](docs/CLI.md)
 | **Cleanup** | `cleanup records`, `cleanup file`, `cleanup cms` |
 | **Threat Intel** | `threat-intel feeds`, `threat-intel update`, `threat-intel check-ip`, `threat-intel check-hash` |
 | **WebShield** | `webshield status`, `webshield install`, `webshield uninstall`, `webshield rules` |
+| **GeoIP** | `webshield geo-status`, `geo-list`, `geo-block`, `geo-unblock`, `geo-update-db` |
 | **CrowdSec** | `crowdsec status`, `crowdsec decisions`, `crowdsec check`, `crowdsec unban` |
 | **Attack Mode** | `attack-mode status`, `attack-mode enable`, `attack-mode disable` |
-| **SSH** | `ssh users`, `ssh keys`, `ssh add-key`, `ssh generate-key`, `ssh delete-key`, `ssh shell-enable`, `ssh shell-disable` |
 | **Firewall** | `firewall status`, `firewall enable`, `firewall disable`, `firewall reload`, `firewall allow`, `firewall deny`, `firewall delete-rule` |
 
 ## REST API
@@ -155,7 +155,7 @@ Full reference: [docs/API.md](docs/API.md)
 | `/firewall/ufw/*` | GET/POST/PUT/DELETE | UFW firewall rule management |
 | `/crowdsec/*` | GET/DELETE | CrowdSec decisions and status |
 | `/attack-mode` | GET/POST | Attack mode toggle |
-| `/ssh/*` | GET/POST/DELETE | SSH keys, shell access, sshd settings |
+| `/webshield/geo-*` | GET/POST/DELETE | GeoIP country blocking rules and database |
 
 ## Configuration
 
