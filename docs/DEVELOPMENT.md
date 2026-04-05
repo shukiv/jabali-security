@@ -96,12 +96,10 @@ jabali-security/
 |   +-- crowdsec/           # CrowdSec integration
 |   |   +-- client.py       # Async LAPI bouncer client
 |   |   +-- models.py       # CrowdSecDecision, CrowdSecStatus
-|   +-- sshjail/            # SSH jail management
-|   |   +-- manager.py      # Shell enable/disable, key management
-|   |   +-- validators.py   # Input validation (usernames, keys)
-|   |   +-- models.py       # SshKey, SshUserStatus models
-|   +-- webshield/          # WebShield
-|   |   +-- manager.py      # Nginx config generation
+|   +-- webshield/          # WebShield + GeoIP
+|   |   +-- manager.py      # Nginx config generation (bot filtering, rate limiting)
+|   |   +-- geoip.py        # MaxMind GeoIP manager (lookup, download, nginx config)
+|   |   +-- config_generator.py # WebShield nginx config generation
 |   +-- ufw/                # UFW firewall management
 |   |   +-- manager.py      # UFW CLI wrapper (async subprocess)
 |   |   +-- validators.py   # Input validation for rules
@@ -128,7 +126,6 @@ jabali-security/
 |       +-- threat_intel.py # Threat intel endpoints
 |       +-- webshield.py    # WebShield endpoints
 |       +-- ufw.py          # UFW firewall management endpoints
-|       +-- sshjail.py      # SSH jail endpoints
 |       +-- crowdsec.py     # CrowdSec status, decisions, IP check
 |       +-- attack_mode.py  # Attack mode enable/disable
 |       +-- helpers.py      # Shared response helpers
