@@ -35,8 +35,12 @@ class BlocklistTable extends Component implements HasActions, HasSchemas, HasTab
     {
         return $table
             ->records(function () {
-                $response = $this->client()->get('/blocklist');
-                return $response['blocked_ips'] ?? $response ?? [];
+                try {
+                    $response = $this->client()->get('/blocklist');
+                    return $response['blocked_ips'] ?? $response ?? [];
+                } catch (\Exception) {
+                    return [];
+                }
             })
             ->columns([
                 TextColumn::make('ip')
@@ -72,7 +76,12 @@ class BlocklistTable extends Component implements HasActions, HasSchemas, HasTab
                             ->numeric(),
                     ])
                     ->action(function (array $data): void {
-                        $result = $this->client()->post('/block', $data);
+                        $validated = validator($data, [
+                            'ip' => 'required|ip',
+                            'reason' => 'nullable|string|max:255',
+                            'duration' => 'nullable|numeric|min:1',
+                        ])->validate();
+                        $result = $this->client()->post('/block', $validated);
 
                         Notification::make()
                             ->title($result ? __('IP blocked') : __('Failed to block IP'))

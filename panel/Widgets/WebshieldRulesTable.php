@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\JabaliSecurity\Widgets;
 
 use App\JabaliSecurity\JabaliSecurityClient;
+use App\JabaliSecurity\Pages\Security;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\IconColumn;
@@ -69,7 +70,7 @@ class WebshieldRulesTable extends Component implements HasActions, HasSchemas, H
                             ->title($result ? __('WebShield enabled') : __('Failed to enable WebShield'))
                             ->{($result ? "success" : "danger")}()
                             ->send();
-                        $this->redirect(url('/jabali-admin/security?tab=defense&defense=webshield'), navigate: true);
+                        $this->redirect(Security::tabUrl('defense', 'webshield'), navigate: true);
                     }),
                 Action::make('disable')
                     ->label(__('Disable'))

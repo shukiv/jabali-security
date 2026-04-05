@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\JabaliSecurity\Widgets;
 
 use App\JabaliSecurity\JabaliSecurityClient;
+use App\JabaliSecurity\Pages\Security;
 use Filament\Actions\Action;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
@@ -55,7 +56,7 @@ class WhitelistTable extends Component implements HasActions, HasSchemas, HasTab
                             $this->client()->delete('/bruteforce/whitelist/' . urlencode($ip));
                             $this->client()->post('/block', ['ip' => $ip, 'reason' => 'Moved from whitelist']);
                             Notification::make()->title(__('IP blocked: :ip', ['ip' => $ip]))->success()->send();
-                            $this->redirect(url('/jabali-admin/security?tab=defense&defense=bruteforce'), navigate: true);
+                            $this->redirect(Security::tabUrl('defense', 'bruteforce'), navigate: true);
                         }
                     }),
                 Action::make('remove')
@@ -68,7 +69,7 @@ class WhitelistTable extends Component implements HasActions, HasSchemas, HasTab
                         if ($ip) {
                             $this->client()->delete('/bruteforce/whitelist/' . urlencode($ip));
                             Notification::make()->title(__('Removed :ip from whitelist', ['ip' => $ip]))->success()->send();
-                            $this->redirect(url('/jabali-admin/security?tab=defense&defense=bruteforce'), navigate: true);
+                            $this->redirect(Security::tabUrl('defense', 'bruteforce'), navigate: true);
                         }
                     }),
             ])
@@ -83,12 +84,13 @@ class WhitelistTable extends Component implements HasActions, HasSchemas, HasTab
                             ->ip(),
                     ])
                     ->action(function (array $data): void {
-                        $result = $this->client()->post('/bruteforce/whitelist', $data);
+                        $validated = validator($data, ['ip' => 'required|ip'])->validate();
+                        $result = $this->client()->post('/bruteforce/whitelist', $validated);
                         Notification::make()
                             ->title($result ? __('IP whitelisted') : __('Failed to whitelist IP'))
                             ->{($result ? 'success' : 'danger')}()
                             ->send();
-                        $this->redirect(url('/jabali-admin/security?tab=defense&defense=bruteforce'), navigate: true);
+                        $this->redirect(Security::tabUrl('defense', 'bruteforce'), navigate: true);
                     }),
             ])
             ->bulkActions([

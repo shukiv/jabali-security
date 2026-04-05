@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\JabaliSecurity\Widgets;
 
 use App\JabaliSecurity\JabaliSecurityClient;
+use App\JabaliSecurity\Pages\Security;
 use Filament\Actions\Action;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
@@ -55,7 +56,7 @@ class BruteforceBlockedTable extends Component implements HasActions, HasSchemas
                             $this->client()->delete('/block/' . urlencode($ip));
                             $this->client()->post('/bruteforce/whitelist', ['ip' => $ip]);
                             Notification::make()->title(__('IP whitelisted: :ip', ['ip' => $ip]))->success()->send();
-                            $this->redirect(url('/jabali-admin/security?tab=defense&defense=bruteforce'), navigate: true);
+                            $this->redirect(Security::tabUrl('defense', 'bruteforce'), navigate: true);
                         }
                     }),
                 \Filament\Actions\Action::make('unblock')
@@ -68,7 +69,7 @@ class BruteforceBlockedTable extends Component implements HasActions, HasSchemas
                         if ($ip) {
                             $this->client()->delete('/block/' . urlencode($ip));
                             Notification::make()->title(__('IP unblocked: :ip', ['ip' => $ip]))->success()->send();
-                            $this->redirect(url('/jabali-admin/security?tab=defense&defense=bruteforce'), navigate: true);
+                            $this->redirect(Security::tabUrl('defense', 'bruteforce'), navigate: true);
                         }
                     }),
             ])

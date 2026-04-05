@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\JabaliSecurity\Widgets;
 
 use App\JabaliSecurity\JabaliSecurityClient;
+use App\JabaliSecurity\Pages\Security;
 use Filament\Actions\Action;
 use Filament\Actions\BulkAction;
 use Filament\Notifications\Notification;
@@ -34,9 +35,13 @@ class UnifiedBlocklistTable extends Component implements HasActions, HasSchemas,
     {
         return $table
             ->records(function () {
-                $page = request()->query('blocklist_page', 1);
-                $data = $this->client()->get('/blocklist/unified?page=' . (int) $page . '&per_page=100');
-                return $data['blocked_ips'] ?? [];
+                try {
+                    $page = request()->query('blocklist_page', 1);
+                    $data = $this->client()->get('/blocklist/unified?page=' . (int) $page . '&per_page=100');
+                    return $data['blocked_ips'] ?? [];
+                } catch (\Exception) {
+                    return [];
+                }
             })
             ->columns([
                 TextColumn::make('ip')
@@ -111,7 +116,7 @@ class UnifiedBlocklistTable extends Component implements HasActions, HasSchemas,
                         }
                         $this->client()->post('/bruteforce/whitelist', ['ip' => $ip]);
                         Notification::make()->title(__('IP whitelisted: :ip', ['ip' => $ip]))->success()->send();
-                        $this->redirect(url('/jabali-admin/security?tab=defense&defense=bruteforce'), navigate: true);
+                        $this->redirect(Security::tabUrl('defense', 'bruteforce'), navigate: true);
                     }),
                 Action::make('unblock')
                     ->label(__('Unblock'))
@@ -131,7 +136,7 @@ class UnifiedBlocklistTable extends Component implements HasActions, HasSchemas,
                             $this->client()->delete('/block/' . urlencode($ip));
                         }
                         Notification::make()->title(__('IP unblocked: :ip', ['ip' => $ip]))->success()->send();
-                        $this->redirect(url('/jabali-admin/security?tab=defense&defense=bruteforce'), navigate: true);
+                        $this->redirect(Security::tabUrl('defense', 'bruteforce'), navigate: true);
                     }),
             ])
             ->emptyStateHeading(__('No blocked IPs'))

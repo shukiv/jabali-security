@@ -95,7 +95,14 @@ class FirewallRulesTable extends Component implements HasActions, HasSchemas, Ha
                             ->label(__('Comment')),
                     ])
                     ->action(function (array $data): void {
-                        $result = $this->client()->post('/firewall/ufw/rules', $data);
+                        $validated = validator($data, [
+                            'port' => 'required|string|max:10',
+                            'action' => 'required|in:allow,deny,reject',
+                            'protocol' => 'required|in:tcp,udp,any',
+                            'from_ip' => 'nullable|ip',
+                            'comment' => 'nullable|string|max:255',
+                        ])->validate();
+                        $result = $this->client()->post('/firewall/ufw/rules', $validated);
 
                         Notification::make()
                             ->title($result ? __('Rule added') : __('Failed to add rule'))

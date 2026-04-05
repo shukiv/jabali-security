@@ -60,10 +60,15 @@ class CleanupRecordsTable extends Component implements HasActions, HasSchemas, H
                         TextInput::make('path')
                             ->label(__('File Path'))
                             ->required()
-                            ->rules(['regex:/^\/home\/|^\/var\/www\//'])
+                            ->rules(['regex:/^(\/home\/[^\/]+\/|\/var\/www\/).*$/'])
                             ->validationMessages(['regex' => __('Path must be under /home/ or /var/www/')]),
                     ])
                     ->action(function (array $data): void {
+                        $path = $data['path'] ?? '';
+                        if (str_contains($path, '..') || ! preg_match('#^(/home/[^/]+/|/var/www/)#', $path)) {
+                            Notification::make()->title(__('Invalid path'))->danger()->send();
+                            return;
+                        }
                         $result = $this->client()->post('/cleanup/file', $data);
 
                         Notification::make()

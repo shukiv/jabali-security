@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\JabaliSecurity\Widgets;
 
 use App\JabaliSecurity\JabaliSecurityClient;
+use App\JabaliSecurity\Pages\Security;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -34,8 +35,12 @@ class GeoBlockTable extends Component implements HasActions, HasSchemas, HasTabl
     {
         return $table
             ->records(function () {
-                $data = $this->client()->get('/webshield/geo-rules');
-                return $data['rules'] ?? [];
+                try {
+                    $data = $this->client()->get('/webshield/geo-rules');
+                    return $data['rules'] ?? [];
+                } catch (\Exception) {
+                    return [];
+                }
             })
             ->columns([
                 TextColumn::make('country_code')
@@ -71,7 +76,7 @@ class GeoBlockTable extends Component implements HasActions, HasSchemas, HasTabl
                             ->title(__('Country removed: :cc', ['cc' => $cc]))
                             ->success()
                             ->send();
-                        $this->redirect(url('/jabali-admin/security?tab=defense&defense=geoip'), navigate: true);
+                        $this->redirect(Security::tabUrl('defense', 'geoip'), navigate: true);
                     }),
             ])
             ->headerActions([
@@ -94,8 +99,9 @@ class GeoBlockTable extends Component implements HasActions, HasSchemas, HasTabl
                     ])
                     ->action(function (array $data): void {
                         $codes = array_map('trim', explode(',', strtoupper($data['country_codes'] ?? '')));
-                        $codes = array_filter($codes);
+                        $codes = array_filter($codes, fn ($c) => preg_match('/^[A-Z]{2}$/', $c));
                         if (empty($codes)) {
+                            Notification::make()->title(__('Invalid country codes'))->danger()->send();
                             return;
                         }
 
@@ -114,7 +120,7 @@ class GeoBlockTable extends Component implements HasActions, HasSchemas, HasTabl
                             ->title(__('Countries blocked: :codes', ['codes' => implode(', ', $codes)]))
                             ->success()
                             ->send();
-                        $this->redirect(url('/jabali-admin/security?tab=defense&defense=geoip'), navigate: true);
+                        $this->redirect(Security::tabUrl('defense', 'geoip'), navigate: true);
                     }),
                 Action::make('update_db')
                     ->label(__('Update GeoIP DB'))

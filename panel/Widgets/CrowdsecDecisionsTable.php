@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\JabaliSecurity\Widgets;
 
 use App\JabaliSecurity\JabaliSecurityClient;
+use App\JabaliSecurity\Pages\Security;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
@@ -72,7 +73,7 @@ class CrowdsecDecisionsTable extends Component implements HasActions, HasSchemas
                             $ip = explode('/', $ip)[0];
                             $this->client()->delete('/crowdsec/decisions/' . urlencode($ip));
                             Notification::make()->title(__('CrowdSec ban removed: :ip', ['ip' => $ip]))->success()->send();
-                            $this->redirect(url('/jabali-admin/security?tab=defense&defense=crowdsec'), navigate: true);
+                            $this->redirect(Security::tabUrl('defense', 'crowdsec'), navigate: true);
                         }
                     }),
             ])

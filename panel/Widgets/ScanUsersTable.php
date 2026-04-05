@@ -82,56 +82,60 @@ class ScanUsersTable extends Component implements HasActions, HasSchemas, HasTab
     {
         return $table
             ->records(function () {
-                // Get system users from /home/
-                $sshUsers = $this->client()->get('/ssh/users') ?? [];
-                // Get incident stats
-                $incidentUsers = $this->client()->get('/users') ?? [];
-                $incidentMap = [];
-                foreach ($incidentUsers as $u) {
-                    $incidentMap[$u['username'] ?? ''] = $u;
-                }
-
-                $records = [];
-                foreach ($sshUsers as $user) {
-                    $username = $user['username'] ?? '';
-                    if (! $username) {
-                        continue;
+                try {
+                    // Get system users from /home/
+                    $sshUsers = $this->client()->get('/ssh/users') ?? [];
+                    // Get incident stats
+                    $incidentUsers = $this->client()->get('/users') ?? [];
+                    $incidentMap = [];
+                    foreach ($incidentUsers as $u) {
+                        $incidentMap[$u['username'] ?? ''] = $u;
                     }
-                    $incidents = $incidentMap[$username] ?? [];
-                    $records[] = [
-                        'username' => $username,
-                        'incident_count' => $incidents['incident_count'] ?? 0,
-                        'max_score' => $incidents['max_score'] ?? 0,
-                        'quarantine_count' => $incidents['quarantine_count'] ?? 0,
-                        'path' => '/home/' . $username,
-                    ];
-                }
 
-                // Add users with incidents but not in ssh/users
-                foreach ($incidentUsers as $u) {
-                    $username = $u['username'] ?? '';
-                    if (! $username) {
-                        continue;
-                    }
-                    $found = false;
-                    foreach ($records as $r) {
-                        if ($r['username'] === $username) {
-                            $found = true;
-                            break;
+                    $records = [];
+                    foreach ($sshUsers as $user) {
+                        $username = $user['username'] ?? '';
+                        if (! $username) {
+                            continue;
                         }
-                    }
-                    if (! $found) {
+                        $incidents = $incidentMap[$username] ?? [];
                         $records[] = [
                             'username' => $username,
-                            'incident_count' => $u['incident_count'] ?? 0,
-                            'max_score' => $u['max_score'] ?? 0,
-                            'quarantine_count' => $u['quarantine_count'] ?? 0,
+                            'incident_count' => $incidents['incident_count'] ?? 0,
+                            'max_score' => $incidents['max_score'] ?? 0,
+                            'quarantine_count' => $incidents['quarantine_count'] ?? 0,
                             'path' => '/home/' . $username,
                         ];
                     }
-                }
 
-                return $records;
+                    // Add users with incidents but not in ssh/users
+                    foreach ($incidentUsers as $u) {
+                        $username = $u['username'] ?? '';
+                        if (! $username) {
+                            continue;
+                        }
+                        $found = false;
+                        foreach ($records as $r) {
+                            if ($r['username'] === $username) {
+                                $found = true;
+                                break;
+                            }
+                        }
+                        if (! $found) {
+                            $records[] = [
+                                'username' => $username,
+                                'incident_count' => $u['incident_count'] ?? 0,
+                                'max_score' => $u['max_score'] ?? 0,
+                                'quarantine_count' => $u['quarantine_count'] ?? 0,
+                                'path' => '/home/' . $username,
+                            ];
+                        }
+                    }
+
+                    return $records;
+                } catch (\Exception) {
+                    return [];
+                }
             })
             ->columns([
                 TextColumn::make('username')

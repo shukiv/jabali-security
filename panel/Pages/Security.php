@@ -55,6 +55,15 @@ class Security extends Page implements HasActions, HasForms
 
     protected static ?string $slug = 'security';
 
+    public static function tabUrl(string $tab, ?string $subtab = null): string
+    {
+        $params = ['tab' => $tab];
+        if ($subtab) {
+            $params['defense'] = $subtab;
+        }
+        return static::getUrl($params);
+    }
+
     public static function canAccess(): bool
     {
         return auth()->user()?->isAdmin() ?? false;
@@ -570,9 +579,10 @@ class Security extends Page implements HasActions, HasForms
         $active = $fw['active'] ?? false;
 
         return [
-            Section::make(new \Illuminate\Support\HtmlString(
-                __('UFW Firewall') . ': <span style="color:' . ($active ? '#22c55e' : '#ef4444') . '">' . ($active ? __('Enabled') : __('Disabled')) . '</span>'
-            ))
+            Section::make(__('UFW Firewall'))
+                ->description($active ? __('Enabled') : __('Disabled'))
+                ->icon($active ? 'heroicon-o-shield-check' : 'heroicon-o-shield-exclamation')
+                ->iconColor($active ? 'success' : 'danger')
                 ->compact()
                 ->headerActions([
                     Action::make('fw_toggle')
