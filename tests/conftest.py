@@ -3,10 +3,18 @@
 from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
 from lib.config import JabaliConfig
+
+
+@pytest.fixture(autouse=True)
+def _simulate_root():
+    """Tests run as non-root; patch privilege helpers to skip sudo prefix."""
+    with patch("lib.privilege._IS_ROOT", True):
+        yield
 
 
 @pytest.fixture

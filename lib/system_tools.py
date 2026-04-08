@@ -33,9 +33,11 @@ async def get_mime_type(path: str) -> str | None:
 
 async def run_freshclam() -> tuple[bool, str]:
     """Run ``freshclam --quiet`` and return (success, output)."""
+    from lib.privilege import sudo_prefix
+    cmd = [*sudo_prefix(), "freshclam", "--quiet"]
     try:
         proc = await asyncio.create_subprocess_exec(
-            "freshclam", "--quiet",
+            *cmd,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,
         )

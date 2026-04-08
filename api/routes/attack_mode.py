@@ -58,15 +58,16 @@ async def get_attack_mode(request: web.Request) -> web.Response:
 
 async def _reload_nginx() -> bool:
     """Test nginx config and reload if valid."""
+    from lib.privilege import sudo_cmd
     try:
         proc = await asyncio.create_subprocess_exec(
-            "/usr/sbin/nginx", "-t",
+            *sudo_cmd("/usr/sbin/nginx", "-t"),
             stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL,
         )
         if await proc.wait() != 0:
             return False
         reload_proc = await asyncio.create_subprocess_exec(
-            "/usr/bin/systemctl", "reload", "nginx",
+            *sudo_cmd("/usr/bin/systemctl", "reload", "nginx"),
             stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL,
         )
         await reload_proc.wait()

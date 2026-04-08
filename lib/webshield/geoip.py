@@ -300,13 +300,14 @@ class GeoIPManager:
 
         # Reload nginx
         import subprocess
+        from lib.privilege import sudo_cmd
         try:
             subprocess.run(  # noqa: S603
-                ["/usr/sbin/nginx", "-t"],
+                sudo_cmd("/usr/sbin/nginx", "-t"),
                 capture_output=True, timeout=10,
             )
             subprocess.run(  # noqa: S603
-                ["/usr/sbin/nginx", "-s", "reload"],
+                sudo_cmd("/usr/sbin/nginx", "-s", "reload"),
                 capture_output=True, timeout=10,
             )
             logger.info("Nginx reloaded with GeoIP config")

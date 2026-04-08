@@ -196,6 +196,15 @@ do_uninstall() {
         fi
     fi
 
+    # Remove sudoers rules
+    rm -f /etc/sudoers.d/jabali-security
+
+    # Remove service user
+    if id jabali-security &>/dev/null; then
+        echo "Removing service user..."
+        userdel jabali-security 2>/dev/null || true
+    fi
+
     # Remove sysctl config
     if [ -f "$SYSCTL_CONF" ]; then
         rm -f "$SYSCTL_CONF"
@@ -411,6 +420,8 @@ do_install() {
     cp "$tmp_dir"/etc/jabali-security.conf.example "$INSTALL_DIR/etc/"
     cp "$tmp_dir"/etc/jabali-security.service "$INSTALL_DIR/etc/"
     cp -r "$tmp_dir"/etc/webshield "$INSTALL_DIR/etc/" 2>/dev/null || true
+    mkdir -p "$INSTALL_DIR/etc/sudoers.d"
+    cp "$tmp_dir"/etc/sudoers.d/jabali-security "$INSTALL_DIR/etc/sudoers.d/" 2>/dev/null || true
     cp "$tmp_dir"/bin/jabali-security "$INSTALL_DIR/bin/"
     chmod +x "$INSTALL_DIR/bin/jabali-security"
 
@@ -462,45 +473,72 @@ if 'JabaliSecurityPlugin' not in c and '->middleware([' in c:
     # -- CLI symlink --
     ln -sf "$INSTALL_DIR/bin/jabali-security" /usr/local/bin/jabali-security
 
+    # -- Create dedicated service user (privilege separation) --
+    section "Creating Service User"
+    if ! id jabali-security &>/dev/null; then
+        useradd --system --no-create-home --shell /usr/sbin/nologin \
+            --home-dir "$INSTALL_DIR" jabali-security
+        echo "  Created system user: jabali-security"
+    else
+        echo "  User jabali-security already exists."
+    fi
+    # Add to www-data group for socket access
+    if id www-data &>/dev/null; then
+        usermod -aG www-data jabali-security 2>/dev/null || true
+    fi
+    done_ok "Service user configured"
+
+    # -- Install sudoers rules --
+    section "Installing Sudoers Rules"
+    if [ -d /etc/sudoers.d ]; then
+        cp "$INSTALL_DIR/etc/sudoers.d/jabali-security" /etc/sudoers.d/jabali-security
+        chmod 440 /etc/sudoers.d/jabali-security
+        chown root:root /etc/sudoers.d/jabali-security
+        if visudo -cf /etc/sudoers.d/jabali-security >/dev/null 2>&1; then
+            echo "  Sudoers rules installed and validated."
+        else
+            rm -f /etc/sudoers.d/jabali-security
+            yellow "  WARNING: sudoers file failed validation, removed. Daemon will need root."
+        fi
+    fi
+    done_ok "Sudoers configured"
+
     section "Configuring Directories & Permissions"
     mkdir -p "$CONFIG_DIR"
-    if id www-data &>/dev/null; then
-        chown root:www-data "$CONFIG_DIR"
-        chmod 750 "$CONFIG_DIR"
-    else
-        chmod 700 "$CONFIG_DIR"
-    fi
+    chown jabali-security:www-data "$CONFIG_DIR" 2>/dev/null || chown jabali-security: "$CONFIG_DIR"
+    chmod 750 "$CONFIG_DIR"
     mkdir -p "$LOG_DIR"
+    chown jabali-security: "$LOG_DIR"
+    chmod 750 "$LOG_DIR"
     mkdir -p "$DATA_DIR"
+    chown jabali-security: "$DATA_DIR"
     chmod 700 "$DATA_DIR"
     mkdir -p "$QUARANTINE_DIR"
+    chown jabali-security: "$QUARANTINE_DIR"
     chmod 700 "$QUARANTINE_DIR"
+    # Nginx config dirs (daemon writes GeoIP/WebShield configs here)
+    mkdir -p /etc/nginx/jabali/cache-zones /etc/nginx/jabali/includes
+    chown -R jabali-security: /etc/nginx/jabali/ 2>/dev/null || true
+    mkdir -p /etc/nginx/jabali-security
+    chown jabali-security: /etc/nginx/jabali-security 2>/dev/null || true
 
     done_ok "Directories created"
 
     section "Configuring Security Daemon"
     # Always ensure correct permissions (even on reinstall)
-    if id www-data &>/dev/null; then
-        chown root:www-data "$CONFIG_DIR" 2>/dev/null
-        chmod 750 "$CONFIG_DIR" 2>/dev/null
-    fi
+    chown jabali-security:www-data "$CONFIG_DIR" 2>/dev/null || chown jabali-security: "$CONFIG_DIR"
+    chmod 750 "$CONFIG_DIR" 2>/dev/null
 
     if [ ! -f "$CONFIG_DIR/jabali-security.conf" ]; then
         cp "$INSTALL_DIR/etc/jabali-security.conf.example" "$CONFIG_DIR/jabali-security.conf"
-        if id www-data &>/dev/null; then
-            chown root:www-data "$CONFIG_DIR/jabali-security.conf"
-            chmod 640 "$CONFIG_DIR/jabali-security.conf"
-        else
-            chmod 600 "$CONFIG_DIR/jabali-security.conf"
-        fi
+        chown jabali-security:www-data "$CONFIG_DIR/jabali-security.conf" 2>/dev/null || chown jabali-security: "$CONFIG_DIR/jabali-security.conf"
+        chmod 640 "$CONFIG_DIR/jabali-security.conf"
         echo "  Config: $CONFIG_DIR/jabali-security.conf"
     else
         echo "  Config already exists, keeping current."
-        # Fix permissions on existing config
-        if id www-data &>/dev/null; then
-            chown root:www-data "$CONFIG_DIR/jabali-security.conf" 2>/dev/null
-            chmod 640 "$CONFIG_DIR/jabali-security.conf" 2>/dev/null
-        fi
+        # Fix permissions on existing config (upgrade from root ownership)
+        chown jabali-security:www-data "$CONFIG_DIR/jabali-security.conf" 2>/dev/null || chown jabali-security: "$CONFIG_DIR/jabali-security.conf"
+        chmod 640 "$CONFIG_DIR/jabali-security.conf" 2>/dev/null
     fi
 
     # -- Generate API_KEY if not set --
@@ -518,12 +556,8 @@ else:
     content += '\nAPI_KEY=\"' + key + '\"\n'
 with open(path, 'w') as f: f.write(content)
 " "$CONFIG_DIR/jabali-security.conf"
-        if id www-data &>/dev/null; then
-            chown root:www-data "$CONFIG_DIR/jabali-security.conf"
-            chmod 640 "$CONFIG_DIR/jabali-security.conf"
-        else
-            chmod 600 "$CONFIG_DIR/jabali-security.conf"
-        fi
+        chown jabali-security:www-data "$CONFIG_DIR/jabali-security.conf" 2>/dev/null || chown jabali-security: "$CONFIG_DIR/jabali-security.conf"
+        chmod 640 "$CONFIG_DIR/jabali-security.conf"
         echo "  API key generated."
     fi
 

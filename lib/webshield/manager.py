@@ -227,9 +227,11 @@ class WebShieldManager:
     @staticmethod
     async def _test_nginx_config() -> bool:
         """Test nginx configuration. Returns True if valid."""
+        from lib.privilege import sudo_prefix
+        cmd = [*sudo_prefix(), "nginx", "-t"]
         try:
             proc = await asyncio.create_subprocess_exec(
-                "nginx", "-t",
+                *cmd,
                 stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
             )
             await proc.communicate()

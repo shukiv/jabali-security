@@ -170,7 +170,8 @@ class CrowdSecClient:
         if not cscli:
             return False
         dur_str = "%ds" % duration if duration > 0 else "8760h"
-        cmd = [cscli, "decisions", "add", "--ip", ip, "--duration", dur_str,
+        from lib.privilege import sudo_prefix
+        cmd = [*sudo_prefix(), cscli, "decisions", "add", "--ip", ip, "--duration", dur_str,
                "--reason", reason, "--type", "ban"]
         try:
             proc = await asyncio.create_subprocess_exec(
@@ -194,9 +195,10 @@ class CrowdSecClient:
         cscli = shutil.which("cscli")
         if not cscli:
             return False
+        from lib.privilege import sudo_prefix
         try:
             proc = await asyncio.create_subprocess_exec(
-                cscli, "decisions", "delete", "--ip", ip,
+                *sudo_prefix(), cscli, "decisions", "delete", "--ip", ip,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )

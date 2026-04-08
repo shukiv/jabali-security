@@ -63,11 +63,11 @@ class SecurityDaemon:
                 Path(socket_path).unlink(missing_ok=True)
                 unix_site = web.UnixSite(api_runner, socket_path)
                 await unix_site.start()
-                # Set socket permissions: root:www-data 0660
+                # Set socket permissions: <owner>:www-data 0660
                 os.chmod(socket_path, 0o660)
                 try:
                     www_gid = grp.getgrnam("www-data").gr_gid
-                    os.chown(socket_path, 0, www_gid)
+                    os.chown(socket_path, -1, www_gid)  # keep owner, set group
                 except (KeyError, PermissionError):
                     pass  # www-data group may not exist
                 logger.info("REST API listening on unix:%s", socket_path)

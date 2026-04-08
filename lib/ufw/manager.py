@@ -242,9 +242,11 @@ class UFWManager:
         Note: stdout/stderr may contain internal system details and must
         never be returned directly to API clients.
         """
+        from lib.privilege import sudo_prefix
+        cmd = [*sudo_prefix(), *args]
         try:
             proc = await asyncio.create_subprocess_exec(
-                *args,
+                *cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )

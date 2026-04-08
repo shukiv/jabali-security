@@ -94,9 +94,10 @@ async def delete_crowdsec_decision(request: web.Request) -> web.Response:
     if not cscli:
         return _err("cscli not found — CrowdSec not installed", 404)
 
+    from lib.privilege import sudo_prefix
     try:
         proc = await asyncio.create_subprocess_exec(
-            cscli, "decisions", "delete", "--ip", ip,
+            *sudo_prefix(), cscli, "decisions", "delete", "--ip", ip,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )

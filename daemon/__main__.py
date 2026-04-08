@@ -34,7 +34,8 @@ _LOG_BACKUP_COUNT = 3
 # -- PID helpers -------------------------------------------------------------
 
 def _pid_dir() -> Path:
-    if os.getuid() == 0:
+    from lib.constants import _service_context
+    if _service_context:
         return _PID_DIR_ROOT
     # Use XDG_RUNTIME_DIR (e.g. /run/user/<uid>) to avoid /tmp symlink attacks
     runtime = os.environ.get("XDG_RUNTIME_DIR")
@@ -626,17 +627,19 @@ def update() -> None:
         else:
             click.echo("  CrowdSec hub update skipped.")
 
-    # Fix config permissions (older installs may have 600 root:root)
+    # Fix config permissions — owned by jabali-security:www-data
     import grp
+    import pwd as _pwd
     try:
+        sec_uid = _pwd.getpwnam("jabali-security").pw_uid
         www_gid = grp.getgrnam("www-data").gr_gid
-        os.chown("/etc/jabali-security", 0, www_gid)
+        os.chown("/etc/jabali-security", sec_uid, www_gid)
         os.chmod("/etc/jabali-security", 0o750)
         if os.path.isfile(config_file):
-            os.chown(config_file, 0, www_gid)
+            os.chown(config_file, sec_uid, www_gid)
             os.chmod(config_file, 0o640)
     except (KeyError, PermissionError):
-        pass  # www-data group may not exist
+        pass  # jabali-security user or www-data group may not exist
 
     # Restart services
     click.echo("Restarting services...")

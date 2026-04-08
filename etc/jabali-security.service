@@ -5,6 +5,9 @@ Wants=crowdsec.service
 
 [Service]
 Type=simple
+User=jabali-security
+Group=jabali-security
+SupplementaryGroups=www-data
 ExecStart=/usr/local/jabali-security/venv/bin/python -m daemon start
 WorkingDirectory=/usr/local/jabali-security
 Environment=PYTHONPATH=/usr/local/jabali-security
@@ -19,19 +22,26 @@ SyslogIdentifier=jabali-security
 
 # Security hardening
 NoNewPrivileges=yes
-ProtectSystem=no
+ProtectSystem=strict
+ReadWritePaths=/etc/nginx/jabali /etc/nginx/jabali-security /etc/nginx/modsecurity
+ReadWritePaths=/etc/jabali-security
+ReadWritePaths=/var/lib/jabali-security /var/log/jabali-security
+ReadWritePaths=/var/security/quarantine
+ReadWritePaths=/etc/GeoIP.conf
+ReadWritePaths=/usr/local/share/owasp-crs
 # UFW needs /run/ufw.lock and /proc/sys/net for sysctl tuning
 ProtectKernelTunables=no
 RuntimeDirectory=jabali-security
-ProtectHome=no
+RuntimeDirectoryMode=0755
+ProtectHome=read-only
 PrivateTmp=yes
 # CAP_DAC_READ_SEARCH: read any file for scanning
-# CAP_DAC_OVERRIDE: delete/move files for quarantine
-# CAP_NET_ADMIN: nftables IP blocking
+# CAP_DAC_OVERRIDE: write/move files for quarantine and nginx configs
+# CAP_NET_ADMIN: nftables/iptables IP blocking
 # CAP_KILL: process killer (proactive defense)
 # CAP_FOWNER: change permissions on quarantined files
-CapabilityBoundingSet=CAP_DAC_READ_SEARCH CAP_DAC_OVERRIDE CAP_NET_ADMIN CAP_KILL CAP_FOWNER CAP_CHOWN
-AmbientCapabilities=CAP_DAC_READ_SEARCH CAP_DAC_OVERRIDE CAP_NET_ADMIN CAP_KILL CAP_FOWNER CAP_CHOWN
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH CAP_DAC_OVERRIDE CAP_NET_ADMIN CAP_KILL CAP_FOWNER
+AmbientCapabilities=CAP_DAC_READ_SEARCH CAP_DAC_OVERRIDE CAP_NET_ADMIN CAP_KILL CAP_FOWNER
 LimitNOFILE=65536
 MemoryMax=256M
 

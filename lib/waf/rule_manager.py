@@ -149,9 +149,12 @@ class WafRuleManager:
 
     @staticmethod
     async def _run_cmd(*args: str) -> bool:
+        from lib.privilege import sudo_prefix
+        cmd = [*sudo_prefix(), *args]
         try:
             proc = await asyncio.create_subprocess_exec(
-                *args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+                *cmd,
+                stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
             )
             await proc.communicate()
             return proc.returncode == 0

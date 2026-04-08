@@ -3,14 +3,27 @@
 from __future__ import annotations
 
 import os
+import pwd
 from pathlib import Path
 
 VERSION = "0.1.0"
 APP_NAME = "jabali-security"
 
-_is_root = os.getuid() == 0
 
-if _is_root:
+def _is_service_context() -> bool:
+    """True when running as root or the dedicated jabali-security user."""
+    uid = os.getuid()
+    if uid == 0:
+        return True
+    try:
+        return pwd.getpwuid(uid).pw_name == "jabali-security"
+    except KeyError:
+        return False
+
+
+_service_context = _is_service_context()
+
+if _service_context:
     CONFIG_DIR = Path("/etc/jabali-security")
     LOG_DIR = Path("/var/log/jabali-security")
     DATA_DIR = Path("/var/lib/jabali-security")

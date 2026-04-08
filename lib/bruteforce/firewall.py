@@ -146,10 +146,11 @@ class FirewallManager:
 
     async def _nft_list(self) -> list[str]:
         """List IPs in the blocked sets."""
+        from lib.privilege import sudo_prefix
         ips: list[str] = []
         for set_name in ("blocked-v4", "blocked-v6"):
             proc = await asyncio.create_subprocess_exec(
-                "nft", "list", "set", "inet", "jabali-security", set_name,
+                *sudo_prefix(), "nft", "list", "set", "inet", "jabali-security", set_name,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
@@ -189,8 +190,9 @@ class FirewallManager:
         return rc == 0
 
     async def _ipt_list(self) -> list[str]:
+        from lib.privilege import sudo_prefix
         proc = await asyncio.create_subprocess_exec(
-            "iptables", "-L", "JABALI-SECURITY", "-n", "--line-numbers",
+            *sudo_prefix(), "iptables", "-L", "JABALI-SECURITY", "-n", "--line-numbers",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
@@ -207,16 +209,18 @@ class FirewallManager:
 
     @staticmethod
     async def _run(*args: str) -> int:
-        """Run a command, return exit code. Never uses shell."""
+        """Run a command, return exit code. Uses list args, never shell."""
+        from lib.privilege import sudo_prefix
+        cmd = [*sudo_prefix(), *args]
         try:
             proc = await asyncio.create_subprocess_exec(
-                *args,
+                *cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
             _stdout, stderr = await proc.communicate()
             if proc.returncode != 0 and stderr:
-                logger.warning("nft command failed: %s -- %s", " ".join(args), stderr.decode()[:200])
+                logger.warning("Firewall command failed: %s -- %s", " ".join(args), stderr.decode()[:200])
             return proc.returncode or 0
         except OSError as exc:
             logger.error("Firewall command failed: %s -- %s", " ".join(args), exc)
