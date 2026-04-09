@@ -38,7 +38,8 @@ PrivateTmp=yes
 # CAP_NET_ADMIN: nftables/iptables IP blocking
 # CAP_KILL: process killer (proactive defense)
 # CAP_FOWNER: change permissions on quarantined files
-CapabilityBoundingSet=CAP_DAC_READ_SEARCH CAP_DAC_OVERRIDE CAP_NET_ADMIN CAP_KILL CAP_FOWNER
+# CAP_SETUID + CAP_SETGID: required for sudo to escalate via sudoers whitelist
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH CAP_DAC_OVERRIDE CAP_NET_ADMIN CAP_KILL CAP_FOWNER CAP_SETUID CAP_SETGID CAP_AUDIT_WRITE
 AmbientCapabilities=CAP_DAC_READ_SEARCH CAP_DAC_OVERRIDE CAP_NET_ADMIN CAP_KILL CAP_FOWNER
 LimitNOFILE=65536
 MemoryMax=256M
