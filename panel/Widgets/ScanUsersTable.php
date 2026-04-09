@@ -83,9 +83,14 @@ class ScanUsersTable extends Component implements HasActions, HasSchemas, HasTab
         return $table
             ->records(function () {
                 try {
-                    // Get system users from /home/
-                    $sshUsers = $this->client()->get('/ssh/users') ?? [];
-                    // Get incident stats
+                    // Get hosting users from the panel database
+                    $panelUsers = \App\Models\User::query()
+                        ->select('id', 'name', 'username')
+                        ->whereNotNull('username')
+                        ->where('username', '!=', '')
+                        ->get();
+
+                    // Get incident stats from security daemon
                     $incidentUsers = $this->client()->get('/users') ?? [];
                     $incidentMap = [];
                     foreach ($incidentUsers as $u) {
@@ -93,11 +98,8 @@ class ScanUsersTable extends Component implements HasActions, HasSchemas, HasTab
                     }
 
                     $records = [];
-                    foreach ($sshUsers as $user) {
-                        $username = $user['username'] ?? '';
-                        if (! $username) {
-                            continue;
-                        }
+                    foreach ($panelUsers as $user) {
+                        $username = $user->username;
                         $incidents = $incidentMap[$username] ?? [];
                         $records[] = [
                             'username' => $username,
@@ -108,28 +110,20 @@ class ScanUsersTable extends Component implements HasActions, HasSchemas, HasTab
                         ];
                     }
 
-                    // Add users with incidents but not in ssh/users
+                    // Add users with incidents but not in the panel DB
+                    $panelUsernames = $panelUsers->pluck('username')->all();
                     foreach ($incidentUsers as $u) {
                         $username = $u['username'] ?? '';
-                        if (! $username) {
+                        if (! $username || in_array($username, $panelUsernames, true)) {
                             continue;
                         }
-                        $found = false;
-                        foreach ($records as $r) {
-                            if ($r['username'] === $username) {
-                                $found = true;
-                                break;
-                            }
-                        }
-                        if (! $found) {
-                            $records[] = [
-                                'username' => $username,
-                                'incident_count' => $u['incident_count'] ?? 0,
-                                'max_score' => $u['max_score'] ?? 0,
-                                'quarantine_count' => $u['quarantine_count'] ?? 0,
-                                'path' => '/home/' . $username,
-                            ];
-                        }
+                        $records[] = [
+                            'username' => $username,
+                            'incident_count' => $u['incident_count'] ?? 0,
+                            'max_score' => $u['max_score'] ?? 0,
+                            'quarantine_count' => $u['quarantine_count'] ?? 0,
+                            'path' => '/home/' . $username,
+                        ];
                     }
 
                     return $records;
@@ -204,15 +198,18 @@ class ScanUsersTable extends Component implements HasActions, HasSchemas, HasTab
                     ->requiresConfirmation()
                     ->modalDescription(__('Each user will be scanned individually. You will see progress notifications for each user.'))
                     ->action(function (): void {
-                        $sshUsers = $this->client()->get('/ssh/users') ?? [];
+                        $panelUsers = \App\Models\User::query()
+                            ->whereNotNull('username')
+                            ->where('username', '!=', '')
+                            ->pluck('username')
+                            ->all();
                         $totalFiles = 0;
                         $totalThreats = 0;
                         $allThreats = [];
                         $scanned = 0;
-                        $count = count($sshUsers);
+                        $count = count($panelUsers);
 
-                        foreach ($sshUsers as $user) {
-                            $username = $user['username'] ?? '';
+                        foreach ($panelUsers as $username) {
                             if (! $username) {
                                 continue;
                             }
