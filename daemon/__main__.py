@@ -627,19 +627,90 @@ def update() -> None:
         else:
             click.echo("  CrowdSec hub update skipped.")
 
-    # Fix config permissions — owned by jabali-security:www-data
+    # -- Privilege separation migration --
     import grp
     import pwd as _pwd
+
+    # 1. Create jabali-security system user if missing
+    try:
+        _pwd.getpwnam("jabali-security")
+        click.echo("  Service user jabali-security exists.")
+    except KeyError:
+        click.echo("Creating jabali-security service user...")
+        result = subprocess.run(  # noqa: S603
+            ["useradd", "--system", "--no-create-home",
+             "--shell", "/usr/sbin/nologin",
+             "--home-dir", INSTALL_DIR, "jabali-security"],
+            capture_output=True, timeout=10,
+        )
+        if result.returncode == 0:
+            click.echo("  Created system user: jabali-security")
+        else:
+            click.echo("  WARNING: failed to create user: %s" % result.stderr.decode().strip())
+
+    # 2. Add to www-data group for socket access
+    try:
+        grp.getgrnam("www-data")
+        subprocess.run(  # noqa: S603
+            ["usermod", "-aG", "www-data", "jabali-security"],
+            capture_output=True, timeout=10,
+        )
+    except KeyError:
+        pass
+
+    # 3. Install sudoers rules
+    sudoers_src = os.path.join(INSTALL_DIR, "etc", "sudoers.d", "jabali-security")
+    sudoers_dst = "/etc/sudoers.d/jabali-security"
+    if os.path.isfile(sudoers_src) and os.path.isdir("/etc/sudoers.d"):
+        import shutil as _su
+        _su.copy2(sudoers_src, sudoers_dst)
+        os.chmod(sudoers_dst, 0o440)
+        os.chown(sudoers_dst, 0, 0)
+        # Validate with visudo
+        vcheck = subprocess.run(  # noqa: S603
+            ["visudo", "-cf", sudoers_dst],
+            capture_output=True, timeout=5,
+        )
+        if vcheck.returncode == 0:
+            click.echo("  Sudoers rules installed.")
+        else:
+            os.unlink(sudoers_dst)
+            click.echo("  WARNING: sudoers validation failed, removed.")
+
+    # 4. Update systemd service file
+    svc_src = os.path.join(INSTALL_DIR, "etc", "jabali-security.service")
+    svc_dst = "/etc/systemd/system/jabali-security.service"
+    if os.path.isfile(svc_src):
+        import shutil as _su
+        _su.copy2(svc_src, svc_dst)
+        subprocess.run(  # noqa: S603
+            ["/usr/bin/systemctl", "daemon-reload"],
+            capture_output=True, timeout=10,
+        )
+        click.echo("  Service file updated.")
+
+    # 5. Fix directory ownership — jabali-security:www-data
     try:
         sec_uid = _pwd.getpwnam("jabali-security").pw_uid
         www_gid = grp.getgrnam("www-data").gr_gid
-        os.chown("/etc/jabali-security", sec_uid, www_gid)
-        os.chmod("/etc/jabali-security", 0o750)
+        for d in ["/etc/jabali-security", "/var/log/jabali-security",
+                  "/var/lib/jabali-security", "/var/security/quarantine"]:
+            if os.path.isdir(d):
+                os.chown(d, sec_uid, www_gid if d == "/etc/jabali-security" else sec_uid)
+                os.chmod(d, 0o750 if d == "/etc/jabali-security" else 0o700)
         if os.path.isfile(config_file):
             os.chown(config_file, sec_uid, www_gid)
             os.chmod(config_file, 0o640)
-    except (KeyError, PermissionError):
-        pass  # jabali-security user or www-data group may not exist
+        # Nginx config dirs
+        for d in ["/etc/nginx/jabali", "/etc/nginx/jabali-security"]:
+            if os.path.isdir(d):
+                for root_dir, dirs, files in os.walk(d):
+                    os.chown(root_dir, sec_uid, 0)
+                    for f in files:
+                        os.chown(os.path.join(root_dir, f), sec_uid, 0)
+        click.echo("  Directory ownership updated.")
+    except (KeyError, PermissionError) as exc:
+        click.echo("  WARNING: could not update ownership: %s" % exc)
 
     # Restart services
     click.echo("Restarting services...")
