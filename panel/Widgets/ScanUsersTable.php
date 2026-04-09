@@ -6,16 +6,15 @@ namespace App\JabaliSecurity\Widgets;
 
 use App\JabaliSecurity\JabaliSecurityClient;
 use Filament\Actions\Action;
-use Filament\Actions\BulkAction;
+use Filament\Actions\Concerns\InteractsWithActions;
+use Filament\Actions\Contracts\HasActions;
 use Filament\Notifications\Notification;
+use Filament\Schemas\Concerns\InteractsWithSchemas;
+use Filament\Schemas\Contracts\HasSchemas;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
-use Filament\Actions\Concerns\InteractsWithActions;
-use Filament\Actions\Contracts\HasActions;
-use Filament\Schemas\Concerns\InteractsWithSchemas;
-use Filament\Schemas\Contracts\HasSchemas;
 use Illuminate\Support\Collection;
 use Livewire\Component;
 
@@ -25,9 +24,26 @@ class ScanUsersTable extends Component implements HasActions, HasSchemas, HasTab
     use InteractsWithSchemas;
     use InteractsWithTable;
 
+    /** @var array<string, array{status: string, files: int, threats_count: int, threats: array}> */
+    public array $scanJobs = [];
+
+    public bool $scanning = false;
+
+    public bool $showResults = false;
+
     protected function client(): JabaliSecurityClient
     {
         return JabaliSecurityClient::getInstance();
+    }
+
+    protected function getHostingUsers(): array
+    {
+        return \App\Models\User::query()
+            ->select('id', 'name', 'username')
+            ->whereNotNull('username')
+            ->where('username', '!=', '')
+            ->pluck('username')
+            ->all();
     }
 
     protected function scanPath(string $username): array
@@ -55,27 +71,139 @@ class ScanUsersTable extends Component implements HasActions, HasSchemas, HasTab
         ];
     }
 
-    protected function formatThreatBody(array $threats): string
+    public function startScanAll(): void
     {
-        if (empty($threats)) {
-            return __('No threats found');
+        $users = $this->getHostingUsers();
+        $this->scanJobs = [];
+        $this->showResults = false;
+
+        foreach ($users as $username) {
+            $this->scanJobs[$username] = [
+                'status' => 'pending',
+                'files' => 0,
+                'threats_count' => 0,
+                'threats' => [],
+            ];
         }
 
-        $lines = [];
-        foreach (array_slice($threats, 0, 10) as $t) {
-            $path = basename($t['path'] ?? '');
-            $score = $t['score'] ?? 0;
-            $findings = collect($t['findings'] ?? [])
-                ->pluck('rule')
-                ->implode(', ');
-            $lines[] = "• {$path} (score: {$score}) — {$findings}";
+        $this->scanning = true;
+    }
+
+    public function startScanUsers(array $usernames): void
+    {
+        $this->scanJobs = [];
+        $this->showResults = false;
+
+        foreach ($usernames as $username) {
+            $this->scanJobs[$username] = [
+                'status' => 'pending',
+                'files' => 0,
+                'threats_count' => 0,
+                'threats' => [],
+            ];
         }
 
-        if (count($threats) > 10) {
-            $lines[] = __('... and :more more', ['more' => count($threats) - 10]);
+        $this->scanning = true;
+    }
+
+    public function processNextScan(): void
+    {
+        if (! $this->scanning) {
+            return;
         }
 
-        return implode("\n", $lines);
+        // Find next pending user
+        $next = null;
+        foreach ($this->scanJobs as $username => $job) {
+            if ($job['status'] === 'pending') {
+                $next = $username;
+                break;
+            }
+        }
+
+        if ($next === null) {
+            $this->scanning = false;
+            $this->showResults = true;
+
+            return;
+        }
+
+        // Mark as scanning
+        $this->scanJobs[$next]['status'] = 'scanning';
+
+        // Execute scan (this is the blocking HTTP call — one per poll tick)
+        $result = $this->scanPath($next);
+
+        $this->scanJobs[$next]['status'] = $result['success'] ? 'done' : 'failed';
+        $this->scanJobs[$next]['files'] = $result['files'];
+        $this->scanJobs[$next]['threats_count'] = $result['threats_count'];
+        $this->scanJobs[$next]['threats'] = $result['threats'];
+    }
+
+    public function cancelScan(): void
+    {
+        $this->scanning = false;
+        $this->scanJobs = [];
+        $this->showResults = false;
+    }
+
+    public function dismissResults(): void
+    {
+        $this->showResults = false;
+        $this->scanJobs = [];
+    }
+
+    public function getScanProgressProperty(): string
+    {
+        $total = count($this->scanJobs);
+        $done = 0;
+        foreach ($this->scanJobs as $job) {
+            if (in_array($job['status'], ['done', 'failed'], true)) {
+                $done++;
+            }
+        }
+
+        return "{$done}/{$total}";
+    }
+
+    public function getScanPercentProperty(): int
+    {
+        $total = count($this->scanJobs);
+        if ($total === 0) {
+            return 0;
+        }
+        $done = 0;
+        foreach ($this->scanJobs as $job) {
+            if (in_array($job['status'], ['done', 'failed'], true)) {
+                $done++;
+            }
+        }
+
+        return (int) round(($done / $total) * 100);
+    }
+
+    public function getTotalResultsProperty(): array
+    {
+        $files = 0;
+        $threats = 0;
+        $allThreats = [];
+        $users = 0;
+
+        foreach ($this->scanJobs as $job) {
+            if ($job['status'] === 'done') {
+                $users++;
+                $files += $job['files'];
+                $threats += $job['threats_count'];
+                $allThreats = array_merge($allThreats, $job['threats']);
+            }
+        }
+
+        return [
+            'users' => $users,
+            'files' => $files,
+            'threats' => $threats,
+            'all_threats' => $allThreats,
+        ];
     }
 
     public function table(Table $table): Table
@@ -83,14 +211,12 @@ class ScanUsersTable extends Component implements HasActions, HasSchemas, HasTab
         return $table
             ->records(function () {
                 try {
-                    // Get hosting users from the panel database
                     $panelUsers = \App\Models\User::query()
                         ->select('id', 'name', 'username')
                         ->whereNotNull('username')
                         ->where('username', '!=', '')
                         ->get();
 
-                    // Get incident stats from security daemon
                     $incidentUsers = $this->client()->get('/users') ?? [];
                     $incidentMap = [];
                     foreach ($incidentUsers as $u) {
@@ -101,28 +227,36 @@ class ScanUsersTable extends Component implements HasActions, HasSchemas, HasTab
                     foreach ($panelUsers as $user) {
                         $username = $user->username;
                         $incidents = $incidentMap[$username] ?? [];
+                        $scanJob = $this->scanJobs[$username] ?? null;
+
                         $records[] = [
                             'username' => $username,
                             'incident_count' => $incidents['incident_count'] ?? 0,
                             'max_score' => $incidents['max_score'] ?? 0,
                             'quarantine_count' => $incidents['quarantine_count'] ?? 0,
                             'path' => '/home/' . $username,
+                            'scan_status' => $scanJob['status'] ?? null,
+                            'scan_files' => $scanJob['files'] ?? 0,
+                            'scan_threats' => $scanJob['threats_count'] ?? 0,
                         ];
                     }
 
-                    // Add users with incidents but not in the panel DB
                     $panelUsernames = $panelUsers->pluck('username')->all();
                     foreach ($incidentUsers as $u) {
                         $username = $u['username'] ?? '';
                         if (! $username || in_array($username, $panelUsernames, true)) {
                             continue;
                         }
+                        $scanJob = $this->scanJobs[$username] ?? null;
                         $records[] = [
                             'username' => $username,
                             'incident_count' => $u['incident_count'] ?? 0,
                             'max_score' => $u['max_score'] ?? 0,
                             'quarantine_count' => $u['quarantine_count'] ?? 0,
                             'path' => '/home/' . $username,
+                            'scan_status' => $scanJob['status'] ?? null,
+                            'scan_files' => $scanJob['files'] ?? 0,
+                            'scan_threats' => $scanJob['threats_count'] ?? 0,
                         ];
                     }
 
@@ -141,6 +275,30 @@ class ScanUsersTable extends Component implements HasActions, HasSchemas, HasTab
                     ->fontFamily('mono')
                     ->size('sm')
                     ->color('gray'),
+                TextColumn::make('scan_status')
+                    ->label(__('Status'))
+                    ->badge()
+                    ->formatStateUsing(fn ($state): string => match ($state) {
+                        'pending' => __('Pending'),
+                        'scanning' => __('Scanning...'),
+                        'done' => __('Done'),
+                        'failed' => __('Failed'),
+                        default => '',
+                    })
+                    ->color(fn ($state): string => match ($state) {
+                        'pending' => 'gray',
+                        'scanning' => 'info',
+                        'done' => 'success',
+                        'failed' => 'danger',
+                        default => 'gray',
+                    })
+                    ->icon(fn ($state): ?string => match ($state) {
+                        'scanning' => 'heroicon-o-arrow-path',
+                        'done' => 'heroicon-o-check-circle',
+                        'failed' => 'heroicon-o-x-circle',
+                        default => null,
+                    })
+                    ->visible(fn (): bool => $this->scanning || $this->showResults),
                 TextColumn::make('incident_count')
                     ->label(__('Incidents'))
                     ->badge()
@@ -164,30 +322,10 @@ class ScanUsersTable extends Component implements HasActions, HasSchemas, HasTab
                     ->icon('heroicon-o-magnifying-glass')
                     ->color('warning')
                     ->requiresConfirmation()
+                    ->hidden(fn (): bool => $this->scanning)
                     ->action(function (array $record): void {
                         $username = $record['username'] ?? '';
-
-                        Notification::make()
-                            ->title(__('Scanning :user...', ['user' => $username]))
-                            ->info()
-                            ->send();
-
-                        $r = $this->scanPath($username);
-
-                        $notification = Notification::make()
-                            ->title($r['success']
-                                ? __(':user — :files files, :threats threats', ['user' => $username, 'files' => $r['files'], 'threats' => $r['threats_count']])
-                                : __('Scan failed for :user', ['user' => $username]))
-                            ->{$r['success'] ? ($r['threats_count'] > 0 ? 'warning' : 'success') : 'danger'}();
-
-                        if ($r['threats_count'] > 0) {
-                            $notification->body($this->formatThreatBody($r['threats']))
-                                ->persistent();
-                        } else {
-                            $notification->duration(10000);
-                        }
-
-                        $notification->send();
+                        $this->startScanUsers([$username]);
                     }),
             ])
             ->headerActions([
@@ -196,104 +334,27 @@ class ScanUsersTable extends Component implements HasActions, HasSchemas, HasTab
                     ->icon('heroicon-o-shield-exclamation')
                     ->color('danger')
                     ->requiresConfirmation()
-                    ->modalDescription(__('Each user will be scanned individually. You will see progress notifications for each user.'))
-                    ->action(function (): void {
-                        $panelUsers = \App\Models\User::query()
-                            ->whereNotNull('username')
-                            ->where('username', '!=', '')
-                            ->pluck('username')
-                            ->all();
-                        $totalFiles = 0;
-                        $totalThreats = 0;
-                        $allThreats = [];
-                        $scanned = 0;
-                        $count = count($panelUsers);
-
-                        foreach ($panelUsers as $username) {
-                            if (! $username) {
-                                continue;
-                            }
-
-                            $scanned++;
-                            Notification::make('scan-progress')
-                                ->title(__('Scanning :n/:total — :user', ['n' => $scanned, 'total' => $count, 'user' => $username]))
-                                ->info()
-                                ->send();
-
-                            $r = $this->scanPath($username);
-                            if ($r['success']) {
-                                $totalFiles += $r['files'];
-                                $totalThreats += $r['threats_count'];
-                                $allThreats = array_merge($allThreats, $r['threats']);
-                            }
-                        }
-
-                        $notification = Notification::make()
-                            ->title(__('Scan complete — :users users', ['users' => $scanned]))
-                            ->body(
-                                __(':files files scanned, :threats threats found', ['files' => $totalFiles, 'threats' => $totalThreats])
-                                . ($totalThreats > 0 ? "\n\n" . $this->formatThreatBody($allThreats) : '')
-                            )
-                            ->{$totalThreats > 0 ? 'warning' : 'success'}();
-
-                        if ($totalThreats > 0) {
-                            $notification->persistent();
-                        } else {
-                            $notification->duration(15000);
-                        }
-
-                        $notification->send();
-                    }),
+                    ->modalDescription(__('Each user will be scanned individually. You will see live progress as each scan completes.'))
+                    ->hidden(fn (): bool => $this->scanning)
+                    ->action(fn () => $this->startScanAll()),
+                Action::make('cancelScan')
+                    ->label(__('Cancel'))
+                    ->icon('heroicon-o-x-mark')
+                    ->color('gray')
+                    ->visible(fn (): bool => $this->scanning)
+                    ->action(fn () => $this->cancelScan()),
             ])
             ->bulkActions([
-                BulkAction::make('scanSelected')
+                \Filament\Actions\BulkAction::make('scanSelected')
                     ->label(__('Scan Selected'))
                     ->icon('heroicon-o-magnifying-glass')
                     ->color('warning')
                     ->requiresConfirmation()
+                    ->hidden(fn (): bool => $this->scanning)
                     ->deselectRecordsAfterCompletion()
                     ->action(function (Collection $records): void {
-                        $totalFiles = 0;
-                        $totalThreats = 0;
-                        $allThreats = [];
-                        $scanned = 0;
-                        $count = $records->count();
-
-                        foreach ($records as $record) {
-                            $username = $record['username'] ?? '';
-                            if (! $username) {
-                                continue;
-                            }
-
-                            $scanned++;
-                            Notification::make('scan-progress')
-                                ->title(__('Scanning :n/:total — :user', ['n' => $scanned, 'total' => $count, 'user' => $username]))
-                                ->info()
-                                ->send();
-
-                            $r = $this->scanPath($username);
-                            if ($r['success']) {
-                                $totalFiles += $r['files'];
-                                $totalThreats += $r['threats_count'];
-                                $allThreats = array_merge($allThreats, $r['threats']);
-                            }
-                        }
-
-                        $notification = Notification::make()
-                            ->title(__('Scan complete — :users users', ['users' => $scanned]))
-                            ->body(
-                                __(':files files scanned, :threats threats found', ['files' => $totalFiles, 'threats' => $totalThreats])
-                                . ($totalThreats > 0 ? "\n\n" . $this->formatThreatBody($allThreats) : '')
-                            )
-                            ->{$totalThreats > 0 ? 'warning' : 'success'}();
-
-                        if ($totalThreats > 0) {
-                            $notification->persistent();
-                        } else {
-                            $notification->duration(15000);
-                        }
-
-                        $notification->send();
+                        $usernames = $records->pluck('username')->filter()->values()->all();
+                        $this->startScanUsers($usernames);
                     }),
             ])
             ->emptyStateHeading(__('No users found'))
@@ -304,6 +365,6 @@ class ScanUsersTable extends Component implements HasActions, HasSchemas, HasTab
 
     public function render()
     {
-        return $this->getTable()->render();
+        return view('jabali-security::scan-users-table');
     }
 }
