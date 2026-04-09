@@ -21,7 +21,9 @@ StandardError=journal
 SyslogIdentifier=jabali-security
 
 # Security hardening
-NoNewPrivileges=yes
+# Note: NoNewPrivileges must be 'no' because the daemon uses sudo
+# for privileged operations (systemctl, ufw, nginx) via sudoers whitelist.
+NoNewPrivileges=no
 ProtectSystem=strict
 ReadWritePaths=/etc/nginx/jabali /etc/nginx/jabali-security /etc/nginx/modsecurity
 ReadWritePaths=/etc/jabali-security
