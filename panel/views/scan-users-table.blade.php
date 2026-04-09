@@ -38,27 +38,23 @@
             @if($results['threats'] > 0)
                 @foreach($this->scanJobs as $username => $job)
                     @if(($job['threats_count'] ?? 0) > 0)
-                        <div>
-                            <x-filament::badge color="danger">
-                                {{ $job['threats_count'] }} {{ __('threats') }}
-                            </x-filament::badge>
-                            <strong>{{ $username }}</strong>
-                            /home/{{ $username }}
-                        </div>
-                        @foreach(array_slice($job['threats'], 0, 5) as $threat)
-                            <p style="margin-left: 1.5rem; font-size: 0.75rem; opacity: 0.7;">
-                                {{ basename($threat['path'] ?? '') }}
-                                (score: {{ $threat['score'] ?? 0 }})
-                                @if(!empty($threat['findings']))
-                                    &mdash; {{ collect($threat['findings'])->pluck('rule')->implode(', ') }}
-                                @endif
-                            </p>
-                        @endforeach
-                        @if(count($job['threats']) > 5)
-                            <p style="margin-left: 1.5rem; font-size: 0.75rem; opacity: 0.5;">
-                                {{ __('... and :more more', ['more' => count($job['threats']) - 5]) }}
-                            </p>
-                        @endif
+                        <x-filament::section collapsible collapsed :compact="true">
+                            <x-slot name="heading">
+                                <x-filament::badge color="danger">
+                                    {{ $job['threats_count'] }} {{ __('threats') }}
+                                </x-filament::badge>
+                                {{ $username }} — /home/{{ $username }}
+                            </x-slot>
+                            @foreach($job['threats'] as $threat)
+                                <p style="font-size: 0.8rem; opacity: 0.8;">
+                                    {{ basename($threat['path'] ?? '') }}
+                                    (score: {{ $threat['score'] ?? 0 }})
+                                    @if(!empty($threat['findings']))
+                                        &mdash; {{ collect($threat['findings'])->pluck('rule')->implode(', ') }}
+                                    @endif
+                                </p>
+                            @endforeach
+                        </x-filament::section>
                     @endif
                 @endforeach
             @endif
