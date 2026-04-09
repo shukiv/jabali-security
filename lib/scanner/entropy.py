@@ -11,7 +11,7 @@ from lib.models import Finding
 class EntropyScanner:
     name = "entropy"
 
-    def __init__(self, threshold: float = 4.5, enabled: bool = True) -> None:
+    def __init__(self, threshold: float = 6.0, enabled: bool = True) -> None:
         self._threshold = threshold
         self._enabled = enabled
 

@@ -109,10 +109,10 @@ class TestSuspiciousFilename:
 
 
 class TestBurstCreation:
-    async def test_burst_creation_over_20_generates_finding(self) -> None:
+    async def test_burst_creation_over_100_generates_finding(self) -> None:
         tracker = BehaviorTracker(ttl=300)
         findings = []
-        for i in range(25):
+        for i in range(105):
             findings = await tracker.record_event(
                 _make_event(
                     path=f"/home/alice/public_html/file_{i}.php",
@@ -123,10 +123,10 @@ class TestBurstCreation:
         rules = [f.rule for f in findings]
         assert "burst_file_creation" in rules
 
-    async def test_under_20_files_no_burst_finding(self) -> None:
+    async def test_under_100_files_no_burst_finding(self) -> None:
         tracker = BehaviorTracker(ttl=300)
         findings = []
-        for i in range(15):
+        for i in range(90):
             findings = await tracker.record_event(
                 _make_event(
                     path=f"/home/alice/public_html/file_{i}.php",

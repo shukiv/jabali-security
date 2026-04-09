@@ -30,7 +30,7 @@ DEFAULTS: dict[str, str] = {
     "SCAN_EXTENSIONS": ".php,.phtml,.js,.py,.sh,.cgi,.pl,.asp,.aspx,.jsp",
     "MAX_FILE_SIZE": "2097152",
     "SKIP_DIRS": ".git,node_modules,vendor,__pycache__,.cache",
-    "ENTROPY_THRESHOLD": "4.5",
+    "ENTROPY_THRESHOLD": "6.0",
     "YARA_RULES_DIR": "/usr/local/jabali-security/rules",
     "SCORE_LOG": "40",
     "SCORE_QUARANTINE": "70",

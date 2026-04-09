@@ -13,9 +13,10 @@ from lib.models import FileEvent, Finding
 
 logger = logging.getLogger(__name__)
 
-# Regex for random/hash-like filenames (hex or random alphanumeric, 6+ chars, before extension)
+# Regex for random/hash-like filenames (hex strings, or alphanumeric with
+# at least one digit mixed in — pure alphabetic names like "functions" are not random)
 _RANDOM_NAME_RE = re.compile(
-    r"^[a-f0-9]{6,}$|^[a-z0-9]{8,}$|^tmp[_-][a-z0-9]{4,}$",
+    r"^[a-f0-9]{6,}$|^(?=.*\d)[a-z0-9]{8,}$|^tmp[_-][a-z0-9]{4,}$",
     re.IGNORECASE,
 )
 
@@ -151,10 +152,12 @@ class BehaviorTracker:
                         metadata={"path": event.path, "stem": stem},
                     ))
 
-            # Check 4: Burst file creation by same user (>20 files in 60s)
+            # Check 4: Burst file creation by same user (>100 files in 60s)
+            # Threshold is high because CMS installs (WordPress, Joomla) routinely
+            # create hundreds of files during extraction.
             if event.username and event.event_type == "create":
                 ua = self._users.get(event.username)
-                if ua and ua.file_count > 20:
+                if ua and ua.file_count > 100:
                     findings.append(Finding(
                         scanner="behavior",
                         rule="burst_file_creation",

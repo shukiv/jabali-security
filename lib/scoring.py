@@ -81,6 +81,10 @@ class ScoringEngine:
         Requires that the path is actually under a CMS installation by
         verifying a CMS root indicator directory exists in the path, not
         just a generic directory name like "core" or "modules".
+
+        NOTE: wp-content/uploads/ is excluded — uploads are user content
+        and can contain malware.  Theme and plugin dirs are distribution
+        code and should be treated like CMS core.
         """
         p = PurePosixPath(path)
         parts = p.parts
@@ -102,6 +106,20 @@ class ScoringEngine:
 
         # Known WordPress root files (exact match, not prefix)
         if p.name in _WP_ROOT_FILES:
+            return True
+
+        # WordPress distribution directories under wp-content (themes, plugins,
+        # mu-plugins) are CMS code — but NOT uploads (user content).
+        if "wp-content" in parts:
+            idx = parts.index("wp-content")
+            if idx + 1 < len(parts):
+                subdir = parts[idx + 1]
+                if subdir in ("themes", "plugins", "mu-plugins"):
+                    return True
+                # uploads/ is NOT CMS core — user content can be malicious
+
+        # Joomla template/plugin directories
+        if "templates" in parts and "administrator" in parts:
             return True
 
         return False
