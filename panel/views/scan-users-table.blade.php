@@ -1,4 +1,4 @@
-<div>
+<div style="display: grid; gap: 1.5rem;">
     @if($this->scanning)
         <div wire:poll.1s="processNextScan">
             <x-filament::section>
