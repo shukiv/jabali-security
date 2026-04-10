@@ -57,6 +57,7 @@ jabali-security/
 |   +-- quarantine.py       # QuarantineManager (move/restore/delete)
 |   +-- queue.py            # ScanQueue (async queue)
 |   +-- registry.py         # ComponentRegistry (build + lifecycle)
+|   +-- privilege.py        # Sudo helpers for privilege separation
 |   +-- behavior_tracker.py # File lifecycle tracking
 |   +-- process_monitor.py  # /proc polling for suspicious processes
 |   +-- tenant.py           # File path -> hosting account mapper
@@ -139,7 +140,7 @@ jabali-security/
 +-- etc/                    # Config + systemd service files
 |   +-- jabali-security.conf.example
 |   +-- jabali-security.service
-+-- tests/                  # pytest test suite (335 tests)
++-- tests/                  # pytest test suite (366 tests)
 +-- scripts/                # Build scripts
 |   +-- build-deb.sh        # .deb package builder
 +-- debian/                 # .deb packaging files

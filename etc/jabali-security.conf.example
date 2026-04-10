@@ -53,8 +53,9 @@ SKIP_DIRS=".git,node_modules,vendor,__pycache__,.cache"
 
 # -- Detection ---------------------------------------------------------------
 
-# Entropy threshold (0.0 - 8.0); content above this is flagged
-ENTROPY_THRESHOLD="4.5"
+# Entropy threshold (0.0 - 8.0); content above this is flagged.
+# Normal PHP source code scores 4.5-5.5; only obfuscated/encoded content exceeds 6.0.
+ENTROPY_THRESHOLD="6.0"
 
 # Directory containing YARA-X rule files (.yar)
 YARA_RULES_DIR="/usr/local/jabali-security/rules"

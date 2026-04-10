@@ -80,7 +80,7 @@ Heuristic, entropy, and YARA-X scanners are always enabled (core detection engin
 
 | Key | Type | Default | Description |
 |---|---|---|---|
-| `ENTROPY_THRESHOLD` | float | `4.5` | Entropy threshold (0.0-8.0); content above this is flagged |
+| `ENTROPY_THRESHOLD` | float | `6.0` | Entropy threshold (0.0-8.0); content above this is flagged. Normal PHP source code scores 4.5-5.5; only obfuscated/encoded content exceeds 6.0. |
 | `YARA_RULES_DIR` | path | `/usr/local/jabali-security/rules` | Directory containing YARA-X rule files (`.yar`) |
 
 ## ClamAV (Optional)

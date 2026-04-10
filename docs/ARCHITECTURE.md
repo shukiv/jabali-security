@@ -100,7 +100,14 @@ Aggregates `Finding` scores into a `ThreatScore` with an action decision:
 
 Default thresholds: log=40, quarantine=70, suspend=100.
 
-**CMS-aware scoring:** Files in known CMS core directories (wp-admin, wp-includes, administrator, etc.) and known WordPress root files (wp-config.php, wp-login.php, etc.) are treated differently. In these paths, only YARA and ClamAV signature matches are considered real threats; heuristic and entropy findings are capped at the "log" action to avoid false positives from legitimate CMS code.
+**CMS-aware scoring:** Files in known CMS core directories are treated differently. In these paths, only YARA and ClamAV signature matches are considered real threats; heuristic, entropy, and behavior findings are capped at the "log" action to avoid false positives from legitimate CMS code. Protected paths include:
+
+- WordPress core directories: `wp-admin/`, `wp-includes/`
+- WordPress root files: `wp-config.php`, `wp-login.php`, etc.
+- WordPress distribution code: `wp-content/themes/`, `wp-content/plugins/`, `wp-content/mu-plugins/`
+- Joomla directories: `administrator/`, `libraries/`, `components/`
+
+Note: `wp-content/uploads/` is explicitly excluded — user-uploaded content can contain malware and is always fully scored.
 
 ### Response Engine (`lib/response.py`)
 
@@ -211,6 +218,7 @@ Disabled by default (`UFW_ENABLED="no"`). Requires `ufw` to be installed on the 
 | Module | File | Purpose |
 |---|---|---|
 | AsyncLogTailer | `lib/log_tailer.py` | Reusable async log file tailer with rotation/truncation detection. Used by brute-force log parser. |
+| Privilege Helper | `lib/privilege.py` | `sudo_prefix()` / `sudo_cmd()` for privilege separation (returns empty list when root) |
 | Behavior Tracker | `lib/behavior_tracker.py` | Tracks file lifecycle (CREATE -> MODIFY -> EXECUTE) |
 | Process Monitor | `lib/process_monitor.py` | Polls `/proc` for suspicious process trees |
 | Quarantine Manager | `lib/quarantine.py` | File move/restore/delete with metadata |
@@ -396,25 +404,34 @@ Full reference: [CONFIGURATION.md](CONFIGURATION.md)
 
 ## Security Model
 
-### Linux Capabilities
+### Privilege Separation
 
-The systemd service drops root privileges and uses targeted capabilities:
+The daemon runs as a dedicated `jabali-security` system user (not root). Privileged operations use sudo via a whitelist in `/etc/sudoers.d/jabali-security`. The `lib/privilege.py` module provides `sudo_prefix()` and `sudo_cmd()` helpers that return empty lists when running as root (backward compatible) or `['/usr/bin/sudo']` when running as the service user.
+
+The `jabali-security update` command automatically migrates existing root-based installations to the privilege-separated model: creates the system user, installs sudoers rules, updates the service file, and fixes directory ownership.
+
+### Linux Capabilities
 
 | Capability | Purpose |
 |---|---|
 | `CAP_DAC_READ_SEARCH` | Read any file for scanning |
-| `CAP_DAC_OVERRIDE` | Delete/move files for quarantine |
+| `CAP_DAC_OVERRIDE` | Write/move files for quarantine and nginx configs |
 | `CAP_FOWNER` | Change permissions on quarantined files |
-| `CAP_CHOWN` | Change ownership on jail files |
 | `CAP_NET_ADMIN` | Manage nftables/iptables rules for IP blocking |
 | `CAP_KILL` | Kill suspicious processes (proactive defense) |
+| `CAP_SETUID` | Required for sudo to escalate via sudoers whitelist |
+| `CAP_SETGID` | Required for sudo to escalate via sudoers whitelist |
+| `CAP_AUDIT_WRITE` | Required for sudo audit logging |
 
 ### systemd Hardening
 
 ```ini
-NoNewPrivileges=yes
-ProtectSystem=no
-ProtectHome=no
+User=jabali-security
+Group=jabali-security
+SupplementaryGroups=www-data
+NoNewPrivileges=no
+ProtectSystem=full
+ProtectHome=read-only
 PrivateTmp=yes
 MemoryMax=256M
 LimitNOFILE=65536
@@ -423,7 +440,7 @@ After=network.target crowdsec.service
 Wants=crowdsec.service
 ```
 
-`ProtectSystem=no` is required because certain operations need `/etc` write access. Weak dependency on `crowdsec.service` (starts after CrowdSec if installed, doesn't fail if absent).
+`NoNewPrivileges=no` is required because the daemon uses sudo (a setuid binary) for privileged operations. `ProtectSystem=full` protects `/usr` and `/boot` as read-only (`strict` would block sudo which needs `/run/sudo` and `/var/lib/sudo`). Weak dependency on `crowdsec.service` (starts after CrowdSec if installed, doesn't fail if absent).
 
 ### API Authentication
 

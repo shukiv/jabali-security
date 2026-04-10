@@ -444,7 +444,7 @@ Get current configuration. All values are returned as strings. Booleans as `"yes
   "LOG_LEVEL": "info",
   "WORKERS": "4",
   "API_KEY": "set",
-  "ENTROPY_THRESHOLD": "4.5",
+  "ENTROPY_THRESHOLD": "6.0",
   "WATCH_DIRS": "/home/*/public_html,/home/*/domains/*/public_html,/home/*/tmp"
 }
 ```
