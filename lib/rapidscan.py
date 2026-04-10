@@ -148,6 +148,3 @@ class RapidScanEngine:
         except OSError:
             pass
 
-    @property
-    def cache_size(self) -> int:
-        return len(self._mtime_cache)

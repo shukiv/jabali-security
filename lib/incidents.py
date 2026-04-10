@@ -492,32 +492,6 @@ class IncidentStore:
                 })
         return results
 
-    async def find_incident_by_path(self, path_pattern: str) -> dict | None:
-        """Find the most recent incident whose path matches the given LIKE pattern."""
-        if self._db is None:
-            raise RuntimeError("IncidentStore not initialized — call open() first")
-        async with self._db.execute(
-            "SELECT id, total_score, severity FROM incidents "
-            "WHERE path LIKE ? ORDER BY created_at DESC LIMIT 1",
-            (path_pattern,),
-        ) as cursor:
-            row = await cursor.fetchone()
-        if row:
-            return {"id": row[0], "total_score": row[1], "severity": row[2]}
-        return None
-
-    async def get_user_detail(self, username: str) -> dict:
-        """Return incidents and quarantine records for a specific user."""
-        user_incidents = await self.list_incidents(limit=100, username=username)
-        quarantine_records = await self.list_quarantine(username=username)
-        return {
-            "username": username,
-            "incidents": user_incidents,
-            "quarantine": quarantine_records,
-            "incident_count": len(user_incidents),
-            "quarantine_count": len(quarantine_records),
-        }
-
     @staticmethod
     def _row_to_incident(row, description) -> Incident | None:
         """Convert a database row to an Incident model."""

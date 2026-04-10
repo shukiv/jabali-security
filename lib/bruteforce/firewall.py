@@ -74,24 +74,6 @@ class FirewallManager:
             return await self._ipt_unblock(ip)
         return False
 
-    async def list_blocked(self) -> list[str]:
-        """List currently blocked IPs from the firewall."""
-        if self._backend == "none":
-            return []
-        if self._backend == "nftables":
-            return await self._nft_list()
-        if self._backend == "iptables":
-            return await self._ipt_list()
-        return []
-
-    async def sync_from_db(self, blocked_ips: list[tuple[str, int]]) -> int:
-        """Re-apply blocks from database on startup. Returns count applied."""
-        count = 0
-        for ip, duration in blocked_ips:
-            if await self.block_ip(ip, duration):
-                count += 1
-        return count
-
     # -- nftables implementation --
 
     async def _nft_init(self) -> None:

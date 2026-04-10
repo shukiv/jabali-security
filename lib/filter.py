@@ -6,7 +6,6 @@ import os
 from pathlib import PurePosixPath
 
 from lib.config import JabaliConfig
-from lib.system_tools import get_mime_type
 
 # MIME types that are clearly binary and should be skipped for text-extension files
 _BINARY_MIMES = frozenset({
@@ -61,17 +60,6 @@ class PreFilter:
         except OSError:
             return False
         if size == 0 or size > self.max_file_size:
-            return False
-
-        return True
-
-    async def should_scan_with_mime(self, path: str) -> bool:
-        """Also verify MIME type — reject binary MIME for text-extension files."""
-        if not self.should_scan(path):
-            return False
-
-        mime = await get_mime_type(path)
-        if mime and mime in _BINARY_MIMES:
             return False
 
         return True

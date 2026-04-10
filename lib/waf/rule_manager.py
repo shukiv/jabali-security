@@ -63,9 +63,6 @@ class WafRuleManager:
         self._save_overrides()
         return await self._reload_web_server()
 
-    def is_disabled(self, rule_id: int) -> bool:
-        return rule_id in self._disabled_rules
-
     def list_disabled(self) -> list[int]:
         return sorted(self._disabled_rules)
 

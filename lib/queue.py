@@ -38,7 +38,3 @@ class ScanQueue:
     def qsize(self) -> int:
         return self._queue.qsize()
 
-    @property
-    def dropped(self) -> int:
-        """Number of events dropped due to full queue."""
-        return self._dropped

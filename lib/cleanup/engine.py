@@ -36,10 +36,3 @@ class CleanupEngine:
     def auto(self) -> bool:
         return self._auto
 
-    @property
-    def recent_results(self) -> list[CleanupResult]:
-        return list(self._results)
-
-    @property
-    def result_count(self) -> int:
-        return len(self._results)

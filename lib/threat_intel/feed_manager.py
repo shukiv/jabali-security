@@ -202,10 +202,3 @@ class FeedManager:
     def feed_statuses(self) -> list[FeedStatus]:
         return list(self._feed_status.values())
 
-    @property
-    def ip_db(self) -> IPReputationDB:
-        return self._ip_db
-
-    @property
-    def hash_db(self) -> HashReputationDB:
-        return self._hash_db

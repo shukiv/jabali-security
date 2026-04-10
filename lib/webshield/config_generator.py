@@ -18,7 +18,7 @@ class NginxConfigGenerator:
         rate_limit: int = 10,
         rate_burst: int = 20,
         rate_limiting: bool = False,
-        **kwargs,  # ignore legacy geoip params — GeoIP is now independent
+        **_kwargs,  # ignore legacy geoip params — GeoIP is now independent
     ) -> None:
         self._config_dir = Path(config_dir)
         self._rate_limit = rate_limit
