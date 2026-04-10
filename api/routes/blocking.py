@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 
 from aiohttp import web
 
-from api.routes.helpers import _err, _ok, _validate_ip
+from api.routes.helpers import _err, _ok, _query_int, _validate_ip
 
 
 def setup_routes(app: web.Application) -> None:
@@ -105,8 +105,8 @@ async def get_blocklist_unified(request: web.Request) -> web.Response:
         per_page (int): items per page, default 100 (max 500)
         source (str): filter by source (jabali, crowdsec, all), default all
     """
-    page = max(1, int(request.query.get("page", "1")))
-    per_page = min(500, max(1, int(request.query.get("per_page", "100"))))
+    page = _query_int(request, "page", 1, min_val=1, max_val=10000)
+    per_page = _query_int(request, "per_page", 100, min_val=1, max_val=500)
     source_filter = request.query.get("source", "all")
 
     entries: list[dict] = []

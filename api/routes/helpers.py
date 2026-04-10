@@ -26,6 +26,17 @@ def _validate_ip(ip_str: str) -> bool:
         return False
 
 
+def _query_int(request: web.Request, key: str, default: int,
+               min_val: int = 1, max_val: int = 10000) -> int:
+    """Parse an integer query parameter with bounds, defaulting on bad input."""
+    raw = request.query.get(key, str(default))
+    try:
+        val = int(raw)
+    except (ValueError, TypeError):
+        return default
+    return max(min_val, min(val, max_val))
+
+
 def _validate_path(path: str, allowed_roots: list[str] | None = None) -> bool:
     """Validate a file path is under allowed directories (default: /home/)."""
     from pathlib import Path

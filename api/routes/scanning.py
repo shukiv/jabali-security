@@ -10,6 +10,7 @@ from aiohttp import web
 
 from api.routes.helpers import _err, _ok, _validate_path
 from lib.models import FileEvent
+from lib.safe_io import safe_read_bytes
 from lib.tenant import resolve_user
 
 _VALID_DB_NAME_RE = re.compile(r"^[a-zA-Z0-9_]+$")
@@ -39,22 +40,24 @@ async def post_scan(request: web.Request) -> web.Response:
 
     p = Path(path)
 
-    # Reject symlinks before any file access
-    if p.is_symlink():
-        return _err("Symlinks not allowed")
-
     # Directory scan — use rapid scan engine
     if p.is_dir():
+        if p.is_symlink():
+            return _err("Symlinks not allowed")
         from lib.rapidscan import RapidScanEngine
         config = request.app["config"]
         engine = RapidScanEngine(config, workers=config.rapidscan_workers)
         result = await engine.scan_directory(path, request.app["scanner"], request.app["scoring"])
         return _ok(result)
 
-    if not p.is_file():
+    if not p.exists():
         return _err("File or directory not found: %s" % path, 404)
 
-    content = await asyncio.to_thread(p.read_bytes)
+    # Use O_NOFOLLOW to atomically reject symlinks (no TOCTOU race)
+    try:
+        content = await asyncio.to_thread(safe_read_bytes, path)
+    except OSError:
+        return _err("Symlinks not allowed or file unreadable")
 
     scanner = request.app["scanner"]
     findings = await scanner.scan(path, content)
