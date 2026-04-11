@@ -188,12 +188,7 @@ do_uninstall() {
     if [ -d "/var/www/jabali/app/JabaliSecurity" ]; then
         echo "Removing Jabali Panel plugin..."
         rm -rf "/var/www/jabali/app/JabaliSecurity"
-        # Remove plugin registration from AdminPanelProvider
-        PROVIDER="/var/www/jabali/app/Providers/Filament/AdminPanelProvider.php"
-        if [ -f "$PROVIDER" ] && grep -q "JabaliSecurityPlugin" "$PROVIDER" 2>/dev/null; then
-            sed -i '/JabaliSecurityPlugin/d' "$PROVIDER"
-            sed -i '/array_filter(\[/,/\]))/{ /array_filter/d; /\]\))/d; /? null,/d; }' "$PROVIDER"
-        fi
+        # AdminPanelProvider uses class_exists() guard — no sed needed
     fi
 
     # Remove sudoers rules
@@ -445,24 +440,7 @@ do_install() {
         cp "$tmp_dir"/panel/Widgets/*.php "$JABALI_PANEL_DIR/app/JabaliSecurity/Widgets/"
         cp "$tmp_dir"/panel/views/*.blade.php "$JABALI_PANEL_DIR/app/JabaliSecurity/views/"
 
-        # Register plugin in AdminPanelProvider if not already registered
-        PROVIDER="$JABALI_PANEL_DIR/app/Providers/Filament/AdminPanelProvider.php"
-        if [ -f "$PROVIDER" ] && ! grep -q "JabaliSecurityPlugin" "$PROVIDER" 2>/dev/null; then
-            python3 -c "
-p='$PROVIDER'
-with open(p) as f: c=f.read()
-if 'JabaliSecurityPlugin' not in c and '->middleware([' in c:
-    b='''            ->plugins(array_filter([
-                class_exists(\\\App\\\JabaliSecurity\\\JabaliSecurityPlugin::class)
-                    ? \\\App\\\JabaliSecurity\\\JabaliSecurityPlugin::make()
-                    : null,
-            ]))
-'''
-    c=c.replace('            ->middleware([',b+'            ->middleware([',1)
-    with open(p,'w') as f: f.write(c)
-    print('  Security plugin registered in AdminPanelProvider.')
-"
-        fi
+        # AdminPanelProvider uses class_exists() guard — no injection needed
 
         done_ok "Jabali Panel plugin installed"
     fi
