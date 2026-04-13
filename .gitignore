@@ -17,3 +17,7 @@ venv/
 htmlcov/
 .coverage
 *.log
+.dmux/
+
+# Claude Flow coordinator state (regenerates per-session, never commit)
+.claude-flow/
