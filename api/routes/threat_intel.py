@@ -7,6 +7,7 @@ import re
 from aiohttp import web
 
 from api.routes.helpers import _err, _ok, _validate_ip
+from lib.crowdsec.enrichment import enrich_reputation
 
 _VALID_SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
 
@@ -60,6 +61,9 @@ async def get_threat_intel_check_ip(request: web.Request) -> web.Response:
         return _err("Invalid IP address format")
 
     result = feed_mgr.check_ip(ip)
+    # Enrich with CrowdSec context so callers get a unified view of an IP's
+    # threat posture (feeds + community intelligence) from a single lookup.
+    result = enrich_reputation(result, request.app.get("crowdsec"))
     return _ok(result.model_dump())
 
 
