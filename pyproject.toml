@@ -34,9 +34,23 @@ select = ["E", "F", "W", "I", "S"]
 ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101"]
+# S101 — asserts are expected in tests.
+# S108 — hardcoded /tmp paths are fine in tests (pytest tmp_path etc.).
+"tests/**" = ["S101", "S108"]
+# daemon/__main__.py invokes iptables/ip6tables/nft/geoipupdate with
+# partial paths on purpose: the daemon runs as root and relies on the
+# systemd-managed PATH (/usr/sbin:/sbin:/usr/bin:/bin), and these tools
+# are packaged in different absolute locations across Debian/Ubuntu/RHEL
+# generations. Hardcoding a path would break portability without adding
+# real security since root → arbitrary PATH anyway.
+"daemon/__main__.py" = ["S607"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
 asyncio_mode = "auto"
+
+[dependency-groups]
+dev = [
+    "vulture>=2.16",
+]

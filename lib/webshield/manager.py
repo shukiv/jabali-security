@@ -219,7 +219,7 @@ class WebShieldManager:
         if not self._NGINX_CONF.is_file():
             return
         lines = self._NGINX_CONF.read_text().splitlines()
-        filtered = [l for l in lines if "jabali-webshield-http.conf" not in l]
+        filtered = [line for line in lines if "jabali-webshield-http.conf" not in line]
         if len(filtered) < len(lines):
             self._NGINX_CONF.write_text("\n".join(filtered) + "\n")
             logger.info("Removed WebShield http include from nginx.conf")

@@ -17,8 +17,21 @@ logger = logging.getLogger(__name__)
 
 
 class QuarantineManager:
-    def __init__(self, base_dir: str) -> None:
+    # Restore allow-list. Only files under these prefixes may be restored
+    # to their original location — blocks an attacker from using the
+    # quarantine-restore RPC to drop files into /etc, /usr, or /root.
+    # Tests override this via the `restore_allowlist` constructor kwarg
+    # because pytest's tmp_path fixture gives paths under /tmp/pytest-*,
+    # which is not (and should not be) allowed in production.
+    DEFAULT_RESTORE_ALLOWLIST: tuple[str, ...] = ("/home/", "/var/www/")
+
+    def __init__(
+        self,
+        base_dir: str,
+        restore_allowlist: tuple[str, ...] | None = None,
+    ) -> None:
         self._base = Path(base_dir)
+        self._restore_allowlist = restore_allowlist or self.DEFAULT_RESTORE_ALLOWLIST
 
     async def quarantine_file(self, path: str, incident: Incident) -> QuarantineRecord | None:
         """Move a file to quarantine. Returns record or None on failure."""
@@ -94,8 +107,7 @@ class QuarantineManager:
 
         # Validate destination is under allowed directories (prevent restoring to system paths)
         resolved_dest = str(dest.resolve())
-        _safe = ("/home/", "/var/www/", "/tmp/pytest")
-        if not any(resolved_dest.startswith(p) for p in _safe):
+        if not any(resolved_dest.startswith(p) for p in self._restore_allowlist):
             logger.warning("Cannot restore to unsafe path: %s", resolved_dest)
             return False
 

@@ -20,8 +20,15 @@ def quarantine_dir(tmp_path):
 
 
 @pytest.fixture
-def manager(quarantine_dir):
-    return QuarantineManager(base_dir=str(quarantine_dir))
+def manager(quarantine_dir, tmp_path):
+    # tmp_path lives under /tmp/pytest-of-<user>/... which is NOT in the
+    # production restore allow-list (/home/, /var/www/). We inject it here
+    # so the restore test can round-trip a file without needing /tmp/pytest
+    # to leak into production code.
+    return QuarantineManager(
+        base_dir=str(quarantine_dir),
+        restore_allowlist=("/home/", "/var/www/", str(tmp_path)),
+    )
 
 
 @pytest.fixture

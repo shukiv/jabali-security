@@ -8,9 +8,9 @@ import re
 
 from aiohttp import web
 
-logger = logging.getLogger(__name__)
-
 from api.routes.helpers import _err, _ok, _validate_ip
+
+logger = logging.getLogger(__name__)
 
 _COUNTRY_CODE_RE = re.compile(r"^[A-Z]{2}$")
 

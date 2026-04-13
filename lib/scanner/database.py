@@ -66,8 +66,14 @@ class DatabaseScanner:
 
         for table_tpl, column, id_col, where in targets:
             table = table_tpl.replace("wp_", table_prefix) if cms_type == "wordpress" else table_tpl
-            # Identifiers are from hardcoded targets + validated prefix — backtick-quote for defense-in-depth
-            query = "SELECT `%s`, `%s` FROM `%s` WHERE %s LIMIT 5000" % (id_col, column, table, where)
+            # id_col / column / where come from the hardcoded
+            # _WP_SCAN_TARGETS / _JOOMLA_SCAN_TARGETS tuples at module level.
+            # `table` is derived from a hardcoded template with `table_prefix`
+            # substituted in, and `table_prefix` has already been validated
+            # above against _SAFE_IDENTIFIER_RE. Prepared statements cannot
+            # parameterize table or column names, so string construction is
+            # unavoidable here; backtick-quoting adds defense-in-depth.
+            query = "SELECT `%s`, `%s` FROM `%s` WHERE %s LIMIT 5000" % (id_col, column, table, where)  # noqa: S608
             rows = await self._query(db_name, db_user, db_host, query)
             if rows is None:
                 continue
