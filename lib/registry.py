@@ -12,6 +12,7 @@ from lib.bruteforce.firewall import FirewallManager
 from lib.cleanup.engine import CleanupEngine
 from lib.cleanup.scheduler import ScanScheduler
 from lib.config import JabaliConfig
+from lib.crowdsec.client import CrowdSecClient
 from lib.filter import PreFilter
 from lib.hash_cache import HashCache
 from lib.incidents import IncidentStore
@@ -22,14 +23,12 @@ from lib.queue import ScanQueue
 from lib.response import ResponseEngine
 from lib.scanner import ScanOrchestrator
 from lib.scoring import ScoringEngine
-from lib.crowdsec.client import CrowdSecClient
 from lib.threat_intel.feed_manager import FeedManager
+from lib.ufw.manager import UFWManager
 from lib.waf.audit_log_parser import ModSecAuditLogParser
 from lib.waf.rule_manager import WafRuleManager
 from lib.watcher.inotify import InotifyWatcher
-from lib.ufw.manager import UFWManager
 from lib.webshield.manager import WebShieldManager
-
 
 logger = logging.getLogger("jabali-security")
 

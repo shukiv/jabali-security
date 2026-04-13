@@ -632,8 +632,9 @@ def update(force: bool) -> None:
         if 'GEOIP_MAXMIND_LICENSE_KEY="' in _conf and 'GEOIP_MAXMIND_LICENSE_KEY=""' not in _conf:
             click.echo("Updating GeoIP database...")
             try:
-                from lib.webshield.geoip import GeoIPManager
                 import re as _re
+
+                from lib.webshield.geoip import GeoIPManager
                 _key_match = _re.search(r'GEOIP_MAXMIND_LICENSE_KEY="([^"]+)"', _conf)
                 _db_match = _re.search(r'GEOIP_DB_PATH="([^"]+)"', _conf)
                 if _key_match:

@@ -72,7 +72,6 @@ class TestGeoIPNginxConfig:
         # Patch the hardcoded paths and subprocess calls
         with patch.object(Path, "__new__", wraps=Path.__new__):
             # We can't easily patch Path() constructor, so patch the method internals
-            import lib.webshield.geoip as geoip_mod
             orig_method = mgr.write_nginx_configs
 
             def patched_write(bl, al, act):

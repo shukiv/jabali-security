@@ -1,8 +1,10 @@
 """Security tests for WebShield GeoIP and configuration handling."""
 
-import pytest
 import re
-from lib.webshield.geoip import GeoIPManager, _VALID_ACTIONS, _SAFE_PATH_RE
+
+import pytest
+
+from lib.webshield.geoip import _SAFE_PATH_RE, _VALID_ACTIONS, GeoIPManager
 
 
 class TestGeoIPActionValidation:

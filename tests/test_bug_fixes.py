@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
-from lib.config import load_config, _safe_int
+from lib.config import _safe_int, load_config
 
 
 class TestChallengConfigBounds:

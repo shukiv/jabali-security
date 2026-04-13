@@ -300,6 +300,7 @@ class GeoIPManager:
 
         # Reload nginx
         import subprocess
+
         from lib.privilege import sudo_cmd
         try:
             subprocess.run(  # noqa: S603

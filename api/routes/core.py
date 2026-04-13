@@ -132,6 +132,7 @@ async def post_daemon_restart(request: web.Request) -> web.Response:
 def _trigger_restart() -> None:
     """Trigger systemctl restart in a subprocess (non-blocking)."""
     import subprocess
+
     from lib.privilege import sudo_cmd
     subprocess.Popen(  # noqa: S603
         sudo_cmd("/usr/bin/systemctl", "restart", "jabali-security"),
