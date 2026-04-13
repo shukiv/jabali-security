@@ -367,14 +367,42 @@ def _write_bouncer_config() -> None:
 
 
 @cli.command()
-def update() -> None:
+@click.option("--force", is_flag=True, help="Update even if no new commits are available.")
+def update(force: bool) -> None:
     """Update jabali-security to the latest version."""
     import subprocess
 
     REPO_URL = "https://github.com/shukiv/jabali-security.git"
     INSTALL_DIR = "/usr/local/jabali-security"
+    VERSION_FILE = os.path.join(INSTALL_DIR, ".version")
 
     click.echo("Updating Jabali Security...")
+
+    # Skip work when the remote HEAD matches the installed version.
+    if not force:
+        remote_sha = ""
+        try:
+            ls_remote = subprocess.run(  # noqa: S603
+                ["/usr/bin/git", "ls-remote", REPO_URL, "HEAD"],
+                capture_output=True, timeout=30, text=True,
+            )
+            if ls_remote.returncode == 0 and ls_remote.stdout.strip():
+                remote_sha = ls_remote.stdout.split()[0]
+        except subprocess.TimeoutExpired:
+            remote_sha = ""
+        installed_sha = ""
+        if os.path.isfile(VERSION_FILE):
+            try:
+                with open(VERSION_FILE) as fh:
+                    installed_sha = fh.read().strip()
+            except OSError:
+                installed_sha = ""
+        if remote_sha and installed_sha and remote_sha == installed_sha:
+            click.echo(
+                "Already up to date (%s). Use --force to update anyway."
+                % remote_sha[:8]
+            )
+            return
 
     # Clone latest to temp dir
     import tempfile
@@ -386,6 +414,13 @@ def update() -> None:
     if result.returncode != 0:
         click.echo("Failed to clone repository.", err=True)
         sys.exit(1)
+
+    # Capture the cloned SHA so we can persist it once the update succeeds.
+    _rev = subprocess.run(  # noqa: S603
+        ["/usr/bin/git", "-C", tmp_dir, "rev-parse", "HEAD"],
+        capture_output=True, timeout=10, text=True,
+    )
+    new_sha = _rev.stdout.strip() if _rev.returncode == 0 else ""
 
     # Copy updated files
     import shutil
@@ -735,6 +770,15 @@ def update() -> None:
             subprocess.run(["/usr/bin/systemctl", "restart", "jabali-panel"], capture_output=True, timeout=60)  # noqa: S603
         except subprocess.TimeoutExpired:
             click.echo("  Panel restart timed out (will finish in background).")
+
+    # Persist the installed SHA so the next invocation can no-op when unchanged.
+    if new_sha:
+        try:
+            os.makedirs(INSTALL_DIR, exist_ok=True)
+            with open(VERSION_FILE, "w") as fh:
+                fh.write(new_sha + "\n")
+        except OSError as exc:
+            click.echo("  WARNING: could not write version marker: %s" % exc)
 
     click.echo("Updated successfully. Services restarted.")
 
